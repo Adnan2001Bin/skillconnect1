@@ -8,11 +8,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -24,8 +20,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, Loader2 } from "lucide-react";
+import Image from "next/image";
 
-// Interface for API response
 interface ApiResponse {
   success: boolean;
   message?: string;
@@ -62,32 +58,39 @@ export default function VerifyCodePage() {
     try {
       const response = await axios.post<ApiResponse>("/api/verify-code", {
         userName: decodeURIComponent(params.userName),
-        action: "resend", // Specify resend action
+        action: "resend",
       });
 
       if (response.data.success) {
         toast.success("Code Resent!", {
           description: "A new verification code has been sent to your email.",
-          className: "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+          className:
+            "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
       } else {
         toast.error("Resend Failed", {
-          description: response.data.message || "Failed to resend code. Please try again.",
-          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          description:
+            response.data.message || "Failed to resend code. Please try again.",
+          className:
+            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
         setResendLoading(false);
         setResendTimer(0);
       }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error && "response" in error
-          ? (error as any).response?.data?.message || "Error resending code."
-          : "Error resending code.";
+    } catch (error) {
+      let errorMessage = "Error resending code.";
+      if (axios.isAxiosError(error)) {
+        errorMessage = error.response?.data?.message || errorMessage;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
       toast.error("Resend Error", {
         description: errorMessage,
-        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
       });
       setResendLoading(false);
@@ -101,13 +104,14 @@ export default function VerifyCodePage() {
       const response = await axios.post<ApiResponse>("/api/verify-code", {
         userName: params.userName,
         code: data.verificationCode,
-        action: "verify", // Explicitly specify verify action
+        action: "verify",
       });
 
       if (response.data.success) {
         toast.success("Success", {
           description: response.data.message,
-          className: "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+          className:
+            "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
         setTimeout(() => {
@@ -116,19 +120,23 @@ export default function VerifyCodePage() {
       } else {
         toast.error("Error", {
           description: response.data.message,
-          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          className:
+            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
       }
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error && "response" in error
-          ? (error as any).response?.data?.message ||
-            "Error verifying code. Please try again."
-          : "Error verifying code. Please try again.";
+    } catch (error) {
+      let errorMessage = "Error verifying code. Please try again.";
+      if (axios.isAxiosError(error)) {
+        errorMessage = error.response?.data?.message || errorMessage;
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
       toast.error("Error", {
         description: errorMessage,
-        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
       });
     } finally {
@@ -136,13 +144,13 @@ export default function VerifyCodePage() {
     }
   };
 
-  const username = params.userName || "user"; // Fallback if userName isn't in params
+  const username = params.userName || "user";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden px-4 py-6 sm:py-8 md:py-12 lg:py-16">
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-        <img
+        <Image
           src="https://images.pexels.com/photos/3182759/pexels-photo-3182759.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
           alt="Abstract dark workspace"
           className="w-full h-full object-cover opacity-40"
@@ -215,7 +223,7 @@ export default function VerifyCodePage() {
               </Form>
               <div className="mt-4 sm:mt-6 text-center pt-4 border-t border-white/20">
                 <p className="text-gray-300 text-xs sm:text-sm mb-2">
-                  Didn't receive the code?
+                  Didn&apos;t receive the code?
                 </p>
                 <Button
                   variant="outline"

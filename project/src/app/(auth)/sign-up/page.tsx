@@ -61,6 +61,7 @@ function SignUpPage() {
       password: "",
     },
   });
+  
 
   const checkUsernameAvailability = useMemo(
     () =>
@@ -158,11 +159,15 @@ function SignUpPage() {
     }
   };
 
+  if(loading) {
+    <p>Loading</p>
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden px-4 py-6 sm:py-8 md:py-12 lg:py-13">
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-        <img
+        <Image
           src="https://images.pexels.com/photos/3182759/pexels-photo-3182759.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
           alt="Abstract dark workspace"
           className="w-full h-full object-cover opacity-40"
