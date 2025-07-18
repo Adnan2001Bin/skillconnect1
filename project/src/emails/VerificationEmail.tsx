@@ -17,40 +17,104 @@ export async function sendVerificationEmail({
     await transporter.sendMail({
       from: `"SkillConnect" <${process.env.SENDER_EMAIL}>`,
       to: email,
-      subject: "Verify Your SkillConnect Account",
+      subject: "Your SkillConnect Verification Code",
       html: `
         <!DOCTYPE html>
         <html>
         <head>
           <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; margin: 0; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9fafb; }
-            .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .header h2 { margin: 0; font-size: 24px; }
-            .content { padding: 24px; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px; }
-            .code { font-size: 28px; font-weight: bold; color: #2563eb; text-align: center; margin: 20px 0; }
-            .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; }
-            .footer { margin-top: 20px; font-size: 12px; color: #6b7280; text-align: center; }
-            @media (max-width: 600px) { .content { padding: 16px; } .header h2 { font-size: 20px; } }
+            body { 
+              font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+              color: #333333; 
+              margin: 0; 
+              padding: 0; 
+              background-color: #f7fafc;
+            }
+            .container { 
+              max-width: 600px; 
+              margin: 0 auto; 
+              background-color: #ffffff;
+              border-radius: 8px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            }
+            .header { 
+              background-color: #111827; 
+              padding: 32px; 
+              text-align: center;
+            }
+            .logo { 
+              color: #ffffff; 
+              font-size: 24px; 
+              font-weight: 700;
+              letter-spacing: 0.5px;
+            }
+            .content { 
+              padding: 32px; 
+              line-height: 1.6;
+            }
+            .code-container { 
+              background-color: #f3f4f6; 
+              border-radius: 6px; 
+              padding: 16px; 
+              margin: 24px 0;
+              text-align: center;
+            }
+            .verification-code { 
+              font-size: 32px; 
+              font-weight: 700; 
+              color: #111827;
+              letter-spacing: 2px;
+            }
+            .button { 
+              display: inline-block; 
+              padding: 12px 24px; 
+              background-color: #111827; 
+              color: white; 
+              text-decoration: none; 
+              border-radius: 6px; 
+              font-weight: 500;
+              margin: 16px 0;
+            }
+            .footer { 
+              margin-top: 32px; 
+              font-size: 12px; 
+              color: #6b7280; 
+              text-align: center;
+              padding-top: 16px;
+              border-top: 1px solid #e5e7eb;
+            }
+            .highlight {
+              color: #111827;
+              font-weight: 600;
+            }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h2>Welcome to UniChat, ${userName}!</h2>
+              <div class="logo">SkillConnect</div>
             </div>
             <div class="content">
-              <p>You're one step away from connecting with fellow undergraduate and graduate students!</p>
-              <p>Please verify your email address by using the code below:</p>
-              <p class="code">${verificationCode}</p>
-              <p>This code will expire in 10 minutes.</p>
-              <p>Alternatively, click the button below to verify your account:</p>
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/verify?code=${verificationCode}&email=${encodeURIComponent(email)}" class="button">Verify Email</a>
-              <p>If you didn’t sign up for UniChat, please ignore this email.</p>
+              <h2>Welcome to SkillConnect, <span class="highlight">${userName}</span>!</h2>
+              <p>Thank you for joining our professional network. We're excited to help you connect with top talent and opportunities.</p>
+              
+              <p>To complete your registration, please verify your email address using the following verification code:</p>
+              
+              <div class="code-container">
+                <div class="verification-code">${verificationCode}</div>
+              </div>
+              
+              <p>This code will expire in <span class="highlight">10 minutes</span>. For security reasons, please do not share this code with anyone.</p>
+              
+              <p>If you didn't request this code, you can safely ignore this email. Someone else might have entered your email address by mistake.</p>
+              
+              <p>Best regards,<br>The SkillConnect Team</p>
             </div>
             <div class="footer">
-              <p>© ${new Date().getFullYear()} UniChat. All rights reserved.</p>
-              <p>Connecting students for collaboration and community.</p>
+              <p>© ${new Date().getFullYear()} SkillConnect. All rights reserved.</p>
+              <p>Connecting professionals with opportunities that matter.</p>
+              <p>If you have any questions, please contact us at support@skillconnect.com</p>
             </div>
           </div>
         </body>
@@ -62,6 +126,9 @@ export async function sendVerificationEmail({
     return { success: true, message: "Verification email sent successfully." };
   } catch (error: unknown) {
     console.error("Error sending verification email:", error);
-    return { success: false, message: "Failed to send verification email." };
+    return { 
+      success: false, 
+      message: "Failed to send verification email. Please try again later." 
+    };
   }
 }

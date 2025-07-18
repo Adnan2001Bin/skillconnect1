@@ -180,7 +180,7 @@ function SignUpPage() {
                   priority
                 />
               </div>
-              <p className="text-gray-300 text-xs sm:text-base">
+              <p className="text-gray-400 text-xs sm:text-base">
                 Connect with top talent and opportunities
               </p>
             </div>
