@@ -23,6 +23,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<SignUpRes
     // Check for existing user by username (verified or unverified)
     const existingUserByUsername = await UserModel.findOne({
       userName: parsedData.userName,
+      isVerified: true
     });
     if (existingUserByUsername) {
       return NextResponse.json(
