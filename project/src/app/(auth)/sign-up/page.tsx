@@ -9,7 +9,7 @@ import debounce from "lodash.debounce";
 import axios, { isAxiosError } from "axios";
 import { toast } from "sonner";
 import Image from "next/image";
-import logo from "../../../../public/logo/logo.png";
+import { Images } from "@/lib/images"; // Import centralized images
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Form,
@@ -31,6 +31,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function SignUpPage() {
   const [usernameStatus, setUsernameStatus] = useState<
@@ -59,9 +60,9 @@ function SignUpPage() {
       userName: "",
       email: "",
       password: "",
+      role: "user",
     },
   });
-  
 
   const checkUsernameAvailability = useMemo(
     () =>
@@ -159,8 +160,8 @@ function SignUpPage() {
     }
   };
 
-  if(loading) {
-    <p>Loading</p>
+  if (loading) {
+    return <p className="text-white text-center min-h-screen flex items-center justify-center">Loading...</p>;
   }
 
   return (
@@ -168,7 +169,7 @@ function SignUpPage() {
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
         <Image
-          src="https://images.pexels.com/photos/3182759/pexels-photo-3182759.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+          src={Images.workspaceBackground} // Use 
           alt="Abstract dark workspace"
           className="w-full h-full object-cover opacity-40"
         />
@@ -180,7 +181,7 @@ function SignUpPage() {
               <div className="flex justify-center mb-3 sm:mb-4 ">
                 <Image
                   className="w-28 sm:w-32 md:w-48 transition-transform duration-300 hover:scale-105"
-                  src={logo}
+                  src={Images.logo} // Use centralized image
                   alt="logo"
                   priority
                 />
@@ -303,6 +304,29 @@ function SignUpPage() {
                           <Lock className="h-4 sm:h-5 w-4 sm:w-5 text-gray-400" />
                         </div>
                       </div>
+                      <FormMessage className="text-red-400 text-xs sm:text-sm mt-2" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-white font-medium text-sm">
+                        Role
+                      </FormLabel>
+                      <FormControl>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <SelectTrigger className="bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-2.5 sm:p-3 transition-all duration-200 ease-in-out w-full">
+                            <SelectValue placeholder="Select your role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">User (Client)</SelectItem>
+                            <SelectItem value="talent">Talent (Freelancer)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
                       <FormMessage className="text-red-400 text-xs sm:text-sm mt-2" />
                     </FormItem>
                   )}

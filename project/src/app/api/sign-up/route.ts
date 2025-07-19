@@ -60,6 +60,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<SignUpRes
         existingUserByEmail.password = hashedPassword;
         existingUserByEmail.verificationCode = verificationCode;
         existingUserByEmail.verificationCodeExpires = expiryDate;
+        existingUserByEmail.role = parsedData.role;
         user = await existingUserByEmail.save();
       }
     } else {
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<SignUpRes
         password: hashedPassword,
         verificationCode,
         verificationCodeExpires: expiryDate,
+        role: parsedData.role,
       });
       await user.save();
     }

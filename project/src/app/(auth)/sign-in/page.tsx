@@ -28,6 +28,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Images } from "@/lib/images";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -91,7 +92,7 @@ export default function SignInPage() {
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
         <Image
-          src="https://images.pexels.com/photos/3182759/pexels-photo-3182759.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2"
+          src={Images.workspaceBackground}
           alt="Abstract dark workspace"
           className="w-full h-full object-cover opacity-40"
         />
@@ -103,7 +104,7 @@ export default function SignInPage() {
               <div className="flex justify-center mb-3 sm:mb-4">
                 <Image
                   className="w-28 sm:w-32 md:w-40 transition-transform duration-300 hover:scale-105"
-                  src={logo}
+                  src={Images.logo}
                   alt="logo"
                   priority
                 />
