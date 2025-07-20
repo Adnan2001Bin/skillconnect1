@@ -6,7 +6,6 @@ import UserModel from "@/models/user.model";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
-// Interface for the response data
 interface SignUpResponse {
   success: boolean;
   message: string;
@@ -16,14 +15,12 @@ export async function POST(request: NextRequest): Promise<NextResponse<SignUpRes
   await connectDB();
 
   try {
-    // Parse and validate request body
     const body = await request.json();
     const parsedData = signUpSchema.parse(body); // Validate with Zod
 
-    // Check for existing user by username (verified or unverified)
     const existingUserByUsername = await UserModel.findOne({
       userName: parsedData.userName,
-      isVerified: true
+      isVerified: true,
     });
     if (existingUserByUsername) {
       return NextResponse.json(
@@ -35,14 +32,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<SignUpRes
       );
     }
 
-    // Check for existing user by email
     const existingUserByEmail = await UserModel.findOne({
       email: parsedData.email,
     });
 
     let user;
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiryDate = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+    const expiryDate = new Date(Date.now() + 10 * 60 * 1000);
 
     if (existingUserByEmail) {
       if (existingUserByEmail.isVerified) {
@@ -54,29 +50,25 @@ export async function POST(request: NextRequest): Promise<NextResponse<SignUpRes
           { status: 400 }
         );
       } else {
-        // Update existing unverified user
         const hashedPassword = await bcrypt.hash(parsedData.password, 10);
         existingUserByEmail.userName = parsedData.userName;
         existingUserByEmail.password = hashedPassword;
+        existingUserByEmail.role = parsedData.role;
         existingUserByEmail.verificationCode = verificationCode;
         existingUserByEmail.verificationCodeExpires = expiryDate;
-        existingUserByEmail.role = parsedData.role;
         user = await existingUserByEmail.save();
       }
     } else {
-      // Create new user
       const hashedPassword = await bcrypt.hash(parsedData.password, 10);
       user = new UserModel({
         ...parsedData,
         password: hashedPassword,
         verificationCode,
         verificationCodeExpires: expiryDate,
-        role: parsedData.role,
       });
       await user.save();
     }
 
-    // Send verification email
     const emailResponse = await sendVerificationEmail({
       email: parsedData.email,
       userName: parsedData.userName,

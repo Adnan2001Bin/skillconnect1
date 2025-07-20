@@ -6,6 +6,7 @@ declare module "next-auth" {
       _id?: string;
       isVerified?: boolean;
       userName?: string;
+      role?: "user" | "talent" | "admin";
     } & DefaultSession["user"];
     accessToken?: string;
   }
@@ -14,13 +15,14 @@ declare module "next-auth" {
     _id?: string;
     isVerified?: boolean;
     userName?: string;
-    role?:string
+    role?: "user" | "talent" | "admin";
   }
 
   interface JWT {
     _id?: string;
     isVerified?: boolean;
     userName?: string;
+    role?: "user" | "talent" | "admin";
     accessToken?: string;
   }
 }

@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 interface IUser extends Document {
-   _id: mongoose.Types.ObjectId;
+  _id: mongoose.Types.ObjectId;
   userName: string;
   email: string;
   password: string;
@@ -10,11 +10,12 @@ interface IUser extends Document {
   verificationCode: string;
   verificationCodeExpires: Date;
   isVerified: boolean;
+  resetPasswordToken?: string;
+  resetPasswordExpires?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
 
-// User Schema
 const UserSchema: Schema<IUser> = new Schema(
   {
     userName: {
@@ -44,10 +45,9 @@ const UserSchema: Schema<IUser> = new Schema(
     },
     role: {
       type: String,
-      enum: ["user" , "talent" , "admin"],
+      enum: ["user", "talent", "admin"],
       default: "user",
     },
-
     verificationCode: {
       type: String,
       default: null,
@@ -59,6 +59,14 @@ const UserSchema: Schema<IUser> = new Schema(
     isVerified: {
       type: Boolean,
       default: false,
+    },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      default: null,
     },
     createdAt: {
       type: Date,

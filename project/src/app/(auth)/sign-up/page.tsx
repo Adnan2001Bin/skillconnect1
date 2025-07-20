@@ -9,7 +9,7 @@ import debounce from "lodash.debounce";
 import axios, { isAxiosError } from "axios";
 import { toast } from "sonner";
 import Image from "next/image";
-import { Images } from "@/lib/images"; // Import centralized images
+import logo from "../../../../public/logo/logo.png";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Form,
@@ -21,6 +21,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Loader2,
   CheckCircle,
   XCircle,
@@ -29,9 +36,10 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Images } from "@/lib/images";
 
 function SignUpPage() {
   const [usernameStatus, setUsernameStatus] = useState<
@@ -161,7 +169,11 @@ function SignUpPage() {
   };
 
   if (loading) {
-    return <p className="text-white text-center min-h-screen flex items-center justify-center">Loading...</p>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <p className="text-white text-lg">Loading...</p>
+      </div>
+    );
   }
 
   return (
@@ -169,7 +181,7 @@ function SignUpPage() {
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
         <Image
-          src={Images.workspaceBackground} // Use 
+          src={Images.workspaceBackground}
           alt="Abstract dark workspace"
           className="w-full h-full object-cover opacity-40"
         />
@@ -181,7 +193,7 @@ function SignUpPage() {
               <div className="flex justify-center mb-3 sm:mb-4 ">
                 <Image
                   className="w-28 sm:w-32 md:w-48 transition-transform duration-300 hover:scale-105"
-                  src={Images.logo} // Use centralized image
+                  src={logo}
                   alt="logo"
                   priority
                 />
@@ -317,16 +329,73 @@ function SignUpPage() {
                         Role
                       </FormLabel>
                       <FormControl>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
                           <SelectTrigger className="bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 rounded-lg p-2.5 sm:p-3 transition-all duration-200 ease-in-out w-full">
-                            <SelectValue placeholder="Select your role" />
+                            <SelectValue
+                              placeholder="Select your role"
+                              className="flex items-center"
+                            >
+                              {field.value ? (
+                                <div className="flex items-center space-x-2">
+                                  {field.value === "user" ? (
+                                    <User className="h-4 w-4 text-blue-400" />
+                                  ) : (
+                                    <Star className="h-4 w-4 text-purple-400" />
+                                  )}
+                                  <span className="font-semibold capitalize">
+                                    {field.value}
+                                  </span>
+                                </div>
+                              ) : (
+                                "Select your role"
+                              )}
+                            </SelectValue>
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="user">User (Client)</SelectItem>
-                            <SelectItem value="talent">Talent (Freelancer)</SelectItem>
+                          <SelectContent className="bg-black/80 backdrop-blur-md border border-white/20 rounded-lg shadow-xl w-[var(--radix-select-trigger-width)] max-w-[90vw] sm:max-w-[400px]">
+                            <SelectItem
+                              value="user"
+                              className="hover:bg-white/10 cursor-pointer py-2 px-4 group"
+                            >
+                              <div className="flex items-center space-x-2 group-hover:text-blue-800">
+                                <User className="h-4 w-4 text-blue-400 group-hover:text-blue-800" />
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-white group-hover:text-blue-800">
+                                    User
+                                  </span>
+                                  <span className="text-xs text-gray-300 italic group-hover:text-blue-800">
+                                    Connect and network with professionals
+                                  </span>
+                                </div>
+                              </div>
+                            </SelectItem>
+
+                            <SelectItem
+                              value="talent"
+                              className="hover:bg-white/10 cursor-pointer py-2 px-4 group"
+                            >
+                              <div className="flex items-center space-x-2 group-hover:text-purple-800">
+                                <Star className="h-4 w-4 text-purple-400 group-hover:text-purple-800" />
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-white group-hover:text-purple-800">
+                                    Talent
+                                  </span>
+                                  <span className="text-xs text-gray-300 italic group-hover:text-purple-800">
+                                    Showcase skills and find opportunities
+                                  </span>
+                                </div>
+                              </div>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </FormControl>
+                      <p className="text-gray-200 text-xs sm:text-sm mt-2 italic bg-black/20 p-2 rounded-md">
+                        Choose <strong>User</strong> to network and collaborate,
+                        or <strong>Talent</strong> to highlight your skills and
+                        attract opportunities.
+                      </p>
                       <FormMessage className="text-red-400 text-xs sm:text-sm mt-2" />
                     </FormItem>
                   )}
