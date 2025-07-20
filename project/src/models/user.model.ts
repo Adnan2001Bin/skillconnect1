@@ -10,8 +10,8 @@ interface IUser extends Document {
   verificationCode: string;
   verificationCodeExpires: Date;
   isVerified: boolean;
-  resetPasswordToken?: string;
-  resetPasswordExpires?: Date;
+  resetPasswordToken?: string | null;
+  resetPasswordExpires?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -28,12 +28,17 @@ import {
   EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
+import axios from "axios";
 import { Images } from "@/lib/images";
 
 export default function SignInPage() {
   const router = useRouter();
   const { status } = useSession();
   const [showPassword, setShowPassword] = useState(false);
+  const [isRequestingReset, setIsRequestingReset] = useState(false);
+  const [showResetForm, setShowResetForm] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
 
   const form = useForm<z.infer<typeof signInSchema>>({
     resolver: zodResolver(signInSchema),
@@ -42,6 +47,57 @@ export default function SignInPage() {
       password: "",
     },
   });
+
+  const handleForgotPassword = async () => {
+    if (!resetEmail) {
+      toast.error("Error", {
+        description: "Please enter your email address.",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+      return;
+    }
+
+    setIsRequestingReset(true);
+    try {
+      const response = await axios.post("/api/forgot-password", {
+        email: resetEmail,
+        action: "request",
+      });
+
+      if (response.data.success) {
+        toast.success("Success", {
+          description: response.data.message,
+          className:
+            "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+          duration: 4000,
+        });
+        setShowResetForm(false);
+        setResetEmail("");
+      } else {
+        toast.error("Error", {
+          description: response.data.message,
+          className:
+            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          duration: 4000,
+        });
+      }
+    } catch (error) {
+      let errorMessage = "Error requesting password reset.";
+      if (axios.isAxiosError(error)) {
+        errorMessage = error.response?.data?.message || errorMessage;
+      }
+      toast.error("Error", {
+        description: errorMessage,
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+    } finally {
+      setIsRequestingReset(false);
+    }
+  };
 
   const onSubmit = async (data: z.infer<typeof signInSchema>) => {
     const result = await signIn("credentials", {
@@ -93,7 +149,7 @@ export default function SignInPage() {
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
         <Image
           src={Images.workspaceBackground}
-          alt="Abstract dark workspace"
+          alt="workspaceBackground"
           className="w-full h-full object-cover opacity-40"
         />
       </div>
@@ -104,7 +160,7 @@ export default function SignInPage() {
               <div className="flex justify-center mb-3 sm:mb-4">
                 <Image
                   className="w-28 sm:w-32 md:w-40 transition-transform duration-300 hover:scale-105"
-                  src={Images.logo}
+                  src={logo}
                   alt="logo"
                   priority
                 />
@@ -199,7 +255,50 @@ export default function SignInPage() {
               </form>
             </Form>
             <div className="mt-4 sm:mt-6 text-center">
-              <p className="text-gray-300 text-xs sm:text-sm">
+              <Button
+                variant="link"
+                onClick={() => setShowResetForm(!showResetForm)}
+                className="text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-200 p-0"
+              >
+                Forgot your password?
+              </Button>
+              <AnimatePresence>
+                {showResetForm && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                    className="mt-4 space-y-4"
+                  >
+                    <div className="relative">
+                      <Input
+                        type="email"
+                        placeholder="Enter your email for password reset"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        className="bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 rounded-lg pr-10 p-2.5 sm:p-3 transition-all duration-200 ease-in-out w-full"
+                      />
+                      <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 sm:h-5 w-4 sm:w-5 text-gray-400" />
+                    </div>
+                    <Button
+                      onClick={handleForgotPassword}
+                      disabled={isRequestingReset}
+                      className="w-full text-black bg-white hover:bg-gray-300 font-semibold py-3 rounded-lg shadow-lg transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black disabled:bg-gray-600 disabled:cursor-not-allowed text-base sm:text-lg"
+                    >
+                      {isRequestingReset ? (
+                        <span className="flex items-center justify-center">
+                          <Loader2 className="animate-spin mr-2 h-4 sm:h-5 w-4 sm:w-5" />
+                          Sending Reset Link...
+                        </span>
+                      ) : (
+                        "Send Reset Link"
+                      )}
+                    </Button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <p className="text-gray-300 text-xs sm:text-sm mt-2">
                 Don’t have an account?{" "}
                 <a
                   href="/sign-up"
