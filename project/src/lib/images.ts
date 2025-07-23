@@ -1,4 +1,5 @@
 import logo from "../../public/logo/logo.png";
+import logoauth from "../../public/logo/logo3.png";
 import workspaceBackground from "../../public/backgrounds/StockCake-Modern Office Life_1752923098.jpg";
 import defaultProfilePicture from "../public/images/default-profile.png";
 import heroBanner from "../public/images/hero-banner.jpg";
@@ -8,6 +9,7 @@ import gigPlaceholder from "../public/images/gig-placeholder.png";
 // Centralized image exports for use across the SkillConnect platform
 export const Images = {
   logo,
+  logoauth,
   workspaceBackground, 
 //   defaultProfilePicture, // Default image for user/talent profiles
 //   heroBanner, // Used in homepage hero section

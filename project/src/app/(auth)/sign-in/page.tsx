@@ -9,8 +9,6 @@ import { signInSchema } from "@/schemas/signInSchema";
 import { toast } from "sonner";
 import { useState } from "react";
 import Image from "next/image";
-import logo from "../../../../public/logo/logo.png";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -20,13 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  Loader2,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-} from "lucide-react";
+import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
@@ -34,7 +26,7 @@ import { Images } from "@/lib/images";
 
 export default function SignInPage() {
   const router = useRouter();
-  const { status } = useSession();
+  const { status, data: session } = useSession();
   const [showPassword, setShowPassword] = useState(false);
   const [isRequestingReset, setIsRequestingReset] = useState(false);
   const [showResetForm, setShowResetForm] = useState(false);
@@ -70,7 +62,7 @@ export default function SignInPage() {
         toast.success("Success", {
           description: response.data.message,
           className:
-            "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+            "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
         setShowResetForm(false);
@@ -100,217 +92,337 @@ export default function SignInPage() {
   };
 
   const onSubmit = async (data: z.infer<typeof signInSchema>) => {
-    const result = await signIn("credentials", {
-      redirect: false,
-      email: data.email,
-      password: data.password,
-    });
+  const result = await signIn("credentials", {
+    redirect: false,
+    email: data.email,
+    password: data.password,
+  });
 
-    if (result?.error) {
-      if (result.error === "CredentialsSignin") {
-        toast.error("Login Failed", {
-          description: "Incorrect email or password. Please try again.",
-          className:
-            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-          duration: 4000,
-        });
-      } else {
-        toast.error("Login Error", {
-          description: result.error,
-          className:
-            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-          duration: 4000,
-        });
-      }
-    } else {
-      toast.success("Success", {
-        description: "Logged in successfully! Redirecting...",
+  if (result?.error) {
+    if (result.error === "CredentialsSignin") {
+      toast.error("Login Failed", {
+        description: "Incorrect email or password. Please try again.",
         className:
-          "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
-        duration: 2000,
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
       });
-      setTimeout(() => {
-        router.replace("/");
-      }, 2000);
+    } else {
+      toast.error("Login Error", {
+        description: result.error,
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
     }
+    return;
+  }
+
+  // Wait for session to update
+  const checkSession = async () => {
+    return new Promise<void>((resolve) => {
+      const interval = setInterval(() => {
+        if (status === "authenticated" && session) {
+          clearInterval(interval);
+          resolve();
+        }
+      }, 100);
+    });
   };
 
+  await checkSession();
+
+  try {
+    console.log(session, "session"); // Session should now be available
+    const response = await axios.get("/api/profile");
+    const profile = response.data.data;
+    let isProfileComplete = false;
+
+    if (session?.user?.role === "user") {
+      isProfileComplete =
+        profile &&
+        profile.profilePicture &&
+        profile.bio &&
+        profile.location &&
+        profile.industry &&
+        profile.preferences?.length &&
+        profile.languageProficiency?.length;
+    } else if (session?.user?.role === "talent") {
+      isProfileComplete =
+        profile &&
+        profile.profilePicture &&
+        profile.bio &&
+        profile.location &&
+        profile.skills?.length &&
+        profile.portfolio?.length &&
+        profile.ratePlans?.length &&
+        profile.aboutThisGig &&
+        profile.whatIOffer?.length &&
+        profile.education?.length &&
+        profile.experience?.length &&
+        profile.socialLinks?.length &&
+        profile.languageProficiency?.length;
+    }
+
+    toast.success("Success", {
+      description: "Logged in successfully! Redirecting...",
+      className:
+        "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
+      duration: 2000,
+    });
+
+    setTimeout(() => {
+      if (!isProfileComplete) {
+        router.replace(
+          session?.user?.role === "user"
+            ? "/profile/complete"
+            : "/profile/talent/complete"
+        );
+      } else {
+        router.replace("/dashboard");
+      }
+    }, 2000);
+  } catch (error) {
+    toast.error("Error", {
+      description:
+        "Failed to check profile status. Redirecting to profile completion.",
+      className:
+        "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+      duration: 4000,
+    });
+    setTimeout(() => {
+      router.replace(
+        session?.user?.role === "user"
+          ? "/profile/complete"
+          : "/profile/talent/complete"
+      );
+    }, 2000);
+  }
+};
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <p className="text-white text-lg">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#F1F8E9]">
+        <p className="text-[#212121] text-lg">Loading...</p>
       </div>
     );
   }
 
+  if (status === "authenticated") {
+    const checkProfile = async () => {
+      try {
+        const response = await axios.get("/api/profile");
+        const profile = response.data.data;
+        let isProfileComplete = false;
+
+        if (session?.user?.role === "user") {
+          isProfileComplete =
+            profile &&
+            profile.profilePicture &&
+            profile.bio &&
+            profile.location &&
+            profile.industry &&
+            profile.preferences?.length &&
+            profile.languageProficiency?.length;
+        } else if (session?.user?.role === "talent") {
+          isProfileComplete =
+            profile &&
+            profile.profilePicture &&
+            profile.bio &&
+            profile.location &&
+            profile.skills?.length &&
+            profile.portfolio?.length &&
+            profile.ratePlans?.length &&
+            profile.aboutThisGig &&
+            profile.whatIOffer?.length &&
+            profile.education?.length &&
+            profile.experience?.length &&
+            profile.socialLinks?.length &&
+            profile.languageProficiency?.length;
+        }
+
+        router.replace(
+          isProfileComplete
+            ? "/dashboard"
+            : session?.user?.role === "user"
+            ? "/profile/complete"
+            : "/profile/talent/complete"
+        );
+      } catch (error) {
+        router.replace(
+          session?.user?.role === "user"
+            ? "/profile/complete"
+            : "/profile/talent/complete"
+        );
+      }
+    };
+    checkProfile();
+    return null;
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black relative overflow-hidden px-4 py-6 sm:py-8 md:py-12 lg:py-16">
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
-        <Image
-          src={Images.workspaceBackground}
-          alt="workspaceBackground"
-          className="w-full h-full object-cover opacity-40"
-        />
-      </div>
-      <Card className="relative z-10 w-full max-w-[90%] sm:max-w-lg md:max-w-md mx-auto p-4 sm:p-6 bg-black/40 border border-white/20 rounded-2xl shadow-2xl">
-        <div className="bg-black/30 backdrop-blur-lg rounded-xl border border-white/30 py-6 px-4 sm:px-6 md:px-8">
-          <CardHeader className="p-0 mb-4 sm:mb-6">
-            <div className="text-center">
-              <div className="flex justify-center mb-3 sm:mb-4">
-                <Image
-                  className="w-28 sm:w-32 md:w-40 transition-transform duration-300 hover:scale-105"
-                  src={logo}
-                  alt="logo"
-                  priority
-                />
-              </div>
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white mb-1">
-                Welcome Back
-              </h2>
-              <p className="text-gray-300 text-xs sm:text-sm mt-1">
-                Sign in to the UniChat community
+    <div className="min-h-screen flex items-center justify-center bg-[#D3F1DF] px-4 py-6 sm:py-8 md:py-12 lg:py-16">
+      <div className="w-full max-w-5xl flex flex-col md:flex-row rounded-2xl shadow-2xl overflow-hidden bg-white">
+        {/* Left Image Section */}
+        <div className="w-full md:w-1/2 relative hidden md:block">
+          <Image
+            src={Images.workspaceBackground}
+            alt="Talent showcase background"
+            className="w-full h-full object-cover opacity-90"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#3A7D44]/50 to-transparent flex items-center justify-center">
+            <div className="text-center text-white p-6">
+              <h2 className="text-3xl font-bold mb-4">Welcome Back</h2>
+              <p className="text-lg">
+                Sign in to connect with top talent and opportunities.
               </p>
             </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-4 sm:space-y-5"
-              >
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-white font-medium text-sm">
-                        Email
-                      </FormLabel>
-                      <div className="relative">
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="Enter your email"
-                            {...field}
-                            className="bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 rounded-lg pr-10 p-2.5 sm:p-3 transition-all duration-200 ease-in-out w-full"
-                          />
-                        </FormControl>
-                        <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 sm:h-5 w-4 sm:w-5 text-gray-400" />
-                      </div>
-                      <FormMessage className="text-red-400 text-xs sm:text-sm mt-2" />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-white font-medium text-sm">
-                        Password
-                      </FormLabel>
-                      <div className="relative">
-                        <FormControl>
-                          <Input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Enter your password"
-                            {...field}
-                            className="bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 rounded-lg pr-20 sm:pr-24 p-2.5 sm:p-3 transition-all duration-200 ease-in-out w-full"
-                          />
-                        </FormControl>
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1 sm:space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="p-1 rounded-full hover:bg-white/10 transition-colors duration-200"
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-4 sm:h-5 w-4 sm:w-5 text-gray-400" />
-                            ) : (
-                              <Eye className="h-4 sm:h-5 w-4 sm:w-5 text-gray-400" />
-                            )}
-                          </button>
-                          <Lock className="h-4 sm:h-5 w-4 sm:w-5 text-gray-400" />
-                        </div>
-                      </div>
-                      <FormMessage className="text-red-400 text-xs sm:text-sm mt-2" />
-                    </FormItem>
-                  )}
-                />
-                <Button
-                  type="submit"
-                  className="w-full text-black bg-white hover:bg-gray-300 font-semibold py-3 rounded-lg shadow-lg transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black disabled:bg-gray-600 disabled:cursor-not-allowed text-base sm:text-lg"
-                  disabled={form.formState.isSubmitting}
-                >
-                  {form.formState.isSubmitting ? (
-                    <span className="flex items-center justify-center">
-                      <Loader2 className="animate-spin mr-2 h-4 sm:h-5 w-4 sm:w-5" />
-                      Signing In...
-                    </span>
-                  ) : (
-                    "Sign In"
-                  )}
-                </Button>
-              </form>
-            </Form>
-            <div className="mt-4 sm:mt-6 text-center">
-              <Button
-                variant="link"
-                onClick={() => setShowResetForm(!showResetForm)}
-                className="text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-200 p-0"
-              >
-                Forgot your password?
-              </Button>
-              <AnimatePresence>
-                {showResetForm && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
-                    className="mt-4 space-y-4"
-                  >
-                    <div className="relative">
-                      <Input
-                        type="email"
-                        placeholder="Enter your email for password reset"
-                        value={resetEmail}
-                        onChange={(e) => setResetEmail(e.target.value)}
-                        className="bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500 rounded-lg pr-10 p-2.5 sm:p-3 transition-all duration-200 ease-in-out w-full"
-                      />
-                      <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-4 sm:h-5 w-4 sm:w-5 text-gray-400" />
-                    </div>
-                    <Button
-                      onClick={handleForgotPassword}
-                      disabled={isRequestingReset}
-                      className="w-full text-black bg-white hover:bg-gray-300 font-semibold py-3 rounded-lg shadow-lg transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black disabled:bg-gray-600 disabled:cursor-not-allowed text-base sm:text-lg"
-                    >
-                      {isRequestingReset ? (
-                        <span className="flex items-center justify-center">
-                          <Loader2 className="animate-spin mr-2 h-4 sm:h-5 w-4 sm:w-5" />
-                          Sending Reset Link...
-                        </span>
-                      ) : (
-                        "Send Reset Link"
-                      )}
-                    </Button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <p className="text-gray-300 text-xs sm:text-sm mt-2">
-                Don’t have an account?{" "}
-                <a
-                  href="/sign-up"
-                  className="text-blue-400 hover:text-blue-300 font-semibold transition-colors duration-200"
-                >
-                  Sign up
-                </a>
-              </p>
-            </div>
-          </CardContent>
+          </div>
         </div>
-      </Card>
+        {/* Right Form Section */}
+        <div className="w-full md:w-1/2 p-6 sm:p-8 bg-white">
+          <div className="text-center mb-6">
+            <Image
+              className="w-32 mx-auto transition-transform duration-300 hover:scale-105"
+              src={Images.logoauth}
+              alt="logo"
+              priority
+            />
+            <p className="text-[#757575] text-sm mt-2">
+              Sign in to the SkillConnect community
+            </p>
+          </div>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[#212121] font-medium text-sm">
+                      Email
+                    </FormLabel>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="Enter your email"
+                          {...field}
+                          className="bg-[#A5D6A7]/20 border-[#1B5E20] text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg pr-10 p-3 transition-all duration-200 w-full"
+                        />
+                      </FormControl>
+                      <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#757575]" />
+                    </div>
+                    <FormMessage className="text-red-600 text-sm mt-2" />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-[#212121] font-medium text-sm">
+                      Password
+                    </FormLabel>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter your password"
+                          {...field}
+                          className="bg-[#A5D6A7]/20 border-[#1B5E20] text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg pr-20 p-3 transition-all duration-200 w-full"
+                        />
+                      </FormControl>
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="p-1 rounded-full hover:bg-[#A5D6A7]/30 transition-colors duration-200"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-5 w-5 text-[#757575]" />
+                          ) : (
+                            <Eye className="h-5 w-5 text-[#757575]" />
+                          )}
+                        </button>
+                        <Lock className="h-5 w-5 text-[#757575]" />
+                      </div>
+                    </div>
+                    <FormMessage className="text-red-600 text-sm mt-2" />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="w-full bg-[#004030] hover:bg-[#328E6E] text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-300 focus:ring-[#4CAF50] focus:ring-offset-[#F1F8E9] disabled:bg-[#757575] disabled:cursor-not-allowed text-lg"
+                disabled={form.formState.isSubmitting}
+              >
+                {form.formState.isSubmitting ? (
+                  <span className="flex items-center justify-center">
+                    <Loader2 className="animate-spin mr-2 h-5 w-5" />
+                    Signing In...
+                  </span>
+                ) : (
+                  "Sign In"
+                )}
+              </Button>
+            </form>
+          </Form>
+          <div className="mt-6 text-center">
+            <Button
+              variant="link"
+              onClick={() => setShowResetForm(!showResetForm)}
+              className="text-[#4CAF50] hover:text-[#2E7D32] font-semibold transition-colors duration-200 p-0"
+            >
+              Forgot your password?
+            </Button>
+            <AnimatePresence>
+              {showResetForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: "easeOut" }}
+                  className="mt-4 space-y-4"
+                >
+                  <div className="relative">
+                    <Input
+                      type="email"
+                      placeholder="Enter your email for password reset"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      className="bg-[#A5D6A7]/20 border-[#1B5E20] text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg pr-10 p-3 transition-all duration-200 w-full"
+                    />
+                    <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[#757575]" />
+                  </div>
+                  <Button
+                    onClick={handleForgotPassword}
+                    disabled={isRequestingReset}
+                    className="w-full bg-[#004030] hover:bg-[#328E6E] text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-300 focus:ring-[#4CAF50] focus:ring-offset-[#F1F8E9] disabled:bg-[#757575] disabled:cursor-not-allowed text-lg"
+                  >
+                    {isRequestingReset ? (
+                      <span className="flex items-center justify-center">
+                        <Loader2 className="animate-spin mr-2 h-5 w-5" />
+                        Sending Reset Link...
+                      </span>
+                    ) : (
+                      "Send Reset Link"
+                    )}
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <p className="text-[#757575] text-sm mt-2">
+              Don’t have an account?{" "}
+              <a
+                href="/sign-up"
+                className="text-[#4CAF50] hover:text-[#2E7D32] font-semibold transition-colors duration-200"
+              >
+                Sign up
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

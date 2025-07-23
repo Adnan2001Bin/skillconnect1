@@ -1,12 +1,40 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-interface IUser extends Document {
+export interface IRatePlan {
+  type: "Basic" | "Standard" | "Premium";
+  price: number;
+  description: string;
+  whatsIncluded: string[];
+  deliveryDays: number;
+}
+
+export interface IPortfolioItem {
+  title: string;
+  description: string;
+  imageUrl?: string | null;
+  projectUrl?: string| null;
+}
+
+export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
   userName: string;
   email: string;
   password: string;
-  profilePicture?: string;
+  profilePicture?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  industry?: string | null;
+  preferences?: string[];
   role: "user" | "talent" | "admin";
+  skills?: string[];
+  portfolio?: IPortfolioItem[];
+  ratePlans?: IRatePlan[];
+  aboutThisGig?: string | null;
+  whatIOffer?: string[];
+  education?: string[];
+  experience?: string[];
+  socialLinks?: { platform: string; url: string }[];
+  languageProficiency?: string[];
   verificationCode: string;
   verificationCodeExpires: Date;
   isVerified: boolean;
@@ -43,10 +71,85 @@ const UserSchema: Schema<IUser> = new Schema(
       trim: true,
       default: null,
     },
+    bio: {
+      type: String,
+      trim: true,
+      maxlength: [500, "Bio cannot exceed 500 characters"],
+      default: null,
+    },
+    location: {
+      type: String,
+      trim: true,
+      maxlength: [100, "Location cannot exceed 100 characters"],
+      default: null,
+    },
+    industry: {
+      type: String,
+      trim: true,
+      maxlength: [100, "Industry cannot exceed 100 characters"],
+      default: null,
+    },
+    preferences: {
+      type: [String],
+      default: [],
+    },
     role: {
       type: String,
       enum: ["user", "talent", "admin"],
       default: "user",
+    },
+    skills: {
+      type: [String],
+      default: [],
+    },
+    portfolio: {
+      type: [
+        {
+          title: { type: String, required: true },
+          description: { type: String, required: true },
+          imageUrl: { type: String, default: null },
+          projectUrl: { type: String, default: null },
+        },
+      ],
+      default: [],
+    },
+    ratePlans: {
+      type: [
+        {
+          type: { type: String, enum: ["Basic", "Standard", "Premium"], required: true },
+          price: { type: Number, required: true, min: 0 },
+          description: { type: String, required: true },
+          whatsIncluded: { type: [String], required: true },
+          deliveryDays: { type: Number, required: true, min: 1 },
+        },
+      ],
+      default: [],
+    },
+    aboutThisGig: {
+      type: String,
+      trim: true,
+      maxlength: [1000, "About this Gig cannot exceed 1000 characters"],
+      default: null,
+    },
+    whatIOffer: {
+      type: [String],
+      default: [],
+    },
+    education: {
+      type: [String],
+      default: [],
+    },
+    experience: {
+      type: [String],
+      default: [],
+    },
+    socialLinks: {
+      type: [{ platform: String, url: String }],
+      default: [],
+    },
+    languageProficiency: {
+      type: [String],
+      default: [],
     },
     verificationCode: {
       type: String,
