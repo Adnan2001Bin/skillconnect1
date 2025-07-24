@@ -9,6 +9,7 @@ import { useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Control, FieldValues, Path } from "react-hook-form";
+import { useSession } from "next-auth/react"; // Import useSession
 
 interface ProfilePictureFieldProps<T extends FieldValues> {
   control: Control<T>;
@@ -29,6 +30,16 @@ export function ProfilePictureField<T extends FieldValues>({
   isUploading,
   setIsUploading,
 }: ProfilePictureFieldProps<T>) {
+  const { data: session } = useSession(); // Use useSession
+  const isTalent = session?.user?.role === "talent";
+
+  // Define colors based on role
+  const labelIconColor = isTalent ? "text-[#8DBCC7]" : "text-[#4CAF50]";
+  const imageBorderColor = isTalent ? "border-[#8DBCC7]" : "border-[#4CAF50]";
+  const buttonBgHover = isTalent
+    ? "bg-[#90D1CA] hover:bg-[#8DBCC7]"
+    : "bg-[#2E7D32] hover:bg-[#4CAF50]";
+
   const handleImageUpload = async (file: File) => {
     setIsUploading(true);
     try {
@@ -61,7 +72,7 @@ export function ProfilePictureField<T extends FieldValues>({
   return (
     <FormItem>
       <FormLabel className="text-[#212121] font-semibold text-base flex items-center">
-        <User className="mr-3 h-5 w-5 text-[#4CAF50]" /> {label}
+        <User className={`mr-3 h-5 w-5 ${labelIconColor}`} /> {label}
       </FormLabel>
       <FormControl>
         <div className="flex items-center space-x-4">
@@ -71,7 +82,7 @@ export function ProfilePictureField<T extends FieldValues>({
               alt="Profile Preview"
               width={96}
               height={96}
-              className="rounded-full h-[70%] object-cover border-2 border-[#4CAF50] shadow-lg"
+              className={`rounded-full h-[70%] object-cover border-2 ${imageBorderColor} shadow-lg`}
             />
           )}
           <div className="relative flex-grow">
@@ -94,7 +105,7 @@ export function ProfilePictureField<T extends FieldValues>({
             />
             <label
               htmlFor="profilePictureUpload"
-              className="flex items-center justify-center p-3 rounded-lg cursor-pointer bg-[#2E7D32] hover:bg-[#4CAF50] text-white font-medium transition-all duration-300 shadow-md"
+              className={`flex items-center justify-center p-3 rounded-lg cursor-pointer text-white font-medium transition-all duration-300 shadow-md ${buttonBgHover}`}
             >
               {isUploading ? (
                 <>

@@ -157,8 +157,6 @@ export default function SignInPage() {
         profile.ratePlans?.length &&
         profile.aboutThisGig &&
         profile.whatIOffer?.length &&
-        profile.education?.length &&
-        profile.experience?.length &&
         profile.socialLinks?.length &&
         profile.languageProficiency?.length;
     }
@@ -175,10 +173,10 @@ export default function SignInPage() {
         router.replace(
           session?.user?.role === "user"
             ? "/profile/complete"
-            : "/profile/talent/complete"
+            : "/talent/complete/profile"
         );
       } else {
-        router.replace("/dashboard");
+        router.replace("/");
       }
     }, 2000);
   } catch (error) {
@@ -193,7 +191,7 @@ export default function SignInPage() {
       router.replace(
         session?.user?.role === "user"
           ? "/profile/complete"
-          : "/profile/talent/complete"
+          : "/talent/complete/profile"
       );
     }, 2000);
   }
@@ -233,8 +231,6 @@ export default function SignInPage() {
             profile.ratePlans?.length &&
             profile.aboutThisGig &&
             profile.whatIOffer?.length &&
-            profile.education?.length &&
-            profile.experience?.length &&
             profile.socialLinks?.length &&
             profile.languageProficiency?.length;
         }
@@ -244,13 +240,13 @@ export default function SignInPage() {
             ? "/dashboard"
             : session?.user?.role === "user"
             ? "/profile/complete"
-            : "/profile/talent/complete"
+            : "/talent/complete/profile"
         );
       } catch (error) {
         router.replace(
           session?.user?.role === "user"
             ? "/profile/complete"
-            : "/profile/talent/complete"
+            : "/talent/complete/profile"
         );
       }
     };

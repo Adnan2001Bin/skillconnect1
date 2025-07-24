@@ -40,6 +40,16 @@ export function PortfolioSection({
     projectUrl: null,
   });
 
+  // Define the new color themes directly
+  const labelIconColor = "text-[#8DBCC7]";
+  const sectionBgBorder = "rounded-lg border border-[#90D1CA] p-4 bg-[#A4CCD9]/10";
+  const inputBgBorderFocus = "bg-white border-[#90D1CA]/50 text-[#212121] placeholder-[#757575] focus:ring-[#8DBCC7] focus:border-[#8DBCC7]";
+  const imageBorderColor = "border-[#8DBCC7]";
+  const uploadButtonBgHover = "bg-[#A4CCD9] hover:bg-[#8DBCC7] text-[#212121]";
+  const addButtonBgHover = "bg-[#90D1CA] hover:bg-[#8DBCC7] text-white";
+  const badgeBgHover = "bg-[#90D1CA] hover:bg-[#8DBCC7]";
+  const removeButtonHover = "hover:bg-[#C4E1E6]";
+
   const handleImageUpload = async (file: File) => {
     setIsUploading(true);
     try {
@@ -96,16 +106,16 @@ export function PortfolioSection({
   return (
     <div>
       <FormLabel className="text-[#212121] font-semibold text-base flex items-center mb-2">
-        <Book className="mr-3 h-5 w-5 text-[#4CAF50]" /> Portfolio
+        <Book className={`mr-3 h-5 w-5 ${labelIconColor}`} /> Portfolio
       </FormLabel>
-      <div className="space-y-4 rounded-lg border border-[#1B5E20] p-4 bg-[#A5D6A7]/10">
+      <div className={`space-y-4 ${sectionBgBorder}`}>
         <Input
           placeholder="Portfolio Title"
           value={newPortfolioItem.title}
           onChange={(e) =>
             setNewPortfolioItem({ ...newPortfolioItem, title: e.target.value })
           }
-          className="bg-white border-[#1B5E20]/50 text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg p-2.5 w-full"
+          className={`${inputBgBorderFocus} rounded-lg p-2.5 w-full`}
         />
         <Textarea
           placeholder="Portfolio Description"
@@ -113,7 +123,7 @@ export function PortfolioSection({
           onChange={(e) =>
             setNewPortfolioItem({ ...newPortfolioItem, description: e.target.value })
           }
-          className="bg-white border-[#1B5E20]/50 text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg p-2.5 w-full min-h-[80px]"
+          className={`${inputBgBorderFocus} rounded-lg p-2.5 w-full min-h-[80px]`}
         />
         <div className="flex items-center space-x-4">
           {newPortfolioItem.imageUrl && (
@@ -122,7 +132,7 @@ export function PortfolioSection({
               alt="Portfolio Image Preview"
               width={80}
               height={80}
-              className="rounded-lg object-cover border border-[#4CAF50]"
+              className={`rounded-lg object-cover border ${imageBorderColor}`}
             />
           )}
           <div className="relative flex-grow">
@@ -144,7 +154,7 @@ export function PortfolioSection({
             />
             <label
               htmlFor="portfolioImageUpload"
-              className="flex items-center justify-center p-2.5 rounded-lg cursor-pointer bg-[#A5D6A7] hover:bg-[#8BC34A] text-[#212121] font-medium transition-all duration-300 shadow-sm"
+              className={`flex items-center justify-center p-2.5 rounded-lg cursor-pointer font-medium transition-all duration-300 shadow-sm ${uploadButtonBgHover}`}
             >
               {isUploading ? (
                 <>
@@ -164,12 +174,12 @@ export function PortfolioSection({
           onChange={(e) =>
             setNewPortfolioItem({ ...newPortfolioItem, projectUrl: e.target.value })
           }
-          className="bg-white border-[#1B5E20]/50 text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg p-2.5 w-full"
+          className={`${inputBgBorderFocus} rounded-lg p-2.5 w-full`}
         />
         <Button
           type="button"
           onClick={addPortfolioItem}
-          className="w-full bg-[#2E7D32] hover:bg-[#4CAF50] text-white font-medium py-2.5 rounded-lg transition-all duration-300"
+          className={`w-full font-medium py-2.5 rounded-lg transition-all duration-300 ${addButtonBgHover}`}
           disabled={isUploading}
         >
           Add Portfolio Item
@@ -180,7 +190,7 @@ export function PortfolioSection({
           {portfolioItems.map((item, index) => (
             <Badge
               key={index}
-              className="bg-[#2E7D32] hover:bg-[#4CAF50] text-white px-3 py-1 rounded-full text-sm flex items-center justify-between w-full"
+              className={`text-white px-3 py-1 rounded-full text-sm flex items-center justify-between w-full ${badgeBgHover}`}
             >
               <span>
                 {item.title}
@@ -198,7 +208,7 @@ export function PortfolioSection({
               <button
                 type="button"
                 onClick={() => removePortfolioItem(index)}
-                className="ml-2 rounded-full hover:bg-[#1B5E20] p-0.5"
+                className={`ml-2 rounded-full p-0.5 ${removeButtonHover}`}
               >
                 <XCircle className="h-4 w-4" />
               </button>

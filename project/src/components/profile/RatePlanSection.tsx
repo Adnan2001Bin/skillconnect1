@@ -33,6 +33,16 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
     deliveryDays: 1,
   });
 
+  // Define the new color themes directly
+  const labelIconColor = "text-[#8DBCC7]";
+  const sectionBgBorder = "space-y-4 rounded-lg border border-[#90D1CA] p-4 bg-[#A4CCD9]/10";
+  const inputSelectBgBorderFocus = "bg-white border-[#90D1CA]/50 text-[#212121] placeholder-[#757575] focus:ring-[#8DBCC7] focus:border-[#8DBCC7]";
+  const selectContentBorder = "border-[#90D1CA]";
+  const selectItemHover = "hover:bg-[#A4CCD9]/30";
+  const addButtonBgHover = "bg-[#90D1CA] hover:bg-[#8DBCC7] text-white";
+  const badgeBgHover = "bg-[#90D1CA] hover:bg-[#8DBCC7]";
+  const removeButtonHover = "hover:bg-[#C4E1E6]";
+
   const addRatePlan = () => {
     if (newRatePlan.description && newRatePlan.whatsIncluded[0]) {
       setRatePlans([...ratePlans, { ...newRatePlan }]);
@@ -61,26 +71,26 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
   return (
     <div>
       <FormLabel className="text-[#212121] font-semibold text-base flex items-center mb-2">
-        <Star className="mr-3 h-5 w-5 text-[#4CAF50]" /> Rate Plans
+        <Star className={`mr-3 h-5 w-5 ${labelIconColor}`} /> Rate Plans
       </FormLabel>
-      <div className="space-y-4 rounded-lg border border-[#1B5E20] p-4 bg-[#A5D6A7]/10">
+      <div className={sectionBgBorder}>
         <Select
           onValueChange={(value: "Basic" | "Standard" | "Premium") =>
             setNewRatePlan({ ...newRatePlan, type: value })
           }
           defaultValue={newRatePlan.type}
         >
-          <SelectTrigger className="bg-white border-[#1B5E20]/50 text-[#212121] rounded-lg p-2.5 w-full focus:ring-[#4CAF50] focus:border-[#4CAF50]">
+          <SelectTrigger className={`${inputSelectBgBorderFocus} rounded-lg p-2.5 w-full`}>
             <SelectValue placeholder="Select plan type" />
           </SelectTrigger>
-          <SelectContent className="bg-white border-[#1B5E20] text-[#212121] rounded-lg shadow-lg">
-            <SelectItem value="Basic" className="hover:bg-[#A5D6A7]/30 cursor-pointer">
+          <SelectContent className={`bg-white text-[#212121] rounded-lg shadow-lg ${selectContentBorder}`}>
+            <SelectItem value="Basic" className={`${selectItemHover} cursor-pointer`}>
               Basic
             </SelectItem>
-            <SelectItem value="Standard" className="hover:bg-[#A5D6A7]/30 cursor-pointer">
+            <SelectItem value="Standard" className={`${selectItemHover} cursor-pointer`}>
               Standard
             </SelectItem>
-            <SelectItem value="Premium" className="hover:bg-[#A5D6A7]/30 cursor-pointer">
+            <SelectItem value="Premium" className={`${selectItemHover} cursor-pointer`}>
               Premium
             </SelectItem>
           </SelectContent>
@@ -92,7 +102,7 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
           onChange={(e) =>
             setNewRatePlan({ ...newRatePlan, price: parseFloat(e.target.value) || 0 })
           }
-          className="bg-white border-[#1B5E20]/50 text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg p-2.5 w-full"
+          className={`${inputSelectBgBorderFocus} rounded-lg p-2.5 w-full`}
         />
         <Textarea
           placeholder="Plan Description"
@@ -100,7 +110,7 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
           onChange={(e) =>
             setNewRatePlan({ ...newRatePlan, description: e.target.value })
           }
-          className="bg-white border-[#1B5E20]/50 text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg p-2.5 w-full min-h-[80px]"
+          className={`${inputSelectBgBorderFocus} rounded-lg p-2.5 w-full min-h-[80px]`}
         />
         <Input
           placeholder="What's Included (comma-separated)"
@@ -111,7 +121,7 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
               whatsIncluded: e.target.value.split(",").map((item) => item.trim()),
             })
           }
-          className="bg-white border-[#1B5E20]/50 text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg p-2.5 w-full"
+          className={`${inputSelectBgBorderFocus} rounded-lg p-2.5 w-full`}
         />
         <Input
           type="number"
@@ -120,12 +130,12 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
           onChange={(e) =>
             setNewRatePlan({ ...newRatePlan, deliveryDays: parseInt(e.target.value) || 1 })
           }
-          className="bg-white border-[#1B5E20]/50 text-[#212121] placeholder-[#757575] focus:ring-[#4CAF50] focus:border-[#4CAF50] rounded-lg p-2.5 w-full"
+          className={`${inputSelectBgBorderFocus} rounded-lg p-2.5 w-full`}
         />
         <Button
           type="button"
           onClick={addRatePlan}
-          className="w-full bg-[#2E7D32] hover:bg-[#4CAF50] text-white font-medium py-2.5 rounded-lg transition-all duration-300"
+          className={`w-full font-medium py-2.5 rounded-lg transition-all duration-300 ${addButtonBgHover}`}
         >
           Add Rate Plan
         </Button>
@@ -135,7 +145,7 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
           {ratePlans.map((plan, index) => (
             <Badge
               key={index}
-              className="bg-[#2E7D32] hover:bg-[#4CAF50] text-white px-3 py-1 rounded-full text-sm flex items-center justify-between w-full"
+              className={`text-white px-3 py-1 rounded-full text-sm flex items-center justify-between w-full ${badgeBgHover}`}
             >
               <span>
                 {plan.type}: ${plan.price} ({plan.deliveryDays} Days)
@@ -143,7 +153,7 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
               <button
                 type="button"
                 onClick={() => removeRatePlan(index)}
-                className="ml-2 rounded-full hover:bg-[#1B5E20] p-0.5"
+                className={`ml-2 rounded-full p-0.5 ${removeButtonHover}`}
               >
                 <XCircle className="h-4 w-4" />
               </button>

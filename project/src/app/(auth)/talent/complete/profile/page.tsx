@@ -43,8 +43,8 @@ interface TalentProfileInput {
   }[];
   aboutThisGig?: string | null;
   whatIOffer?: string[];
-  education?: string[];
-  experience?: string[];
+  // education?: string[]; // Removed
+  // experience?: string[]; // Removed
   socialLinks?: { platform: string; url: string }[];
   languageProficiency?: string[];
 }
@@ -77,6 +77,15 @@ export default function TalentProfileCompletionPage() {
   >([]);
   const [currentStep, setCurrentStep] = useState(0);
 
+  // Define the permanent blue/cyan color theme classes
+  const bgColorClass = "bg-[#C4E1E6]";
+  const loadingTextColor = "text-[#8DBCC7]";
+  const stepProgressColor = "text-[#8DBCC7]";
+  const nextButtonBgHover = "bg-[#8DBCC7] hover:bg-[#90D1CA]";
+  const submitButtonBgHover = "bg-[#90D1CA] hover:bg-[#8DBCC7]";
+  const submitButtonFocusRing = "focus:ring-[#8DBCC7] focus:ring-offset-[#C4E1E6]";
+  const dashboardLinkColor = "text-[#8DBCC7] hover:text-[#90D1CA]";
+
   const form = useForm<TalentProfileInput>({
     resolver: zodResolver(talentProfileSchema),
     defaultValues: {
@@ -88,8 +97,8 @@ export default function TalentProfileCompletionPage() {
       ratePlans: [],
       aboutThisGig: null,
       whatIOffer: [],
-      education: [],
-      experience: [],
+      // education: [], // Removed
+      // experience: [], // Removed
       socialLinks: [],
       languageProficiency: [],
     },
@@ -104,8 +113,8 @@ export default function TalentProfileCompletionPage() {
     "ratePlans",
     "aboutThisGig",
     "whatIOffer",
-    "education",
-    "experience",
+    // "education", // Removed
+    // "experience", // Removed
     "socialLinks",
     "languageProficiency",
   ];
@@ -114,7 +123,7 @@ export default function TalentProfileCompletionPage() {
     ["profilePicture", "bio", "location"],
     ["skills", "portfolio"],
     ["ratePlans", "aboutThisGig", "whatIOffer"],
-    ["education", "experience", "socialLinks", "languageProficiency"],
+    ["socialLinks", "languageProficiency"], // Updated field group
   ];
 
   const fieldLabels: { [key: string]: string } = {
@@ -126,8 +135,8 @@ export default function TalentProfileCompletionPage() {
     ratePlans: "Rate Plans",
     aboutThisGig: "About This Gig",
     whatIOffer: "What I Offer",
-    education: "Education",
-    experience: "Experience",
+    // education: "Education", // Removed
+    // experience: "Experience", // Removed
     socialLinks: "Social Links",
     languageProficiency: "Language Proficiency",
   };
@@ -152,7 +161,7 @@ export default function TalentProfileCompletionPage() {
 
     const percentage = Math.round((filledCount / progressFields.length) * 100);
     return { percentage, filledStatus };
-  }, []);
+  }, [progressFields]);
 
   const [filledFieldStatus, setFilledFieldStatus] = useState<{
     [key: string]: boolean;
@@ -207,7 +216,7 @@ export default function TalentProfileCompletionPage() {
       if (response.data.success) {
         toast.success("Success", {
           description: "Profile updated successfully",
-          className: "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
+          className: "bg-[#8DBCC7] text-white border-[#90D1CA] backdrop-blur-md bg-opacity-80", // Always use blue/cyan for success
           duration: 4000,
         });
         setTimeout(() => {
@@ -252,8 +261,8 @@ export default function TalentProfileCompletionPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F1F8E9]">
-        <Loader className="animate-spin h-8 w-8 text-[#2E7D32] mr-2" />
+      <div className={`min-h-screen flex items-center justify-center ${bgColorClass}`}>
+        <Loader className={`animate-spin h-8 w-8 ${loadingTextColor} mr-2`} />
         <p className="text-[#212121] text-lg font-semibold">
           Loading your SkillConnect journey...
         </p>
@@ -261,42 +270,45 @@ export default function TalentProfileCompletionPage() {
     );
   }
 
+  // The access denied message will still use red for clarity/warning
   if (status !== "authenticated" || session?.user?.role !== "talent") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F1F8E9]">
+      <div className={`min-h-screen flex items-center justify-center ${bgColorClass}`}>
         <p className="text-red-600 text-lg font-semibold">
           Access denied. Please sign in as a talent to complete your profile.
         </p>
       </div>
     );
+ 
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F1F8E9] px-4 py-6 sm:py-8 md:py-12 lg:py-16 relative overflow-hidden">
+    <div className={`min-h-screen flex items-center justify-center  px-4 py-6 sm:py-8 md:py-12 lg:py-16 relative overflow-hidden`}>
       <div className="absolute inset-0 z-0">
         <Image
-          src={Images.workspaceBackground}
+          src={Images.talentProfileBackground}
           alt="Abstract digital background"
           layout="fill"
           objectFit="cover"
           quality={80}
           className="opacity-40"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#2E7D32]/50 to-transparent"></div>
+       
       </div>
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-5xl flex flex-col md:flex-row rounded-2xl shadow-2xl overflow-hidden bg-white"
+        className="relative z-10 w-full max-w-5xl flex flex-col md:flex-row rounded-2xl shadow-2xl overflow-hidden bg-transparent"
       >
+        {/* ProfileProgress component will now always receive isTalent=true for blue theme */}
         <ProfileProgress
           completionPercentage={completionPercentage}
           filledFieldStatus={filledFieldStatus}
           fieldLabels={fieldLabels}
           progressFields={progressFields}
         />
-        <div className="w-full md:w-1/2 p-6 sm:p-8 bg-white">
+        <div className="w-full md:w-1/2 p-6 sm:p-8 bg-transparent">
           <div className="text-center mb-6">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-[#212121] mb-2 leading-tight">
               Complete Your Talent Profile
@@ -304,7 +316,7 @@ export default function TalentProfileCompletionPage() {
             <p className="text-[#757575] text-sm sm:text-base mt-2">
               Fill in your details to showcase your skills on SkillConnect.
             </p>
-            <p className="text-[#4CAF50] font-semibold mt-2">
+            <p className={`font-semibold mt-2 ${stepProgressColor}`}>
               Step {currentStep + 1} of {fieldGroups.length}
             </p>
           </div>
@@ -400,20 +412,6 @@ export default function TalentProfileCompletionPage() {
                   transition={{ duration: 0.5 }}
                   className="space-y-5"
                 >
-                  <ArrayField
-                    control={form.control}
-                    name="education"
-                    label="Education"
-                    placeholder="e.g., BSc in Computer Science, University of XYZ (press comma or enter to add)"
-                    Icon={Book}
-                  />
-                  <ArrayField
-                    control={form.control}
-                    name="experience"
-                    label="Experience"
-                    placeholder="e.g., Senior Web Developer at Acme Corp (press comma or enter to add)"
-                    Icon={Briefcase}
-                  />
                   <SocialLinkSection
                     socialLinks={socialLinks}
                     setSocialLinks={setSocialLinks}
@@ -442,7 +440,7 @@ export default function TalentProfileCompletionPage() {
                   <Button
                     type="button"
                     onClick={handleNextStep}
-                    className="ml-auto bg-[#4CAF50] hover:bg-[#2E7D32] text-white font-semibold py-2.5 px-6 rounded-lg shadow-md transition-all duration-300 flex items-center"
+                    className={`ml-auto text-white font-semibold py-2.5 px-6 rounded-lg shadow-md transition-all duration-300 flex items-center ${nextButtonBgHover}`}
                   >
                     Next <ArrowRight className="h-5 w-5 ml-2" />
                   </Button>
@@ -450,7 +448,7 @@ export default function TalentProfileCompletionPage() {
                 {currentStep === fieldGroups.length - 1 && (
                   <Button
                     type="submit"
-                    className="w-[60%] bg-[#2E7D32] hover:bg-[#4CAF50] text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-300 focus:ring-[#4CAF50] focus:ring-offset-[#F1F8E9] disabled:bg-[#757575] disabled:cursor-not-allowed text-md"
+                    className={`w-[60%] text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-300 disabled:bg-[#757575] disabled:cursor-not-allowed text-md ${submitButtonBgHover} ${submitButtonFocusRing}`}
                     disabled={form.formState.isSubmitting}
                   >
                     {form.formState.isSubmitting ? (
@@ -471,7 +469,7 @@ export default function TalentProfileCompletionPage() {
               Decide later?{" "}
               <a
                 href="/dashboard"
-                className="text-[#4CAF50] hover:text-[#2E7D32] font-semibold transition-colors duration-200"
+                className={`font-semibold transition-colors duration-200 ${dashboardLinkColor}`}
               >
                 Go to Dashboard
               </a>

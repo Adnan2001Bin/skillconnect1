@@ -15,7 +15,6 @@ export default function TalentNavbar() {
   const router = useRouter();
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
 
-  // Fetch profile picture on mount
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "talent") {
       const fetchProfile = async () => {
@@ -38,7 +37,6 @@ export default function TalentNavbar() {
     }
   }, [status, session]);
 
-  // Only render if user is authenticated and has "talent" role
   if (status !== "authenticated" || session?.user?.role !== "talent") {
     return null;
   }
@@ -49,7 +47,7 @@ export default function TalentNavbar() {
   };
 
   return (
-    <nav className="bg-white shadow-md py-2 px-4 sm:px-6 lg:px-20 flex items-center justify-between">
+    <nav className="bg-white fixed shadow-md py-3 px-4 sm:px-6 lg:px-20 flex items-center justify-between top-0 right-0 w-full z-30 h-20">
       <div className="flex items-center">
         <Image
           src={Images.logoTalent}
@@ -68,16 +66,15 @@ export default function TalentNavbar() {
               alt="Profile Picture"
               width={49}
               height={32}
-              className="rounded-full object-cover border-2 border-[#FF9B2F] h-[3rem]"
+              className="rounded-full object-cover border-2 border-[#FF9B2F] h-[3rem] w-[3rem]" // Added w-[3rem] to maintain aspect ratio
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-[#A5D6A7] flex items-center justify-center border-2 border-[#4CAF50]">
-              <span className="text-[#2E7D32] text-sm font-medium">
-                {session?.user?.userName?.charAt(0)}
+            <div className="w-12 h-12 rounded-full bg-[#A5D6A7] flex items-center justify-center border-2 border-[#4CAF50]">
+              <span className="text-[#2E7D32] text-lg font-medium">
+                {session?.user?.userName?.charAt(0).toUpperCase()}
               </span>
             </div>
           )}
-        
         </div>
         <Button
           onClick={handleSignOut}
