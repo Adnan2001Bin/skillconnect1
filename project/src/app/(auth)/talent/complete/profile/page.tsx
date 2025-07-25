@@ -1,58 +1,36 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { talentProfileSchema } from "@/schemas/profileSchema";
-import { toast } from "sonner";
-import axios from "axios";
-import { motion } from "framer-motion";
-import { Form } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
-import { Loader2 as Loader, ArrowRight, ArrowLeft, Info, MapPin, Code, Briefcase, Star, Globe, Book } from "lucide-react";
-import { Images } from "@/lib/images";
-import Image from "next/image";
-import { ProfilePictureField } from "@/components/profile/ProfilePictureField";
-import { TextField } from "@/components/profile/TextField";
-import { TextareaField } from "@/components/profile/TextareaField";
-import { ArrayField } from "@/components/profile/ArrayField";
-import { PortfolioSection } from "@/components/profile/PortfolioSection";
-import { RatePlanSection } from "@/components/profile/RatePlanSection";
 import { SocialLinkSection } from "@/components/profile/SocialLinkSection";
+import {
+  talentProfileSchema,
+  TalentProfileInput,
+} from "@/schemas/profileSchema";
 import { ProfileProgress } from "@/components/profile/ProfileProgress";
-
-interface TalentProfileInput {
-  profilePicture?: string | null;
-  bio?: string | null;
-  location?: string | null;
-  skills?: string[];
-  portfolio?: {
-    title: string;
-    description: string;
-    imageUrl?: string | null;
-    projectUrl?: string | null;
-  }[];
-  ratePlans?: {
-    type: "Basic" | "Standard" | "Premium";
-    price: number;
-    description: string;
-    whatsIncluded: string[];
-    deliveryDays: number;
-  }[];
-  aboutThisGig?: string | null;
-  whatIOffer?: string[];
-  // education?: string[]; // Removed
-  // experience?: string[]; // Removed
-  socialLinks?: { platform: string; url: string }[];
-  languageProficiency?: string[];
-}
+import { RatePlanSection } from "@/components/profile/RatePlanSection";
+import { PortfolioSection } from "@/components/profile/PortfolioSection";
+import { SelectField } from "@/components/profile/SelectField";
+import { TextareaField } from "@/components/profile/TextareaField";
+import { TextField } from "@/components/profile/TextField";
+import { MultiSelect } from "@/components/talent/MultiSelect";
+import { Button } from "@/components/ui/button";
+import { Briefcase, MapPin, User, Book, Star, Link } from "lucide-react";
+import axios from "axios";
+import { toast } from "sonner";
+import { Images } from "@/lib/images";
+import { categories, servicesByCategory } from "@/lib/categoriesAndServices";
+import { ProfilePictureField } from "@/components/profile/ProfilePictureField";
+import { Form } from "@/components/ui/form";
+import { ArrayField } from "@/components/profile/ArrayField";
+import Image from "next/image";
 
 export default function TalentProfileCompletionPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [completionPercentage, setCompletionPercentage] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [currentProfilePicture, setCurrentProfilePicture] = useState<string | null>(null);
   const [portfolioItems, setPortfolioItems] = useState<
@@ -72,19 +50,9 @@ export default function TalentProfileCompletionPage() {
       deliveryDays: number;
     }[]
   >([]);
-  const [socialLinks, setSocialLinks] = useState<
-    { platform: string; url: string }[]
-  >([]);
+  const [socialLinks, setSocialLinks] = useState<{ platform: string; url: string }[]>([]);
+  const [completionPercentage, setCompletionPercentage] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
-
-  // Define the permanent blue/cyan color theme classes
-  const bgColorClass = "bg-[#C4E1E6]";
-  const loadingTextColor = "text-[#8DBCC7]";
-  const stepProgressColor = "text-[#8DBCC7]";
-  const nextButtonBgHover = "bg-[#8DBCC7] hover:bg-[#90D1CA]";
-  const submitButtonBgHover = "bg-[#90D1CA] hover:bg-[#8DBCC7]";
-  const submitButtonFocusRing = "focus:ring-[#8DBCC7] focus:ring-offset-[#C4E1E6]";
-  const dashboardLinkColor = "text-[#8DBCC7] hover:text-[#90D1CA]";
 
   const form = useForm<TalentProfileInput>({
     resolver: zodResolver(talentProfileSchema),
@@ -97,193 +65,208 @@ export default function TalentProfileCompletionPage() {
       ratePlans: [],
       aboutThisGig: null,
       whatIOffer: [],
-      // education: [], // Removed
-      // experience: [], // Removed
       socialLinks: [],
       languageProficiency: [],
+      category: "",
+      services: [],
     },
+    reValidateMode: "onBlur",
   });
 
   const progressFields = [
     "profilePicture",
     "bio",
     "location",
+    "category",
+    "services",
     "skills",
     "portfolio",
     "ratePlans",
     "aboutThisGig",
     "whatIOffer",
-    // "education", // Removed
-    // "experience", // Removed
     "socialLinks",
     "languageProficiency",
-  ];
-
-  const fieldGroups = [
-    ["profilePicture", "bio", "location"],
-    ["skills", "portfolio"],
-    ["ratePlans", "aboutThisGig", "whatIOffer"],
-    ["socialLinks", "languageProficiency"], // Updated field group
   ];
 
   const fieldLabels: { [key: string]: string } = {
     profilePicture: "Profile Picture",
     bio: "Bio",
     location: "Location",
+    category: "Category",
+    services: "Services",
     skills: "Skills",
     portfolio: "Portfolio",
     ratePlans: "Rate Plans",
     aboutThisGig: "About This Gig",
     whatIOffer: "What I Offer",
-    // education: "Education", // Removed
-    // experience: "Experience", // Removed
     socialLinks: "Social Links",
     languageProficiency: "Language Proficiency",
   };
 
-  const calculateCompletion = useCallback((values: TalentProfileInput) => {
-    let filledCount = 0;
-    const filledStatus: { [key: string]: boolean } = {};
-
-    progressFields.forEach((field) => {
-      const fieldValue = values[field as keyof TalentProfileInput];
-      let isFilled = false;
-      if (Array.isArray(fieldValue)) {
-        isFilled = fieldValue.length > 0;
-      } else {
-        isFilled = !!fieldValue;
-      }
-      filledStatus[field] = isFilled;
-      if (isFilled) {
-        filledCount++;
-      }
-    });
-
-    const percentage = Math.round((filledCount / progressFields.length) * 100);
-    return { percentage, filledStatus };
-  }, [progressFields]);
-
-  const [filledFieldStatus, setFilledFieldStatus] = useState<{
-    [key: string]: boolean;
-  }>(progressFields.reduce((acc, field) => ({ ...acc, [field]: false }), {}));
+  const steps = [
+    { title: "Personal Info", fields: ["profilePicture", "bio", "location"] },
+    { title: "Category & Services", fields: ["category", "services"] },
+    { title: "Skills & Portfolio", fields: ["skills", "portfolio"] },
+    { title: "Gig Details", fields: ["ratePlans", "aboutThisGig", "whatIOffer"] },
+    { title: "Social & Language", fields: ["socialLinks", "languageProficiency"] },
+  ];
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const response = await axios.get("/api/profile");
-        if (response.data.success) {
-          const profileData = response.data.data;
-          form.reset(profileData);
-          setCurrentProfilePicture(profileData.profilePicture);
-          setPortfolioItems(profileData.portfolio || []);
-          setRatePlans(profileData.ratePlans || []);
-          setSocialLinks(profileData.socialLinks || []);
-          const { percentage, filledStatus } = calculateCompletion(profileData);
-          setCompletionPercentage(percentage);
-          setFilledFieldStatus(filledStatus);
+    if (status === "authenticated" && session?.user?.role === "talent") {
+      const fetchProfileAndLoadLocal = async () => {
+        try {
+          const response = await axios.get("/api/profile");
+          let data = response.data.data || {};
+
+          // Load local storage draft
+          if (typeof window !== "undefined") {
+            const savedFormData = localStorage.getItem("talentProfileDraft");
+            if (savedFormData) {
+              try {
+                const draft = JSON.parse(savedFormData);
+                // Merge API data with draft, preferring draft only for non-empty fields
+                data = {
+                  ...data,
+                  ...Object.fromEntries(
+                    Object.entries(draft).filter(([_, value]) =>
+                      Array.isArray(value) ? value.length > 0 : !!value
+                    )
+                  ),
+                };
+              } catch (parseError) {
+                console.error("Error parsing saved form data:", parseError);
+                localStorage.removeItem("talentProfileDraft");
+              }
+            }
+          }
+
+          // Ensure category and services are defined
+          form.reset({
+            ...data,
+            category: data.category || "",
+            services: data.services || [],
+            portfolio: data.portfolio || [],
+            ratePlans: data.ratePlans || [],
+            socialLinks: data.socialLinks || [],
+            skills: data.skills || [],
+            whatIOffer: data.whatIOffer || [],
+            languageProficiency: data.languageProficiency || [],
+          });
+          setCurrentProfilePicture(data.profilePicture || null);
+          setPortfolioItems(data.portfolio || []);
+          setRatePlans(data.ratePlans || []);
+          setSocialLinks(data.socialLinks || []);
+        } catch (error) {
+          console.error("Error fetching profile:", error);
+          toast.error("Error fetching profile", {
+            description: "Failed to load profile data. Please try again.",
+            className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+            duration: 4000,
+          });
         }
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-        toast.error("Error fetching profile", {
-          description: "Failed to load profile data. Please try again.",
-          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-          duration: 4000,
-        });
-      }
-    };
-    if (status === "authenticated") {
-      fetchProfile();
+      };
+      fetchProfileAndLoadLocal();
     }
-  }, [status, form, calculateCompletion]);
+  }, [status, session, form]);
 
   useEffect(() => {
-    const subscription = form.watch((values) => {
-      const { percentage, filledStatus } = calculateCompletion(values as TalentProfileInput);
-      setCompletionPercentage(percentage);
-      setFilledFieldStatus(filledStatus);
-    });
-    return () => subscription.unsubscribe();
-  }, [form, calculateCompletion]);
-
-  const onSubmit = async (data: TalentProfileInput) => {
-    try {
-      const response = await axios.patch("/api/profile", {
-        ...data,
-        portfolio: portfolioItems,
-        ratePlans: ratePlans,
-        socialLinks: socialLinks,
+    if (typeof window !== "undefined") {
+      const subscription = form.watch((value, { name }) => {
+        if (name) {
+          localStorage.setItem("talentProfileDraft", JSON.stringify(value));
+        }
       });
-      if (response.data.success) {
-        toast.success("Success", {
-          description: "Profile updated successfully",
-          className: "bg-[#8DBCC7] text-white border-[#90D1CA] backdrop-blur-md bg-opacity-80", // Always use blue/cyan for success
-          duration: 4000,
-        });
-        setTimeout(() => {
-          router.replace("/dashboard");
-        }, 2000);
-      } else {
-        toast.error("Error", {
-          description: response.data.message,
-          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-          duration: 4000,
-        });
-      }
-    } catch (error) {
-      console.error("Profile Update Error:", error);
-      toast.error("Error", {
-        description: "Failed to update profile. Please try again.",
-        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-        duration: 4000,
-      });
+      return () => subscription.unsubscribe();
     }
-  };
+  }, [form]);
+
+  useEffect(() => {
+    const calculateCompletion = () => {
+      const filledFields = progressFields.filter((field) => {
+        const value = form.getValues(field as keyof TalentProfileInput);
+        if (Array.isArray(value)) return value.length > 0;
+        return !!value;
+      });
+      const percentage = Math.round((filledFields.length / progressFields.length) * 100);
+      setCompletionPercentage(percentage);
+    };
+    calculateCompletion();
+    const subscription = form.watch(() => calculateCompletion());
+    return () => subscription.unsubscribe();
+  }, [form]);
 
   const handleNextStep = async () => {
-    const currentFields = fieldGroups[currentStep];
+    const currentFields = steps[currentStep].fields;
     const isValid = await form.trigger(currentFields as (keyof TalentProfileInput)[]);
-    if (isValid && currentStep < fieldGroups.length - 1) {
-      setCurrentStep((prev) => prev + 1);
-    } else if (!isValid) {
+
+    if (isValid) {
+      if (currentStep < steps.length - 1) {
+        setCurrentStep((prev) => prev + 1);
+      } 
+    } else {
+      // Log invalid fields for debugging
+      const errors = form.formState.errors;
+      console.log("Validation errors:", errors);
       toast.error("Validation Error", {
-        description: "Please fill in all required fields for this section.",
-        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        description: "Please fill out all required fields correctly before proceeding.",
+        className: "bg-red-700 text-white border-red-800 bg-opacity-80",
         duration: 4000,
       });
     }
   };
 
   const handlePreviousStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep((prev) => prev - 1);
+    setCurrentStep((prev) => Math.max(prev - 1, 0));
+  };
+
+  const onSubmit = async (data: TalentProfileInput) => {
+    // Log the data being sent for debugging
+    console.log("Submitting profile data:", data);
+
+    try {
+      const response = await axios.patch("/api/profile", data);
+      if (response.data.success) {
+        toast.success("Profile Updated", {
+          description: "Your profile has been successfully updated.",
+          className: "bg-[#8DBCC7] text-white border-[#90D1CA] shadow-lg",
+          duration: 4000,
+        });
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("talentProfileDraft");
+        }
+        router.push("/talent/profile");
+      } else {
+        throw new Error(response.data.message || "Failed to update profile");
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error("Update Failed", {
+        description: "Failed to update profile. Please try again.",
+        className: "bg-red-700 text-white border-red-800 bg-opacity-80",
+        duration: 4000,
+      });
     }
   };
 
   if (status === "loading") {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${bgColorClass}`}>
-        <Loader className={`animate-spin h-8 w-8 ${loadingTextColor} mr-2`} />
-        <p className="text-[#212121] text-lg font-semibold">
-          Loading your SkillConnect journey...
-        </p>
+      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
+        <div className="animate-spin h-16 w-16 text-[#8DBCC7] mr-4" />
+        <p className="text-[#212121] text-2xl font-semibold">Loading...</p>
       </div>
     );
   }
 
-  // The access denied message will still use red for clarity/warning
   if (status !== "authenticated" || session?.user?.role !== "talent") {
     return (
-      <div className={`min-h-screen flex items-center justify-center ${bgColorClass}`}>
-        <p className="text-red-600 text-lg font-semibold">
-          Access denied. Please sign in as a talent to complete your profile.
-        </p>
+      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
+        <p className="text-red-600 text-xl font-bold">Access denied. Please sign in as a talent.</p>
       </div>
     );
- 
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center  px-4 py-6 sm:py-8 md:py-12 lg:py-16 relative overflow-hidden`}>
+    <div className="min-h-screen flex items-center justify-start px-4 py-6 sm:py-8 md:py-12 lg:py-16 relative">
       <div className="absolute inset-0 z-0">
         <Image
           src={Images.talentProfileBackground}
@@ -293,190 +276,170 @@ export default function TalentProfileCompletionPage() {
           quality={80}
           className="opacity-40"
         />
-       
       </div>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="relative z-10 w-full max-w-5xl flex flex-col md:flex-row rounded-2xl shadow-2xl overflow-hidden bg-transparent"
-      >
-        {/* ProfileProgress component will now always receive isTalent=true for blue theme */}
+      <div className="relative z-10 w-full max-w-5xl flex flex-col md:flex-row rounded-2xl shadow-2xl overflow-hidden bg-transparent">
         <ProfileProgress
           completionPercentage={completionPercentage}
-          filledFieldStatus={filledFieldStatus}
+          filledFieldStatus={progressFields.reduce((acc, field) => {
+            const value = form.getValues(field as keyof TalentProfileInput);
+            acc[field] = Array.isArray(value) ? value.length > 0 : !!value;
+            return acc;
+          }, {} as { [key: string]: boolean })}
           fieldLabels={fieldLabels}
           progressFields={progressFields}
         />
-        <div className="w-full md:w-1/2 p-6 sm:p-8 bg-transparent">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#212121] mb-2 leading-tight">
-              Complete Your Talent Profile
-            </h2>
-            <p className="text-[#757575] text-sm sm:text-base mt-2">
-              Fill in your details to showcase your skills on SkillConnect.
-            </p>
-            <p className={`font-semibold mt-2 ${stepProgressColor}`}>
-              Step {currentStep + 1} of {fieldGroups.length}
-            </p>
-          </div>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-              {currentStep === 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="space-y-5"
-                >
-                  <ProfilePictureField
-                    control={form.control}
-                    name="profilePicture"
-                    label="Profile Picture"
-                    currentProfilePicture={currentProfilePicture}
-                    setCurrentProfilePicture={setCurrentProfilePicture}
-                    isUploading={isUploading}
-                    setIsUploading={setIsUploading}
-                  />
-                  <TextareaField
-                    control={form.control}
-                    name="bio"
-                    label="Bio"
-                    placeholder="Tell us about your experience, expertise, and what makes you unique as a talent."
-                    Icon={Info}
-                  />
-                  <TextField
-                    control={form.control}
-                    name="location"
-                    label="Location"
-                    placeholder="e.g., London, UK or Remote"
-                    Icon={MapPin}
-                  />
-                </motion.div>
+        <div className="flex-1 p-6 sm:p-8 bg-white bg-opacity-90 backdrop-blur-sm rounded-r-2xl">
+          <h1 className="text-3xl font-bold text-[#212121] mb-6">Complete Your Talent Profile</h1>
+          <FormProvider {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {steps[currentStep].fields.includes("profilePicture") && (
+                <ProfilePictureField
+                  control={form.control}
+                  name="profilePicture"
+                  label="Profile Picture"
+                  currentProfilePicture={currentProfilePicture}
+                  setCurrentProfilePicture={setCurrentProfilePicture}
+                  isUploading={isUploading}
+                  setIsUploading={setIsUploading}
+                />
               )}
-              {currentStep === 1 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="space-y-5"
-                >
-                  <ArrayField
-                    control={form.control}
-                    name="skills"
-                    label="Skills"
-                    placeholder="e.g., React, UI/UX Design, Copywriting (press comma or enter to add)"
-                    Icon={Code}
-                  />
-                  <PortfolioSection
-                    portfolioItems={portfolioItems}
-                    setPortfolioItems={setPortfolioItems}
-                    form={form}
-                    isUploading={isUploading}
-                    setIsUploading={setIsUploading}
-                  />
-                </motion.div>
+              {steps[currentStep].fields.includes("bio") && (
+                <TextField
+                  control={form.control}
+                  name="bio"
+                  label="Bio"
+                  placeholder="Tell us about yourself"
+                  Icon={User}
+                />
               )}
-              {currentStep === 2 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="space-y-5"
-                >
-                  <RatePlanSection
-                    ratePlans={ratePlans}
-                    setRatePlans={setRatePlans}
-                    form={form}
-                  />
-                  <TextareaField
-                    control={form.control}
-                    name="aboutThisGig"
-                    label="About This Gig"
-                    placeholder="Provide a detailed description of the services you offer in your gig."
-                    Icon={Briefcase}
-                  />
-                  <ArrayField
-                    control={form.control}
-                    name="whatIOffer"
-                    label="What I Offer"
-                    placeholder="e.g., Custom Website Design, SEO Optimization, Content Writing (press comma or enter to add)"
-                    Icon={Star}
-                  />
-                </motion.div>
+              {steps[currentStep].fields.includes("location") && (
+                <TextField
+                  control={form.control}
+                  name="location"
+                  label="Location"
+                  placeholder="Your city or country"
+                  Icon={MapPin}
+                />
               )}
-              {currentStep === 3 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="space-y-5"
-                >
-                  <SocialLinkSection
-                    socialLinks={socialLinks}
-                    setSocialLinks={setSocialLinks}
-                    form={form}
-                  />
-                  <ArrayField
-                    control={form.control}
-                    name="languageProficiency"
-                    label="Language Proficiency"
-                    placeholder="e.g., English (Fluent), Spanish (Conversational) (press comma or enter to add)"
-                    Icon={Globe}
-                  />
-                </motion.div>
+              {steps[currentStep].fields.includes("category") && (
+                <SelectField
+                  control={form.control}
+                  name="category"
+                  label="Category"
+                  placeholder="Select your category"
+                  options={categories}
+                  Icon={Briefcase}
+                />
               )}
-              <div className="flex justify-between items-center mt-6">
+              {steps[currentStep].fields.includes("services") && (
+                <MultiSelect
+                  control={form.control}
+                  name="services"
+                  label="Services"
+                  placeholder="Select services"
+                  options={
+                    form.watch("category") &&
+                    servicesByCategory[form.watch("category") as keyof typeof servicesByCategory]
+                      ? servicesByCategory[
+                          form.watch("category") as keyof typeof servicesByCategory
+                        ].map((service: string) => ({
+                          value: service,
+                          label: service,
+                        }))
+                      : []
+                  }
+                  Icon={Star}
+                />
+              )}
+              {steps[currentStep].fields.includes("skills") && (
+                <ArrayField
+                  control={form.control}
+                  name="skills"
+                  label="Skills"
+                  placeholder="Add your skills (e.g., React, Node.js)"
+                  Icon={Star}
+                />
+              )}
+              {steps[currentStep].fields.includes("portfolio") && (
+                <PortfolioSection
+                  portfolioItems={portfolioItems}
+                  setPortfolioItems={setPortfolioItems}
+                  form={form}
+                  isUploading={isUploading}
+                  setIsUploading={setIsUploading}
+                />
+              )}
+              {steps[currentStep].fields.includes("ratePlans") && (
+                <RatePlanSection
+                  ratePlans={ratePlans}
+                  setRatePlans={setRatePlans}
+                  form={form}
+                />
+              )}
+              {steps[currentStep].fields.includes("aboutThisGig") && (
+                <TextareaField
+                  control={form.control}
+                  name="aboutThisGig"
+                  label="About This Gig"
+                  placeholder="Describe what you offer in your gig"
+                  Icon={Book}
+                />
+              )}
+              {steps[currentStep].fields.includes("whatIOffer") && (
+                <ArrayField
+                  control={form.control}
+                  name="whatIOffer"
+                  label="What I Offer"
+                  placeholder="Add what you offer (e.g., Custom websites, SEO)"
+                  Icon={Star}
+                />
+              )}
+              {steps[currentStep].fields.includes("socialLinks") && (
+                <SocialLinkSection
+                  socialLinks={socialLinks}
+                  setSocialLinks={setSocialLinks}
+                  form={form}
+                />
+              )}
+              {steps[currentStep].fields.includes("languageProficiency") && (
+                <ArrayField
+                  control={form.control}
+                  name="languageProficiency"
+                  label="Language Proficiency"
+                  placeholder="Add languages (e.g., English, Spanish)"
+                  Icon={User}
+                />
+              )}
+              <div className="flex justify-between mt-8">
                 {currentStep > 0 && (
                   <Button
                     type="button"
                     onClick={handlePreviousStep}
-                    className="bg-[#757575] hover:bg-[#616161] text-white font-semibold py-2.5 px-6 rounded-lg shadow-md transition-all duration-300 flex items-center"
+                    className="bg-[#757575] hover:bg-[#616161] text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300"
                   >
-                    <ArrowLeft className="h-5 w-5 mr-2" /> Previous
+                    Previous
                   </Button>
                 )}
-                {currentStep < fieldGroups.length - 1 && (
-                  <Button
-                    type="button"
-                    onClick={handleNextStep}
-                    className={`ml-auto text-white font-semibold py-2.5 px-6 rounded-lg shadow-md transition-all duration-300 flex items-center ${nextButtonBgHover}`}
-                  >
-                    Next <ArrowRight className="h-5 w-5 ml-2" />
-                  </Button>
-                )}
-                {currentStep === fieldGroups.length - 1 && (
-                  <Button
-                    type="submit"
-                    className={`w-[60%] text-white font-semibold py-3 rounded-lg shadow-lg transition-all duration-300 disabled:bg-[#757575] disabled:cursor-not-allowed text-md ${submitButtonBgHover} ${submitButtonFocusRing}`}
-                    disabled={form.formState.isSubmitting}
-                  >
-                    {form.formState.isSubmitting ? (
-                      <span className="flex items-center justify-center">
-                        <Loader className="animate-spin mr-2 h-5 w-5" />
-                        Saving Profile...
-                      </span>
-                    ) : (
-                      "Save My SkillConnect Profile"
-                    )}
-                  </Button>
-                )}
+                <Button
+                  type="button" // Changed to type="button" to control submission manually
+                  onClick={async () => {
+                    if (currentStep < steps.length - 1) {
+                      await handleNextStep();
+                    } else {
+                      // If it's the last step, trigger form submission through React Hook Form's handleSubmit
+                      await form.handleSubmit(onSubmit)();
+                    }
+                  }}
+                  className="bg-[#8DBCC7] hover:bg-[#90D1CA] text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 ml-auto"
+                  disabled={isUploading}
+                >
+                  {currentStep < steps.length - 1 ? "Next" : "Save Profile"}
+                </Button>
               </div>
             </form>
-          </Form>
-          <div className="mt-6 text-center">
-            <p className="text-[#757575] text-sm">
-              Decide later?{" "}
-              <a
-                href="/dashboard"
-                className={`font-semibold transition-colors duration-200 ${dashboardLinkColor}`}
-              >
-                Go to Dashboard
-              </a>
-            </p>
-          </div>
+          </FormProvider>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

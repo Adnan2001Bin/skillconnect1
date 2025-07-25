@@ -6,35 +6,6 @@ import UserModel, { IPortfolioItem, IRatePlan, IUser } from "@/models/user.model
 import { z } from "zod";
 import { userProfileSchema, talentProfileSchema } from "@/schemas/profileSchema";
 
-
-interface IUserModelSchema {
-  userName: string;
-  email: string;
-  password: string;
-  profilePicture?: string | null;
-  bio?: string | null;
-  location?: string | null;
-  industry?: string | null;
-  preferences?: string[];
-  role: "user" | "talent" | "admin";
-  skills?: string[];
-  portfolio?: IPortfolioItem[];
-  ratePlans?: IRatePlan[];
-  aboutThisGig?: string | null;
-  whatIOffer?: string[];
-  education?: string[];
-  experience?: string[];
-  socialLinks?: { platform: string; url: string }[];
-  languageProficiency?: string[];
-  verificationCode: string;
-  verificationCodeExpires: Date;
-  isVerified: boolean;
-  resetPasswordToken?: string | null;
-  resetPasswordExpires?: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 interface ProfileResponse {
   success: boolean;
   message: string;
@@ -46,15 +17,16 @@ interface ProfileResponse {
     industry?: string | null;
     preferences?: string[];
     skills?: string[];
-    portfolio?: { title: string; description: string; imageUrl?: string | null; projectUrl?: string | null }[]; // Updated to allow null
+    portfolio?: { title: string; description: string; imageUrl?: string | null; projectUrl?: string | null }[];
     ratePlans?: { type: string; price: number; description: string; whatsIncluded: string[]; deliveryDays: number }[];
     aboutThisGig?: string | null;
     whatIOffer?: string[];
     socialLinks?: { platform: string; url: string }[];
     languageProficiency?: string[];
+    category?: string;
+    services?: string[];
   };
 }
-
 
 export async function GET(request: NextRequest): Promise<NextResponse<ProfileResponse>> {
   await connectDB();
@@ -69,7 +41,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ProfileRes
     }
 
     const user = await UserModel.findOne({ email: session.user.email }).select(
-      "userName profilePicture bio location industry preferences skills portfolio ratePlans aboutThisGig whatIOffer socialLinks languageProficiency"
+      "userName profilePicture bio location industry preferences skills portfolio ratePlans aboutThisGig whatIOffer socialLinks languageProficiency category services"
     );
     if (!user) {
       return NextResponse.json(
@@ -96,6 +68,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<ProfileRes
           whatIOffer: user.whatIOffer,
           socialLinks: user.socialLinks,
           languageProficiency: user.languageProficiency,
+          category: user.category,
+          services: user.services,
         },
       },
       { status: 200 }
@@ -126,7 +100,6 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ProfileR
     const isTalent = session.user.role === "talent";
     const schema = isTalent ? talentProfileSchema : userProfileSchema;
 
-    // Use a try-catch block for Zod parsing to catch validation errors
     let parsedData;
     try {
       parsedData = schema.parse(body);
@@ -140,7 +113,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ProfileR
           { status: 400 }
         );
       }
-      throw validationError; // Re-throw if it's not a Zod error
+      throw validationError;
     }
 
     const user = await UserModel.findOne({ email: session.user.email });
@@ -151,8 +124,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ProfileR
       );
     }
 
-    const updateData: Partial<IUser> = {}; // Use the extended IUserModelSchema for better type safety
-
+    const updateData: Partial<IUser> = {};
 
     if ("profilePicture" in parsedData && parsedData.profilePicture !== undefined) updateData.profilePicture = parsedData.profilePicture;
     if ("bio" in parsedData && parsedData.bio !== undefined) updateData.bio = parsedData.bio;
@@ -174,9 +146,9 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ProfileR
       if (talentData.ratePlans !== undefined) updateData.ratePlans = talentData.ratePlans;
       if (talentData.aboutThisGig !== undefined) updateData.aboutThisGig = talentData.aboutThisGig;
       if (talentData.whatIOffer !== undefined) updateData.whatIOffer = talentData.whatIOffer;
-      if (talentData.socialLinks !== undefined) updateData.socialLinks = talentData.socialLinks; // Moved inside talent-specific block
-      if (talentData.education !== undefined) updateData.education = talentData.education; // Assuming these are talent-specific
-      if (talentData.experience !== undefined) updateData.experience = talentData.experience; // Assuming these are talent-specific
+      if (talentData.socialLinks !== undefined) updateData.socialLinks = talentData.socialLinks;
+      if (talentData.category !== undefined) updateData.category = talentData.category;
+      if (talentData.services !== undefined) updateData.services = talentData.services;
     }
 
     await UserModel.updateOne(

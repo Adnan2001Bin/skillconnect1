@@ -66,7 +66,7 @@ export default function TalentNavbar() {
               alt="Profile Picture"
               width={49}
               height={32}
-              className="rounded-full object-cover border-2 border-[#FF9B2F] h-[3rem] w-[3rem]" // Added w-[3rem] to maintain aspect ratio
+              className="rounded-full object-cover border-2 border-[#A4CCD9] h-[3rem] w-[3rem]" // Added w-[3rem] to maintain aspect ratio
             />
           ) : (
             <div className="w-12 h-12 rounded-full bg-[#A5D6A7] flex items-center justify-center border-2 border-[#4CAF50]">
@@ -78,7 +78,7 @@ export default function TalentNavbar() {
         </div>
         <Button
           onClick={handleSignOut}
-          className="bg-[#FF9B2F] hover:bg-[#FFBC4C] text-white font-semibold py-2 px-3 sm:px-4 rounded-lg transition-all duration-300 flex items-center"
+          className="bg-[#8DBCC7] hover:bg-[#A4CCD9] text-white font-semibold py-2 px-3 sm:px-4 rounded-lg transition-all duration-300 flex items-center"
         >
           <LogOut className="h-5 w-5 mr-1 sm:mr-2" />
           <span className="hidden sm:inline">Sign Out</span>

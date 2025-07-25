@@ -1,4 +1,6 @@
+
 "use client";
+import { categories } from "@/lib/categoriesAndServices";
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -11,8 +13,6 @@ import {
   Loader2 as Loader,
   Edit,
   MapPin,
-  Briefcase,
-  GraduationCap,
   Link2,
   Languages,
   Star,
@@ -22,11 +22,14 @@ import {
   Info,
   Package,
   CalendarDays,
+  Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Images } from "@/lib/images"; // Assuming you have this for your background image and logo
+import { Images } from "@/lib/images";
 
-// Define the interface for talent profile data
+// Your categories and servicesByCategory imports should be at the top of the file
+// as they are already in the code you provided, which is correct.
+
 interface TalentProfileInput {
   profilePicture?: string | null;
   bio?: string | null;
@@ -47,24 +50,22 @@ interface TalentProfileInput {
   }[];
   aboutThisGig?: string | null;
   whatIOffer?: string[];
-  education?: string[];
-  experience?: string[];
   socialLinks?: { platform: string; url: string }[];
   languageProficiency?: string[];
+  category?: string;
+  services?: string[];
 }
 
 export default function TalentProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [profileData, setProfileData] = useState<TalentProfileInput | null>(
-    null
-  );
+  const [profileData, setProfileData] = useState<TalentProfileInput | null>(null);
 
   // Define new color variables
-  const primaryColor = "#8DBCC7"; // New primary color
-  const secondaryColor = "#A4CCD9"; // New secondary color
-  const accentColor = "#90D1CA"; // New accent color
-  const lightAccentColor = "#C4E1E6"; // New light accent color
+  const primaryColor = "#8DBCC7";
+  const secondaryColor = "#A4CCD9";
+  const accentColor = "#90D1CA";
+  const lightAccentColor = "#C4E1E6";
   const darkTextColor = "#212121";
   const grayTextColor = "#757575";
 
@@ -80,8 +81,7 @@ export default function TalentProfilePage() {
           console.error("Error fetching profile:", error);
           toast.error("Error fetching profile", {
             description: "Failed to load profile data. Please try again.",
-            className:
-              "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80", // Keep error toast red
+            className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
             duration: 4000,
           });
         }
@@ -89,6 +89,13 @@ export default function TalentProfilePage() {
       fetchProfile();
     }
   }, [status, session]);
+
+  // Helper function to get the category label
+  const getCategoryLabel = (categoryValue: string | null | undefined) => {
+    if (!categoryValue) return "";
+    const foundCategory = categories.find(cat => cat.value === categoryValue);
+    return foundCategory ? foundCategory.label : categoryValue; // Fallback to value if not found
+  };
 
   if (status === "loading") {
     return (
@@ -125,15 +132,11 @@ export default function TalentProfilePage() {
         backgroundRepeat: "no-repeat",
       }}
     >
-      {/* Gradient Overlay Div */}
-      <div className="absolute inset-0 z-0 "></div> {/* Keep gray gradient for now, as no specific gradient colors were provided */}
+      <div className="absolute inset-0 z-0"></div>
 
-      {/* Profile Content */}
       <div className="relative z-10 p-6 lg:p-10 flex flex-col lg:flex-row gap-8">
-        {/* Left Part: Profile Card */}
         <div className="w-full lg:w-1/3 flex-shrink-0">
           <div className="bg-transparent rounded-lg shadow-gray-600 shadow-lg p-6 pb-8 border text-center relative pt-20 Card" style={{ borderColor: secondaryColor }}>
-            {/* Profile Picture */}
             <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
               {profileData?.profilePicture ? (
                 <Image
@@ -154,12 +157,11 @@ export default function TalentProfilePage() {
             <h1 className="mt-6 text-3xl font-bold text-gray-800">
               {session?.user?.userName || "Talent Name"}
             </h1>
-            {profileData?.bio && (
-              <p className="text-gray-600 text-lg mt-2 font-medium leading-relaxed">
-                {profileData.bio}
+            {profileData?.category && (
+              <p className="text-lg mt-2 font-medium" style={{ color: grayTextColor }}>
+                {getCategoryLabel(profileData.category)} {/* Applied the fix here */}
               </p>
             )}
-
             {profileData?.location && (
               <p className="text-md mt-3 flex items-center justify-center" style={{ color: grayTextColor }}>
                 <MapPin className="h-5 w-5 mr-2" style={{ color: primaryColor }} />
@@ -169,56 +171,52 @@ export default function TalentProfilePage() {
 
             <hr className="my-6 border-t border-gray-200" />
 
-            {/* Social Links */}
-            {profileData?.socialLinks &&
-              profileData.socialLinks.length > 0 && (
-                <div className="text-left mb-6">
-                  <h4 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
-                    <Link2 className="h-5 w-5 mr-2" style={{ color: primaryColor }} />
-                    Social Links
-                  </h4>
-                  <div className="flex flex-wrap gap-3">
-                    {profileData.socialLinks.map((link, index) => (
-                      <a
-                        key={index}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-white px-4 py-2 rounded-full transition-colors duration-200 text-sm font-medium shadow-sm"
-                        style={{ backgroundColor: secondaryColor, transitionProperty: "background-color", transitionDuration: "200ms" }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = accentColor}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = secondaryColor}
-                      >
-                        {link.platform}
-                      </a>
-                    ))}
-                  </div>
+            {profileData?.socialLinks && profileData.socialLinks.length > 0 && (
+              <div className="text-left mb-6">
+                <h4 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
+                  <Link2 className="h-5 w-5 mr-2" style={{ color: primaryColor }} />
+                  Social Links
+                </h4>
+                <div className="flex flex-wrap gap-3">
+                  {profileData.socialLinks.map((link, index) => (
+                    <a
+                      key={index}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-white px-4 py-2 rounded-full transition-colors duration-200 text-sm font-medium shadow-sm"
+                      style={{ backgroundColor: secondaryColor, transitionProperty: "background-color", transitionDuration: "200ms" }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = accentColor}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = secondaryColor}
+                    >
+                      {link.platform}
+                    </a>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
-            {/* Language Proficiency */}
-            {profileData?.languageProficiency &&
-              profileData.languageProficiency.length > 0 && (
-                <div className="text-left mb-6">
-                  <h4 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
-                    <Languages className="h-5 w-5 mr-2" style={{ color: primaryColor }} />
-                    Languages
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {profileData.languageProficiency.map((lang, index) => (
-                      <Badge
-                        key={index}
-                        className="text-gray-800 px-3 py-1.5 rounded-full text-sm font-medium shadow-sm"
-                        style={{ backgroundColor: lightAccentColor, transitionProperty: "background-color", transitionDuration: "200ms" }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = secondaryColor}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = lightAccentColor}
-                      >
-                        {lang}
-                      </Badge>
-                    ))}
-                  </div>
+            {profileData?.languageProficiency && profileData.languageProficiency.length > 0 && (
+              <div className="text-left mb-6">
+                <h4 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
+                  <Languages className="h-5 w-5 mr-2" style={{ color: primaryColor }} />
+                  Languages
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {profileData.languageProficiency.map((lang, index) => (
+                    <Badge
+                      key={index}
+                      className="text-gray-800 px-3 py-1.5 rounded-full text-sm font-medium shadow-sm"
+                      style={{ backgroundColor: lightAccentColor, transitionProperty: "background-color", transitionDuration: "200ms" }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = secondaryColor}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = lightAccentColor}
+                    >
+                      {lang}
+                    </Badge>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
             <div className="mt-8">
               <Button
@@ -235,9 +233,39 @@ export default function TalentProfilePage() {
           </div>
         </div>
 
-        {/* Right Part: Skills, Portfolio, Rate Plans, Gig Info */}
         <div className="w-full lg:w-2/3 space-y-8">
-          {/* Skills Section */}
+          {profileData?.category && (
+            <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
+              <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <Briefcase className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
+                Category
+              </h3>
+              <p className="text-gray-700 leading-relaxed text-lg">{getCategoryLabel(profileData.category)}</p> {/* Applied the fix here */}
+            </div>
+          )}
+
+          {profileData?.services && profileData.services.length > 0 && (
+            <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
+              <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <Star className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
+                Services
+              </h3>
+              <div className="flex flex-wrap gap-3">
+                {profileData.services.map((service, index) => (
+                  <Badge
+                    key={index}
+                    className="text-gray-800 px-4 py-2 rounded-full text-base font-medium shadow-sm"
+                    style={{ backgroundColor: lightAccentColor, transitionProperty: "background-color", transitionDuration: "200ms" }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = secondaryColor}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = lightAccentColor}
+                  >
+                    {service}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
           {profileData?.skills && profileData.skills.length > 0 && (
             <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
               <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
@@ -260,20 +288,16 @@ export default function TalentProfilePage() {
             </div>
           )}
 
-          {/* About This Gig */}
           {profileData?.aboutThisGig && (
             <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
               <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
                 <Info className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
                 About This Gig
               </h3>
-              <p className="text-gray-700 leading-relaxed text-lg">
-                {profileData.aboutThisGig}
-              </p>
+              <p className="text-gray-700 leading-relaxed text-lg">{profileData.aboutThisGig}</p>
             </div>
           )}
 
-          {/* What I Offer */}
           {profileData?.whatIOffer && profileData.whatIOffer.length > 0 && (
             <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
               <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
@@ -283,7 +307,7 @@ export default function TalentProfilePage() {
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6 text-gray-700">
                 {profileData.whatIOffer.map((item, index) => (
                   <li key={index} className="flex items-center">
-                    <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" /> {/* Keep green for checkmark for readability */}
+                    <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
                     <span>{item}</span>
                   </li>
                 ))}
@@ -291,7 +315,6 @@ export default function TalentProfilePage() {
             </div>
           )}
 
-          {/* Rate Plans Section */}
           {profileData?.ratePlans && profileData.ratePlans.length > 0 && (
             <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
               <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -303,22 +326,18 @@ export default function TalentProfilePage() {
                   <div
                     key={index}
                     className="border rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col justify-between h-full"
-                    style={{ borderColor: accentColor, background: `linear-gradient(to bottom right, ${lightAccentColor}10, ${secondaryColor}10)` }} // Subtle gradient
+                    style={{ borderColor: accentColor, background: `linear-gradient(to bottom right, ${lightAccentColor}10, ${secondaryColor}10)` }}
                   >
                     <div>
                       <h4 className="text-xl font-bold mb-2" style={{ color: primaryColor }}>
                         {plan.type}
                       </h4>
-                      <p className="text-3xl font-extrabold text-gray-900 mb-3">
-                        ${plan.price}
-                      </p>
-                      <p className="text-gray-600 mb-4 text-sm">
-                        {plan.description}
-                      </p>
+                      <p className="text-3xl font-extrabold text-gray-900 mb-3">${plan.price}</p>
+                      <p className="text-gray-600 mb-4 text-sm">{plan.description}</p>
                       <ul className="text-gray-700 space-y-1 mb-4 text-sm">
                         {plan.whatsIncluded.map((item, i) => (
                           <li key={i} className="flex items-center">
-                            <Check className="h-4 w-4 text-green-600 mr-2 flex-shrink-0" /> {/* Keep green for checkmark for readability */}
+                            <Check className="h-4 w-4 text-green-600 mr-2 flex-shrink-0" />
                             <span>{item}</span>
                           </li>
                         ))}
@@ -334,7 +353,6 @@ export default function TalentProfilePage() {
             </div>
           )}
 
-          {/* Portfolio Section */}
           {profileData?.portfolio && profileData.portfolio.length > 0 && (
             <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
               <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
@@ -360,12 +378,8 @@ export default function TalentProfilePage() {
                       </div>
                     )}
                     <div className="p-4">
-                      <h4 className="text-xl font-semibold text-gray-800 mb-2">
-                        {project.title}
-                      </h4>
-                      <p className="text-gray-600 text-sm mb-3">
-                        {project.description}
-                      </p>
+                      <h4 className="text-xl font-semibold text-gray-800 mb-2">{project.title}</h4>
+                      <p className="text-gray-600 text-sm mb-3">{project.description}</p>
                       {project.projectUrl && (
                         <a
                           href={project.projectUrl}
@@ -386,12 +400,10 @@ export default function TalentProfilePage() {
             </div>
           )}
 
-          {/* No Profile Data Message */}
           {!profileData && (
             <div className="text-center py-10 rounded-lg shadow-inner border border-dashed" style={{ backgroundColor: lightAccentColor, borderColor: primaryColor }}>
               <p className="text-lg" style={{ color: grayTextColor }}>
-                No detailed profile data available yet. <br /> Click "Edit
-                Profile" to set up your comprehensive profile.
+                No detailed profile data available yet. <br /> Click "Edit Profile" to set up your comprehensive profile.
               </p>
             </div>
           )}
