@@ -1,4 +1,4 @@
-import logo from "../../public/logo/logo.png";
+import logoUser from "../../public/logo/logo3.png";
 import logoTalent from "../../public/logo/logo4.png";
 import logoauth from "../../public/logo/logo3.png";
 import workspaceBackground from "../../public/backgrounds/StockCake-Modern Office Life_1752923098.jpg";
@@ -6,7 +6,7 @@ import talentProfileBackground from "../../public/backgrounds/3514723.jpg";
 
 // Centralized image exports for use across the SkillConnect platform
 export const Images = {
-  logo,
+  logoUser,
   logoauth,
   logoTalent,
   talentProfileBackground,
