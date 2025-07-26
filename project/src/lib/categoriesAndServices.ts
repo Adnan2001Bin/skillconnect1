@@ -1,12 +1,21 @@
+import c_icon1 from "../../public/Catagories/programing.png";
+import c_icon2 from "../../public/Catagories/Graphics & Design.png";
+import c_icon3 from "../../public/Catagories/Digital Marketing.png";
+import c_icon4 from "../../public/Catagories/Video & Animation.png";
+import c_icon5 from "../../public/Catagories/AI Services.png";
+import c_icon6 from "../../public/Catagories/Business.png";
+import c_icon7 from "../../public/Catagories/Writing & Translation.png";
+import c_icon8 from "../../public/Catagories/Consulting.png";
+
 export const categories = [
-  { value: "programming_tech", label: "Programming & Tech" },
-  { value: "graphics_design", label: "Graphics & Design" },
-  { value: "digital_marketing", label: "Digital Marketing" },
-  { value: "video_animation", label: "Video & Animation" },
-  { value: "ai_services", label: "AI Services" },
-  { value: "business", label: "Business" },
-  { value: "writing_translation", label: "Writing & Translation" },
-  { value: "consulting", label: "Consulting" },
+  { value: "programming_tech", label: "Programming & Tech",icon: c_icon1 },
+  { value: "graphics_design", label: "Graphics & Design" ,icon: c_icon2},
+  { value: "digital_marketing", label: "Digital Marketing" ,icon: c_icon3},
+  { value: "video_animation", label: "Video & Animation" ,icon: c_icon4},
+  { value: "ai_services", label: "AI Services" ,icon: c_icon5},
+  { value: "business", label: "Business" ,icon: c_icon6},
+  { value: "writing_translation", label: "Writing & Translation" ,icon: c_icon7},
+  { value: "consulting", label: "Consulting" ,icon: c_icon8},
 ];
 
 export const servicesByCategory: { [key: string]: string[] } = {
