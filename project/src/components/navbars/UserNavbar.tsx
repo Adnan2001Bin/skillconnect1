@@ -5,11 +5,10 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, Search, Bell, User, ChevronDown } from "lucide-react"; // Import ChevronDown
+import { Menu, X, Search, Bell, User, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Images } from "@/lib/images";
-// Assuming UserProfileInput can have profilePicture. If not, adjust or import correct schema.
 import { UserProfileInput } from "@/schemas/profileSchema"; 
 import axios from "axios";
 import { toast } from "sonner";
