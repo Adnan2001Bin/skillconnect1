@@ -7,6 +7,16 @@ import c_icon6 from "../../public/Catagories/Business.png";
 import c_icon7 from "../../public/Catagories/Writing & Translation.png";
 import c_icon8 from "../../public/Catagories/Consulting.png";
 
+
+import p_icon1 from "../../public/popular-services/19362653.jpg";
+import p_icon2 from "../../public/popular-services/2176762.jpg";
+import p_icon3 from "../../public/popular-services/3405349.jpg";
+import p_icon4 from "../../public/popular-services/24559.jpg";
+import p_icon5 from "../../public/popular-services/19198406.jpg";
+import p_icon6 from "../../public/popular-services/8852115.jpg";
+
+
+
 export const categories = [
   { value: "programming_tech", label: "Programming & Tech",icon: c_icon1 },
   { value: "graphics_design", label: "Graphics & Design" ,icon: c_icon2},
@@ -16,6 +26,45 @@ export const categories = [
   { value: "business", label: "Business" ,icon: c_icon6},
   { value: "writing_translation", label: "Writing & Translation" ,icon: c_icon7},
   { value: "consulting", label: "Consulting" ,icon: c_icon8},
+];
+
+export const popularServices = [
+  {
+    id: "1",
+    title: "Web application development",
+    icon: p_icon1,
+    category: "Programming & Tech", 
+  },
+  {
+    id: "2",
+    title: "Logo Design",
+    icon: p_icon2,
+    category: "Graphics & Design",
+  },
+  {
+    id: "3",
+    title: "E-Commerce Marketing",
+    icon: p_icon3,
+    category: "Digital Marketing",
+  },
+  {
+    id: "4",
+    title: "3D animation",
+    icon: p_icon4,
+    category: "Video & Animation",
+  },
+  {
+    id: "5",
+    title: "AI model training and optimization",
+    icon: p_icon5,
+    category: "AI Services",
+  },
+  {
+    id: "6",
+    title: "Article writing",
+    icon: p_icon6,
+    category: "writing_translation",
+  },
 ];
 
 export const servicesByCategory: { [key: string]: string[] } = {
@@ -86,6 +135,7 @@ export const servicesByCategory: { [key: string]: string[] } = {
     "On-page SEO",
     "Off-page SEO (link building)",
     "Technical SEO",
+    "E-Commerce Marketing",
     "Keyword research",
     "Social media management (Facebook, Instagram, Twitter, LinkedIn)",
     "Ad campaign setup (Facebook Ads, Instagram Ads)",

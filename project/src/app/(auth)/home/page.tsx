@@ -2,6 +2,7 @@
 
 import Banner from "@/components/userView/banner";
 import Categories from "@/components/userView/Catagories";
+import PopularServices from "@/components/userView/PopularServices";
 
 
 function page() {
@@ -9,6 +10,7 @@ function page() {
     <div>
       <Banner />
       <Categories />
+      <PopularServices />
     </div>
   )
 }
