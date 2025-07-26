@@ -9,7 +9,13 @@ export default function Wrapper({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
 
   const renderContent = () => {
-    if (status !== "authenticated") return children;
+    if (status !== "authenticated")
+      return (
+        <>
+          <UserNavbar />
+          <main>{children}</main>
+        </>
+      );
     switch (session?.user?.role) {
       case "admin":
         return (
@@ -19,8 +25,7 @@ export default function Wrapper({ children }: { children: React.ReactNode }) {
           </>
         );
       case "talent":
-        return <TalentLayout>
-          {children}</TalentLayout>;
+        return <TalentLayout>{children}</TalentLayout>;
       case "user":
         return (
           <>

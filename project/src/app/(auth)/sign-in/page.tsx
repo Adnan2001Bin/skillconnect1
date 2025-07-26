@@ -92,110 +92,114 @@ export default function SignInPage() {
   };
 
   const onSubmit = async (data: z.infer<typeof signInSchema>) => {
-  const result = await signIn("credentials", {
-    redirect: false,
-    email: data.email,
-    password: data.password,
-  });
+    const result = await signIn("credentials", {
+      redirect: false,
+      email: data.email,
+      password: data.password,
+    });
 
-  if (result?.error) {
-    if (result.error === "CredentialsSignin") {
-      toast.error("Login Failed", {
-        description: "Incorrect email or password. Please try again.",
-        className:
-          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-        duration: 4000,
-      });
-    } else {
-      toast.error("Login Error", {
-        description: result.error,
-        className:
-          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-        duration: 4000,
-      });
+    if (result?.error) {
+      if (result.error === "CredentialsSignin") {
+        toast.error("Login Failed", {
+          description: "Incorrect email or password. Please try again.",
+          className:
+            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          duration: 4000,
+        });
+      } else {
+        toast.error("Login Error", {
+          description: result.error,
+          className:
+            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          duration: 4000,
+        });
+      }
+      return;
     }
-    return;
-  }
 
-  // Wait for session to update
-  const checkSession = async () => {
-    return new Promise<void>((resolve) => {
-      const interval = setInterval(() => {
-        if (status === "authenticated" && session) {
-          clearInterval(interval);
-          resolve();
+    // Wait for session to update
+    const checkSession = async () => {
+      return new Promise<void>((resolve) => {
+        const interval = setInterval(() => {
+          if (status === "authenticated" && session) {
+            clearInterval(interval);
+            resolve();
+          }
+        }, 100);
+      });
+    };
+
+    await checkSession();
+
+    try {
+      console.log(session, "session"); // Session should now be available
+      const response = await axios.get("/api/profile");
+      const profile = response.data.data;
+      let isProfileComplete = false;
+
+      if (session?.user?.role === "user") {
+        isProfileComplete =
+          profile &&
+          profile.profilePicture &&
+          profile.bio &&
+          profile.location &&
+          profile.industry &&
+          profile.preferences?.length &&
+          profile.languageProficiency?.length;
+      } else if (session?.user?.role === "talent") {
+        isProfileComplete =
+          profile &&
+          profile.profilePicture &&
+          profile.bio &&
+          profile.location &&
+          profile.skills?.length &&
+          profile.portfolio?.length &&
+          profile.ratePlans?.length &&
+          profile.aboutThisGig &&
+          profile.whatIOffer?.length &&
+          profile.socialLinks?.length &&
+          profile.languageProficiency?.length;
+      }
+
+      toast.success("Success", {
+        description: "Logged in successfully! Redirecting...",
+        className:
+          "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
+        duration: 2000,
+      });
+
+      setTimeout(() => {
+        if (session?.user?.role === "admin") {
+          router.replace("/admin/dashboard");
+        } else if (!isProfileComplete) {
+          router.replace(
+            session?.user?.role === "user"
+              ? "/profile/complete"
+              : "/talent/complete/profile"
+          );
+        } else {
+          router.replace("/");
         }
-      }, 100);
-    });
-  };
-
-  await checkSession();
-
-  try {
-    console.log(session, "session"); // Session should now be available
-    const response = await axios.get("/api/profile");
-    const profile = response.data.data;
-    let isProfileComplete = false;
-
-    if (session?.user?.role === "user") {
-      isProfileComplete =
-        profile &&
-        profile.profilePicture &&
-        profile.bio &&
-        profile.location &&
-        profile.industry &&
-        profile.preferences?.length &&
-        profile.languageProficiency?.length;
-    } else if (session?.user?.role === "talent") {
-      isProfileComplete =
-        profile &&
-        profile.profilePicture &&
-        profile.bio &&
-        profile.location &&
-        profile.skills?.length &&
-        profile.portfolio?.length &&
-        profile.ratePlans?.length &&
-        profile.aboutThisGig &&
-        profile.whatIOffer?.length &&
-        profile.socialLinks?.length &&
-        profile.languageProficiency?.length;
-    }
-
-    toast.success("Success", {
-      description: "Logged in successfully! Redirecting...",
-      className:
-        "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
-      duration: 2000,
-    });
-
-    setTimeout(() => {
-      if (!isProfileComplete) {
+      }, 2000);
+    } catch (error) {
+      toast.error("Error", {
+        description:
+          "Failed to check profile status. Redirecting to profile completion.",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+      setTimeout(() => {
         router.replace(
-          session?.user?.role === "user"
+          session?.user?.role === "admin"
+            ? "/admin/dashboard"
+            : session?.user?.role === "user"
             ? "/profile/complete"
             : "/talent/complete/profile"
         );
-      } else {
-        router.replace("/");
-      }
-    }, 2000);
-  } catch (error) {
-    toast.error("Error", {
-      description:
-        "Failed to check profile status. Redirecting to profile completion.",
-      className:
-        "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-      duration: 4000,
-    });
-    setTimeout(() => {
-      router.replace(
-        session?.user?.role === "user"
-          ? "/profile/complete"
-          : "/talent/complete/profile"
-      );
-    }, 2000);
-  }
-};
+      }, 2000);
+    }
+  };
   if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F1F8E9]">
@@ -236,7 +240,9 @@ export default function SignInPage() {
         }
 
         router.replace(
-          isProfileComplete
+          session?.user?.role === "admin"
+            ? "/admin/dashboard"
+            : isProfileComplete
             ? "/dashboard"
             : session?.user?.role === "user"
             ? "/profile/complete"
@@ -244,7 +250,9 @@ export default function SignInPage() {
         );
       } catch (error) {
         router.replace(
-          session?.user?.role === "user"
+          session?.user?.role === "admin"
+            ? "/admin/dashboard"
+            : session?.user?.role === "user"
             ? "/profile/complete"
             : "/talent/complete/profile"
         );

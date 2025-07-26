@@ -43,7 +43,7 @@ export default function TalentNavbar() {
 
   const handleSignOut = async () => {
     await signOut({ redirect: false });
-    router.push("/login");
+    router.push("/home");
   };
 
   return (

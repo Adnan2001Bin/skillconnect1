@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -72,6 +72,11 @@ export default function Navbar() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const handleSignOut = async () => {
+      await signOut({ redirect: false });
+      router.push("/home");
+    };
 
   const isTalent = session?.user?.role === "talent";
   console.log(isTalent);
@@ -209,18 +214,18 @@ export default function Navbar() {
                     >
                       Help/Support
                     </Link>
-                    <Link
-                      href="/api/auth/signout"
+                    <div
+                      onClick={handleSignOut}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
                     >
                       Sign Out
-                    </Link>
+                    </div>
                   </div>
                 )}
               </div>
             ) : (
               <div className="flex space-x-2">
-                <Link href="/api/auth/signin">
+                <Link href="/sign-in">
                   <Button
                     variant="outline"
                     className="border-[#4CAF50] text-[#4CAF50] hover:bg-[#4CAF50] hover:text-white"
@@ -228,7 +233,7 @@ export default function Navbar() {
                     Sign In
                   </Button>
                 </Link>
-                <Link href="/api/auth/signup">
+                <Link href="/sign-up">
                   <Button className="bg-[#4CAF50] hover:bg-[#388E3C] text-white">
                     Sign Up
                   </Button>
