@@ -33,37 +33,37 @@ export const popularServices = [
     id: "1",
     title: "Web application development",
     icon: p_icon1,
-    category: "Programming & Tech", 
+    value: "programming_tech", 
   },
   {
     id: "2",
     title: "Logo Design",
     icon: p_icon2,
-    category: "Graphics & Design",
+    value: "graphics_design",
   },
   {
     id: "3",
     title: "E-Commerce Marketing",
     icon: p_icon3,
-    category: "Digital Marketing",
+    value: "digital_marketing",
   },
   {
     id: "4",
     title: "3D animation",
     icon: p_icon4,
-    category: "Video & Animation",
+    value: "video_animation",
   },
   {
     id: "5",
     title: "AI model training and optimization",
     icon: p_icon5,
-    category: "AI Services",
+    value: "ai_services",
   },
   {
     id: "6",
     title: "Article writing",
     icon: p_icon6,
-    category: "writing_translation",
+    value: "writing_translation",
   },
 ];
 

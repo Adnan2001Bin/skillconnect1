@@ -16,7 +16,7 @@ function AdminNavbar({ toggleSidebar }: { toggleSidebar: () => void }) {
     <nav className="fixed top-0 right-0 left-0 z-30 h-16 sm:h-20" style={{ backgroundColor: bgColor }}>
       <div className="flex items-center justify-between h-full px-4 sm:px-6 md:px-8">
         {/* Mobile Hamburger and Search */}
-        <div className="flex items-center w-full sm:hidden">
+        <div className="flex items-center w-full lg:hidden">
           <Button
             onClick={toggleSidebar}
             style={{ backgroundColor: secondaryDarkGray, color: "#FFFFFF" }}
@@ -31,7 +31,7 @@ function AdminNavbar({ toggleSidebar }: { toggleSidebar: () => void }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <form className="flex-1">
+          <form className="flex-1 sm:hidden">
             <div className="relative flex items-center">
               <input
                 type="text"
