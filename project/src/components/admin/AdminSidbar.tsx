@@ -75,7 +75,7 @@ export default function AdminSidebar({
       <div
         className={`${
           isOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0  w-full min-h-screen fixed top-0 left-0 z-40 lg:static transition-transform duration-300  `}
+        } lg:translate-x-0 min-h-screen fixed top-0 left-0 z-40 lg:static transition-transform duration-300  `}
         style={{ backgroundColor: primaryDarkGray }}
         role="navigation"
         aria-label="Admin Sidebar"

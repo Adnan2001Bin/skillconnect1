@@ -4,13 +4,20 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Loader2 as Loader, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import axios from "axios";
 import { categories, servicesByCategory } from "@/lib/categoriesAndServices";
 import { TalentProfileInput } from "@/schemas/profileSchema";
 import { MultiSelect } from "@/components/admin/MultiSelect"; // Ensure this import path is correct
 import TalentCard from "@/components/admin/TalentCard"; // Ensure this import path is correct
+import { Images } from "@/lib/images";
 
 interface Talent extends TalentProfileInput {
   _id: string;
@@ -53,7 +60,8 @@ export default function AdminTalentView() {
       } else {
         toast.error("Error", {
           description: "Failed to fetch talents.",
-          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          className:
+            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
       }
@@ -61,7 +69,8 @@ export default function AdminTalentView() {
       console.error("Error fetching talents:", error);
       toast.error("Error", {
         description: "An error occurred while fetching talents.",
-        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
       });
     } finally {
@@ -73,7 +82,9 @@ export default function AdminTalentView() {
     let filtered = talents;
 
     if (categoryFilter !== "all") {
-      filtered = filtered.filter((talent) => talent.category === categoryFilter);
+      filtered = filtered.filter(
+        (talent) => talent.category === categoryFilter
+      );
     }
 
     if (serviceFilters.length > 0) {
@@ -109,8 +120,14 @@ export default function AdminTalentView() {
   // Conditional rendering for loading and authentication status
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: primaryDarkGray }}>
-        <Loader className="animate-spin h-10 w-10 mr-3" style={{ color: accentColor }} />
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: primaryDarkGray }}
+      >
+        <Loader
+          className="animate-spin h-10 w-10 mr-3"
+          style={{ color: accentColor }}
+        />
         <p className="text-xl font-semibold" style={{ color: activeTextColor }}>
           Loading talent data...
         </p>
@@ -120,8 +137,13 @@ export default function AdminTalentView() {
 
   if (status !== "authenticated") {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: primaryDarkGray }}>
-        <p className="text-lg font-semibold" style={{ color: "#EF4444" }}> {/* Red color for access denied */}
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: primaryDarkGray }}
+      >
+        <p className="text-lg font-semibold" style={{ color: "#EF4444" }}>
+          {" "}
+          {/* Red color for access denied */}
           Access denied. Please sign in as an admin.
         </p>
       </div>
@@ -129,12 +151,29 @@ export default function AdminTalentView() {
   }
 
   return (
-    <div className="min-h-screen p-6 sm:p-8 md:p-10 lg:p-12" style={{ backgroundColor: primaryDarkGray }}>
-      <h1 className="text-4xl font-extrabold mb-8 text-center" style={{ color: activeTextColor }}>
+    <div
+      className="min-h-screen font-sans py-10 px-4 sm:px-6 lg:px-8 mt-17 relative max-w-7xl mx-auto shadow-xl rounded-lg overflow-hidden border border-gray-900"
+      style={{
+        backgroundImage: `url(${
+          Images.adminViewbackground ? Images.adminViewbackground.src : ""
+        })`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="absolute inset-0 z-0"></div>
+      <h1
+        className="text-4xl font-extrabold mb-8 text-center"
+        style={{ color: activeTextColor }}
+      >
         <span style={{ color: accentColor }}>Talent</span> Management Dashboard
       </h1>
 
-      <div className="mb-10 p-6 sm:p-8 rounded-xl shadow-2xl" style={{ backgroundColor: secondaryDarkGray }}>
+      <div
+        className="mb-10 p-6 sm:p-8 rounded-xl shadow-2xl"
+        style={{ backgroundColor: "rgba(58, 71, 80, 0.6)" }}
+      >
         <div className="flex items-center mb-6">
           <Filter className="h-6 w-6 mr-3" style={{ color: accentColor }} />
           <h2 className="text-2xl font-bold" style={{ color: activeTextColor }}>
@@ -159,7 +198,10 @@ export default function AdminTalentView() {
               className="bg-white text-primaryDarkGray rounded-lg shadow-lg border"
               style={{ borderColor: accentColor }}
             >
-              <SelectItem value="all" className="hover:bg-[#A4CCD9]/30 cursor-pointer p-3">
+              <SelectItem
+                value="all"
+                className="hover:bg-[#A4CCD9]/30 cursor-pointer p-3"
+              >
                 All Categories
               </SelectItem>
               {categories.map((category) => (
@@ -186,8 +228,12 @@ export default function AdminTalentView() {
           />
 
           {/* Search Input */}
-          <div className="relative col-span-1 md:col-span-2 lg:col-span-1"> {/* Adjusted span for responsiveness */}
-            <label htmlFor="search-input" className="sr-only">Search talents</label>
+          <div className="relative col-span-1 md:col-span-2 lg:col-span-1">
+            {" "}
+            {/* Adjusted span for responsiveness */}
+            <label htmlFor="search-input" className="sr-only">
+              Search talents
+            </label>
             <Input
               id="search-input"
               type="text"
@@ -209,15 +255,25 @@ export default function AdminTalentView() {
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
-          <Loader className="animate-spin h-10 w-10" style={{ color: accentColor }} />
-          <p className="ml-3 text-xl" style={{ color: neutralTextColor }}>Loading talents...</p>
+          <Loader
+            className="animate-spin h-10 w-10"
+            style={{ color: accentColor }}
+          />
+          <p className="ml-3 text-xl" style={{ color: neutralTextColor }}>
+            Loading talents...
+          </p>
         </div>
       ) : filteredTalents.length === 0 ? (
-        <p className="text-center text-xl font-medium" style={{ color: neutralTextColor }}>
+        <p
+          className="text-center text-xl font-medium"
+          style={{ color: neutralTextColor }}
+        >
           No talents found matching your criteria. Try adjusting your filters.
         </p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"> {/* Added xl grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {" "}
+          {/* Added xl grid */}
           {filteredTalents.map((talent) => (
             <TalentCard
               key={talent._id}
@@ -225,8 +281,7 @@ export default function AdminTalentView() {
               accentColor={accentColor}
               activeTextColor={activeTextColor}
               neutralTextColor={neutralTextColor}
-              secondaryDarkGray={secondaryDarkGray}
-
+              secondaryDarkGray={"rgba(58, 71, 80, 0.6)"}
             />
           ))}
         </div>
