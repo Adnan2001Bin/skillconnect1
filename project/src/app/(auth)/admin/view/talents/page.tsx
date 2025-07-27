@@ -36,8 +36,7 @@ export default function AdminTalentView() {
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Define a comprehensive color palette for better control
-  const primaryDarkGray = "#2D3748"; // Main background
-  const secondaryDarkGray = "#3A4750"; // Card backgrounds, filter panel background
+  const primaryDarkGray = "#2D3748";
   const accentColor = "#A5BFCC"; // Primary interactive elements, borders
   const activeTextColor = "#E0E0E0"; // Headings, bold text on dark backgrounds
   const neutralTextColor = "#B0B0B0"; // General text on dark backgrounds
@@ -101,8 +100,8 @@ export default function AdminTalentView() {
           talent.email.toLowerCase().includes(query) ||
           talent.bio?.toLowerCase().includes(query) ||
           talent.skills?.some((skill) => skill.toLowerCase().includes(query)) ||
-          talent.category?.toLowerCase().includes(query) || // Added category to search
-          talent.location?.toLowerCase().includes(query) // Added location to search
+          talent.category?.toLowerCase().includes(query) ||
+          talent.location?.toLowerCase().includes(query)
       );
     }
 
@@ -162,7 +161,6 @@ export default function AdminTalentView() {
         backgroundRepeat: "no-repeat",
       }}
     >
-      <div className="absolute inset-0 z-0"></div>
       <h1
         className="text-4xl font-extrabold mb-8 text-center"
         style={{ color: activeTextColor }}

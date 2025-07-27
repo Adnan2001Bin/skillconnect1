@@ -78,8 +78,7 @@ export default function Navbar() {
       router.push("/home");
     };
 
-  const isTalent = session?.user?.role === "talent";
-  console.log(isTalent);
+
 
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50">
@@ -187,21 +186,14 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                     {/* Conditional link based on user role */}
-                    {isTalent ? (
-                      <Link
-                        href="/talent/profile"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
-                      >
-                        My Profile
-                      </Link>
-                    ) : (
+                     
                       <Link
                         href="/client/profile" // Assuming a client profile page
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
                       >
                         My Profile
                       </Link>
-                    )}
+                    
                     <Link
                       href="/wallet"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
@@ -243,9 +235,9 @@ export default function Navbar() {
 
             {/* Call to Action Button */}
             {status === "authenticated" && (
-              <Link href={isTalent ? "/talent/profile/edit" : "/post-project"}> {/* Adjusted talent link */}
+              <Link href= "/post-project">
                 <Button className="bg-[#4CAF50] hover:bg-[#388E3C] text-white">
-                  {isTalent ? "Offer Services" : "Post a Project"}
+                   "Post a Project"
                 </Button>
               </Link>
             )}
@@ -324,21 +316,14 @@ export default function Navbar() {
                 >
                   Dashboard
                 </Link>
-                {isTalent ? (
-                      <Link
-                        href="/talent/profile"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
-                      >
-                        My Profile
-                      </Link>
-                    ) : (
+ 
                       <Link
                         href="/client/profile" // Assuming a client profile page
                         className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
                       >
                         My Profile
                       </Link>
-                    )}
+
                 <Link
                   href="/wallet"
                   className="block px-4 py-2 text-gray-700 hover:bg-[#4CAF50] hover:text-white rounded-md"
@@ -383,11 +368,11 @@ export default function Navbar() {
             {/* Mobile Call to Action */}
             {status === "authenticated" && (
               <Link
-                href={isTalent ? "/talent/profile/edit" : "/post-project"} // Adjusted talent link
+                href={ "/post-project"}
                 className="block px-4 py-2 mt-2 bg-[#4CAF50] text-white rounded-md hover:bg-[#388E3C]"
                 onClick={toggleMenu}
               >
-                {isTalent ? "Offer Services" : "Post a Project"}
+                 "Post a Project"
               </Link>
             )}
           </div>
