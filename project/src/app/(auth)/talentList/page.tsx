@@ -1,4 +1,11 @@
+// UserTalentView.tsx
 "use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import axios from "axios";
+import { Briefcase, Filter, Loader } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -13,12 +20,7 @@ import TalentCard from "@/components/userView/TalentCard";
 import { categories, servicesByCategory } from "@/lib/categoriesAndServices";
 import { Images } from "@/lib/images";
 import { TalentProfileInput } from "@/schemas/profileSchema";
-import axios from "axios";
-import { Briefcase, Filter, Loader } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
 
 interface Talent extends TalentProfileInput {
   _id: string;
@@ -29,18 +31,18 @@ interface Talent extends TalentProfileInput {
 
 export default function UserTalentView() {
   const { status } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams(); // Get the URLSearchParams object
   const [talents, setTalents] = useState<Talent[]>([]);
   const [filteredTalents, setFilteredTalents] = useState<Talent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [serviceFilters, setServiceFilters] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const router = useRouter();
 
-  // Define a consistent color palette
   const colors = {
     primary: "#D3F1DF",
-    secondaryDarkGray: "rgba(255,255,255, 0)", // Slightly more opaque for backgrounds
+    secondaryDarkGray: "rgba(255,255,255, 0)",
     accentColor: "#15B392",
     activeTextColor: "#16423C",
     neutralTextColor: "#6A9C89",
@@ -48,6 +50,30 @@ export default function UserTalentView() {
     inputBorderColor: "#16423C",
     errorRed: "#EF4444",
   };
+
+  // Synchronize internal state with URL query parameters
+  useEffect(() => {
+    const category = searchParams.get("category");
+    const services = searchParams.get("services");
+
+    if (category && categories.some((c) => c.value === category)) {
+      setCategoryFilter(category);
+    } else {
+      setCategoryFilter("all"); // Reset if no valid category
+    }
+
+    if (services) {
+      // Assuming services can be a comma-separated string if multiple are passed
+      setServiceFilters(services.split(",").filter(Boolean));
+    } else {
+      setServiceFilters([]); // Reset if no services
+    }
+
+    // Include searchParams.toString() in the dependency array
+    // This will trigger the effect whenever the query string changes
+  }, [searchParams.toString()]); // Important: use searchParams.toString()
+
+
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -88,12 +114,12 @@ export default function UserTalentView() {
 
     // Filter by category and services
     if (categoryFilter !== "all" && serviceFilters.length > 0) {
-      filtered = filtered.filter((talent) =>
-        talent.services?.some((service) => serviceFilters.includes(service)) &&
-        talent.category === categoryFilter
+      filtered = filtered.filter(
+        (talent) =>
+          talent.services?.some((service) => serviceFilters.includes(service)) &&
+          talent.category === categoryFilter,
       );
     } else if (categoryFilter !== "all" && serviceFilters.length === 0) {
-      // If a category is selected but no services, show all talents in that category
       filtered = filtered.filter((talent) => talent.category === categoryFilter);
     }
 
@@ -107,7 +133,7 @@ export default function UserTalentView() {
           talent.bio?.toLowerCase().includes(query) ||
           talent.skills?.some((skill) => skill.toLowerCase().includes(query)) ||
           talent.category?.toLowerCase().includes(query) ||
-          talent.location?.toLowerCase().includes(query)
+          talent.location?.toLowerCase().includes(query),
       );
     }
 
@@ -122,7 +148,6 @@ export default function UserTalentView() {
         })) || []
       : [];
 
-  // Conditional rendering for loading and authentication status
   if (status === "loading") {
     return (
       <div
@@ -133,7 +158,10 @@ export default function UserTalentView() {
           className="animate-spin h-12 w-12 mr-4"
           style={{ color: colors.accentColor }}
         />
-        <p className="text-2xl font-semibold" style={{ color: colors.activeTextColor }}>
+        <p
+          className="text-2xl font-semibold"
+          style={{ color: colors.activeTextColor }}
+        >
           Loading talent data...
         </p>
       </div>
@@ -157,7 +185,7 @@ export default function UserTalentView() {
     <div
       className="min-h-screen font-sans py-10 px-4 sm:px-6 lg:px-8 mt-2 relative max-w-[94rem] mx-auto rounded-lg overflow-hidden border border-gray-900"
       style={{
-         backgroundImage:` url(${
+        backgroundImage: `url(${
           Images.userViewbackground ? Images.userViewbackground.src : ""
         })`,
         backgroundSize: "cover",
@@ -174,10 +202,9 @@ export default function UserTalentView() {
 
       <div
         className="mb-12 p-6 sm:p-8 rounded-xl shadow-sm shadow-[#16423C] border-2 border-[#16423C]"
-        
       >
         <div className="flex items-center mb-6 border-b border-[#16423C] pb-4">
-          <Filter className="h-7 w-7 mr-3 text-[#16423C]"  />
+          <Filter className="h-7 w-7 mr-3 text-[#16423C]" />
           <h2 className="text-2xl sm:text-3xl font-bold text-[#16423C]">
             Filter & Search
           </h2>
@@ -185,10 +212,20 @@ export default function UserTalentView() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Category Select */}
           <div className="flex flex-col">
-            <label htmlFor="category-select" className="text-sm font-semibold mb-2" style={{ color: colors.activeTextColor }}>
+            <label
+              htmlFor="category-select"
+              className="text-sm font-semibold mb-2"
+              style={{ color: colors.activeTextColor }}
+            >
               Category
             </label>
-            <Select onValueChange={(value) => { setCategoryFilter(value); setServiceFilters([]); }} defaultValue="all">
+            <Select
+              onValueChange={(value) => {
+                setCategoryFilter(value);
+                setServiceFilters([]);
+              }}
+              value={categoryFilter} // Ensure controlled component
+            >
               <SelectTrigger
                 id="category-select"
                 className="w-full text-base rounded-lg p-3 h-auto border-2 focus:ring-2 focus:ring-offset-2"
@@ -229,14 +266,18 @@ export default function UserTalentView() {
             label="Services"
             placeholder="Select Services"
             options={serviceOptions}
-            Icon={Briefcase} // Using Briefcase icon for services
-            defaultValue={serviceFilters}
+            Icon={Briefcase}
+            defaultValue={serviceFilters} // Pass selectedFilters to defaultValue
             onChange={(value: string[]) => setServiceFilters(value)}
           />
 
           {/* Search Input */}
           <div className="relative col-span-1 md:col-span-2 lg:col-span-1 flex flex-col">
-            <label htmlFor="search-input" className="text-sm font-semibold mb-2" style={{ color: colors.activeTextColor }}>
+            <label
+              htmlFor="search-input"
+              className="text-sm font-semibold mb-2"
+              style={{ color: colors.activeTextColor }}
+            >
               Search
             </label>
             <Input
@@ -264,7 +305,10 @@ export default function UserTalentView() {
             className="animate-spin h-12 w-12 mb-4"
             style={{ color: colors.accentColor }}
           />
-          <p className="text-xl font-medium" style={{ color: colors.neutralTextColor }}>
+          <p
+            className="text-xl font-medium"
+            style={{ color: colors.neutralTextColor }}
+          >
             Loading talents... Hang tight!
           </p>
         </div>

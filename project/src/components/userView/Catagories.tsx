@@ -1,10 +1,14 @@
-import React from "react";
+
+"use client";
+
 import { motion } from "framer-motion";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { categories } from "@/lib/categoriesAndServices";
 import Image from "next/image";
 
 const Categories = () => {
+  const router = useRouter();
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -30,6 +34,10 @@ const Categories = () => {
     },
   };
 
+  const handleCategoryClick = (categoryValue: string) => {
+    router.push(`/talentList?category=${encodeURIComponent(categoryValue)}`);
+  };
+
   return (
     <section className="py-12 sm:py-16 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -48,9 +56,9 @@ const Categories = () => {
           animate="visible"
         >
           {categories.map((category) => (
-            <Link
+            <button
               key={category.value}
-              href={""}
+              onClick={() => handleCategoryClick(category.value)}
               className="focus:outline-none"
             >
               <motion.div
@@ -66,7 +74,7 @@ const Categories = () => {
                   {category.label}
                 </h3>
               </motion.div>
-            </Link>
+            </button>
           ))}
         </motion.div>
       </div>

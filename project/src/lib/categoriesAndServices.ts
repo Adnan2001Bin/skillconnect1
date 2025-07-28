@@ -1,3 +1,4 @@
+// lib/categoriesAndServices.js (No changes needed here, just for context)
 import c_icon1 from "../../public/Catagories/programing.png";
 import c_icon2 from "../../public/Catagories/Graphics & Design.png";
 import c_icon3 from "../../public/Catagories/Digital Marketing.png";
@@ -33,7 +34,7 @@ export const popularServices = [
     id: "1",
     title: "Web application development",
     icon: p_icon1,
-    value: "programming_tech", 
+    value: "programming_tech",
   },
   {
     id: "2",
