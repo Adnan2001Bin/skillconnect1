@@ -82,7 +82,7 @@
          <button
            className="px-6 py-2 rounded-full font-semibold transition-colors duration-300"
            style={{ backgroundColor: accentColor, color: primaryDarkGray }}
-           onClick={() => alert(`Navigating to ${talent.userName}'s profile`)} // Placeholder for navigation
+           onClick={() => window.location.href = `/admin/management/talents/${talent._id}`}
          >
            View Profile
          </button>

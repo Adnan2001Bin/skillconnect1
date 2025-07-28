@@ -286,11 +286,10 @@ export default function UserTalentView() {
               placeholder="Search by name, email, bio, skills, category, or location..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-3 text-base rounded-lg h-auto border-2 focus:outline-none focus:ring-2 focus:ring-offset-2"
+              className="w-full text-[#16423C] px-4 py-3 text-base rounded-lg h-auto border-2 focus:outline-none focus:ring-2 focus:ring-offset-2"
               style={{
                 backgroundColor: colors.white,
                 borderColor: colors.inputBorderColor,
-                color: colors.primary,
                 boxShadow: `0 0 0 1px ${colors.accentColor}`,
               }}
               aria-label="Search talents"
