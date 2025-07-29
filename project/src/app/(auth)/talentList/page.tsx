@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import axios from "axios";
-import { Briefcase, Filter, Loader } from "lucide-react";
+import { Briefcase, ChartBarStacked, Filter, Loader, ScanSearch } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -43,7 +43,7 @@ export default function UserTalentView() {
   const colors = {
     primary: "#D3F1DF",
     secondaryDarkGray: "rgba(255,255,255, 0)",
-    accentColor: "#15B392",
+    accentColor: "#17B169",
     activeTextColor: "#16423C",
     neutralTextColor: "#6A9C89",
     white: "#FFFFFF",
@@ -73,8 +73,6 @@ export default function UserTalentView() {
     // This will trigger the effect whenever the query string changes
   }, [searchParams.toString()]); // Important: use searchParams.toString()
 
-
-
   useEffect(() => {
     if (status === "authenticated") {
       fetchTalents();
@@ -93,7 +91,8 @@ export default function UserTalentView() {
       } else {
         toast.error("Error", {
           description: "Failed to fetch talents.",
-          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          className:
+            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
       }
@@ -101,7 +100,8 @@ export default function UserTalentView() {
       console.error("Error fetching talents:", error);
       toast.error("Error", {
         description: "An error occurred while fetching talents.",
-        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
       });
     } finally {
@@ -116,11 +116,14 @@ export default function UserTalentView() {
     if (categoryFilter !== "all" && serviceFilters.length > 0) {
       filtered = filtered.filter(
         (talent) =>
-          talent.services?.some((service) => serviceFilters.includes(service)) &&
-          talent.category === categoryFilter,
+          talent.services?.some((service) =>
+            serviceFilters.includes(service)
+          ) && talent.category === categoryFilter
       );
     } else if (categoryFilter !== "all" && serviceFilters.length === 0) {
-      filtered = filtered.filter((talent) => talent.category === categoryFilter);
+      filtered = filtered.filter(
+        (talent) => talent.category === categoryFilter
+      );
     }
 
     // Search by query
@@ -133,7 +136,7 @@ export default function UserTalentView() {
           talent.bio?.toLowerCase().includes(query) ||
           talent.skills?.some((skill) => skill.toLowerCase().includes(query)) ||
           talent.category?.toLowerCase().includes(query) ||
-          talent.location?.toLowerCase().includes(query),
+          talent.location?.toLowerCase().includes(query)
       );
     }
 
@@ -200,9 +203,7 @@ export default function UserTalentView() {
         Discover Your <span style={{ color: colors.accentColor }}>Talents</span>
       </h1>
 
-      <div
-        className="mb-12 p-6 sm:p-8 rounded-xl shadow-sm shadow-[#16423C] border-2 border-[#16423C]"
-      >
+      <div className="mb-12 p-6 sm:p-8 rounded-xl shadow-sm shadow-[#16423C] " style={{ backgroundColor: "rgba(102	,205,170, 0.2)" }}>
         <div className="flex items-center mb-6 border-b border-[#16423C] pb-4">
           <Filter className="h-7 w-7 mr-3 text-[#16423C]" />
           <h2 className="text-2xl sm:text-3xl font-bold text-[#16423C]">
@@ -214,9 +215,14 @@ export default function UserTalentView() {
           <div className="flex flex-col">
             <label
               htmlFor="category-select"
-              className="text-sm font-semibold mb-2"
+              className="text-sm font-semibold mb-2 flex"
               style={{ color: colors.activeTextColor }}
             >
+              <ChartBarStacked
+                className="h-5 w-5 mr-2"
+                style={{ color: colors.accentColor }}
+                aria-hidden="true"
+              />
               Category
             </label>
             <Select
@@ -232,7 +238,6 @@ export default function UserTalentView() {
                 style={{
                   backgroundColor: colors.white,
                   borderColor: colors.inputBorderColor,
-                  boxShadow: `0 0 0 1px ${colors.accentColor}`,
                 }}
               >
                 <SelectValue placeholder="Select Category" />
@@ -275,9 +280,14 @@ export default function UserTalentView() {
           <div className="relative col-span-1 md:col-span-2 lg:col-span-1 flex flex-col">
             <label
               htmlFor="search-input"
-              className="text-sm font-semibold mb-2"
+              className="text-sm font-semibold mb-2 flex"
               style={{ color: colors.activeTextColor }}
             >
+              <ScanSearch
+                className="h-5 w-5 mr-2"
+                style={{ color: colors.accentColor }}
+                aria-hidden="true"
+              />
               Search
             </label>
             <Input
@@ -290,7 +300,6 @@ export default function UserTalentView() {
               style={{
                 backgroundColor: colors.white,
                 borderColor: colors.inputBorderColor,
-                boxShadow: `0 0 0 1px ${colors.accentColor}`,
               }}
               aria-label="Search talents"
             />
@@ -319,7 +328,10 @@ export default function UserTalentView() {
           >
             No talents found matching your criteria.
           </p>
-          <p className="mt-2 text-lg" style={{ color: colors.neutralTextColor }}>
+          <p
+            className="mt-2 text-lg"
+            style={{ color: colors.neutralTextColor }}
+          >
             Try adjusting your filters or search query.
           </p>
         </div>

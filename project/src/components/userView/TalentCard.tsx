@@ -35,9 +35,9 @@
 
    return (
      <div
-       className="rounded-xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-2xl hover:scale-105 flex flex-col h-full"
-       style={{ backgroundColor: secondaryDarkGray, border: `1px solid ${accentColor}` }}
-     >
+       className="rounded-xl shadow-sm shadow-[#16423C] border-1 border-[#16423C] overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-101 flex flex-col h-full"
+       
+     style={{ backgroundColor: "rgba(163,209,198, 0.4)" }}>
        <div className="relative p-6 flex flex-col items-center text-center">
          {/* Profile Image */}
          <div className="w-24 h-24 rounded-full overflow-hidden border-4 mb-4" style={{ borderColor: accentColor }}>
@@ -80,7 +80,7 @@
          <button
            className="px-6 py-2 rounded-full font-semibold transition-colors duration-300"
            style={{ backgroundColor: accentColor, color: primary }}
-           onClick={() => alert(`Navigating to ${talent.userName}'s profile`)} // Placeholder for navigation
+           onClick={() => window.location.href = `/talentList/${talent._id}`}
          >
            View Profile
          </button>
