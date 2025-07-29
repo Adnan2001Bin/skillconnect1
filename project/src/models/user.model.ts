@@ -40,6 +40,7 @@ export interface IUser extends Document {
   isVerified: boolean;
   isAdminApproved: boolean;
   isEmailVerified: boolean;
+  rejectionReason?:string | null
   resetPasswordToken?: string | null;
   resetPasswordExpires?: Date | null;
   createdAt: Date;
@@ -180,6 +181,7 @@ const UserSchema: Schema<IUser> = new Schema(
       type: Date,
       default: null,
     },
+    rejectionReason: { type: String, default: null },
     createdAt: {
       type: Date,
       default: Date.now,

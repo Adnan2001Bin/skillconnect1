@@ -1,7 +1,5 @@
-
 "use client";
 import { categories } from "@/lib/categoriesAndServices";
-
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
@@ -23,12 +21,10 @@ import {
   Package,
   CalendarDays,
   Briefcase,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Images } from "@/lib/images";
-
-// Your categories and servicesByCategory imports should be at the top of the file
-// as they are already in the code you provided, which is correct.
 
 interface TalentProfileInput {
   profilePicture?: string | null;
@@ -54,6 +50,8 @@ interface TalentProfileInput {
   languageProficiency?: string[];
   category?: string;
   services?: string[];
+  isVerified: boolean; // Added field
+  rejectionReason?: string | null; // Added field
 }
 
 export default function TalentProfilePage() {
@@ -94,7 +92,23 @@ export default function TalentProfilePage() {
   const getCategoryLabel = (categoryValue: string | null | undefined) => {
     if (!categoryValue) return "";
     const foundCategory = categories.find(cat => cat.value === categoryValue);
-    return foundCategory ? foundCategory.label : categoryValue; // Fallback to value if not found
+    return foundCategory ? foundCategory.label : categoryValue;
+  };
+
+  // Helper function to get profile status
+  const getProfileStatus = () => {
+    if (!profileData) return { status: "Loading", color: grayTextColor, message: "Loading profile status..." };
+    if (profileData.isVerified) {
+      return { status: "Approved", color: "#10B981", message: "Your profile is approved and visible to clients." };
+    } else if (profileData.rejectionReason) {
+      return { 
+        status: "Rejected", 
+        color: "#EF4444", 
+        message: `Your profile was rejected. Reason: ${profileData.rejectionReason}. Please update your profile and resubmit for review.` 
+      };
+    } else {
+      return { status: "Under Approval", color: "#F59E0B", message: "Your profile is under review by our admin team. You can still edit your profile." };
+    }
   };
 
   if (status === "loading") {
@@ -117,6 +131,8 @@ export default function TalentProfilePage() {
       </div>
     );
   }
+
+  const profileStatus = getProfileStatus();
 
   return (
     <div
@@ -159,7 +175,7 @@ export default function TalentProfilePage() {
             </h1>
             {profileData?.category && (
               <p className="text-lg mt-2 font-medium" style={{ color: grayTextColor }}>
-                {getCategoryLabel(profileData.category)} {/* Applied the fix here */}
+                {getCategoryLabel(profileData.category)}
               </p>
             )}
             {profileData?.location && (
@@ -234,13 +250,39 @@ export default function TalentProfilePage() {
         </div>
 
         <div className="w-full lg:w-2/3 space-y-8">
+          {/* Profile Status Section */}
+          <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
+            <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+              <AlertCircle className="h-6 w-6 mr-2" style={{ color: profileStatus.color }} />
+              Profile Status
+            </h3>
+            <p className="text-lg font-medium" style={{ color: profileStatus.color }}>
+              {profileStatus.status}
+            </p>
+            <p className="text-gray-700 leading-relaxed text-md mt-2">
+              {profileStatus.message}
+            </p>
+            {!profileData?.isVerified && (
+              <Button
+                onClick={() => router.push("/talent/profile/edit")}
+                className="mt-4 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center"
+                style={{ backgroundColor: primaryColor }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = accentColor}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = primaryColor}
+              >
+                <Edit className="h-5 w-5 mr-2" />
+                {profileData?.rejectionReason ? "Revise Profile" : "Complete Profile"}
+              </Button>
+            )}
+          </div>
+
           {profileData?.category && (
             <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
               <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
                 <Briefcase className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
                 Category
               </h3>
-              <p className="text-gray-700 leading-relaxed text-lg">{getCategoryLabel(profileData.category)}</p> {/* Applied the fix here */}
+              <p className="text-gray-700 leading-relaxed text-lg">{getCategoryLabel(profileData.category)}</p>
             </div>
           )}
 

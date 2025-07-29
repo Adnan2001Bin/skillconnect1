@@ -25,6 +25,8 @@ interface ProfileResponse {
     languageProficiency?: string[];
     category?: string;
     services?: string[];
+    isVerified: boolean; // Added field
+    rejectionReason?: string | null; // Added field
   };
 }
 
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ProfileRes
     }
 
     const user = await UserModel.findOne({ email: session.user.email }).select(
-      "userName profilePicture bio location industry preferences skills portfolio ratePlans aboutThisGig whatIOffer socialLinks languageProficiency category services"
+      "userName profilePicture bio location industry preferences skills portfolio ratePlans aboutThisGig whatIOffer socialLinks languageProficiency category services isVerified rejectionReason"
     );
     if (!user) {
       return NextResponse.json(
@@ -70,6 +72,8 @@ export async function GET(request: NextRequest): Promise<NextResponse<ProfileRes
           languageProficiency: user.languageProficiency,
           category: user.category,
           services: user.services,
+          isVerified: user.isVerified,
+          rejectionReason: user.rejectionReason,
         },
       },
       { status: 200 }

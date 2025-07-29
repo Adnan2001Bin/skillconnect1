@@ -41,6 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     if (action === "approve") {
       talent.isVerified = true;
+      talent.rejectionReason = null;
       await talent.save();
 
       // Send approval email
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       }
 
       talent.isVerified = false;
+      talent.rejectionReason = rejectionReason;
       await talent.save();
 
       // Send rejection email
@@ -97,6 +99,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         );
       }
 
+      
       // Delete the talent account
       await UserModel.deleteOne({ _id: params.id });
 
