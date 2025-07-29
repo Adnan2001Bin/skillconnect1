@@ -1,11 +1,16 @@
-// UserTalentView.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import axios from "axios";
-import { Briefcase, ChartBarStacked, Filter, Loader, ScanSearch } from "lucide-react";
+import {
+  Briefcase,
+  ChartBarStacked,
+  Filter,
+  Loader,
+  ScanSearch,
+} from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +26,8 @@ import { categories, servicesByCategory } from "@/lib/categoriesAndServices";
 import { Images } from "@/lib/images";
 import { TalentProfileInput } from "@/schemas/profileSchema";
 import { useSession } from "next-auth/react";
+import CategoryFilterDisplay from "@/components/userView/CategoryFilterDisplay";
+import { Button } from "@/components/ui/button";
 
 interface Talent extends TalentProfileInput {
   _id: string;
@@ -68,10 +75,7 @@ export default function UserTalentView() {
     } else {
       setServiceFilters([]); // Reset if no services
     }
-
-    // Include searchParams.toString() in the dependency array
-    // This will trigger the effect whenever the query string changes
-  }, [searchParams.toString()]); // Important: use searchParams.toString()
+  }, [searchParams.toString()]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -185,170 +189,182 @@ export default function UserTalentView() {
   }
 
   return (
-    <div
-      className="min-h-screen font-sans py-10 px-4 sm:px-6 lg:px-8 mt-2 relative max-w-[94rem] mx-auto rounded-lg overflow-hidden border border-gray-900"
-      style={{
-        backgroundImage: `url(${
-          Images.userViewbackground ? Images.userViewbackground.src : ""
-        })`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <h1
-        className="text-4xl sm:text-5xl font-extrabold mb-8 text-center drop-shadow-lg"
-        style={{ color: colors.activeTextColor }}
-      >
-        Discover Your <span style={{ color: colors.accentColor }}>Talents</span>
-      </h1>
+    <div className="min-h-screen font-sans py-10 px-4 sm:px-6 lg:px-10 mt-2 bg-white">
+      <div className="mb-4 flex flex-col items-center">
+        <h1
+          className="text-4xl sm:text-5xl font-bold mb-8 text-center drop-shadow-lg"
+          style={{ color: colors.activeTextColor }}
+        >
+          Discover Your{" "}
+          <span style={{ color: colors.accentColor }}>Talents</span>
+        </h1>
 
-      <div className="mb-12 p-6 sm:p-8 rounded-xl shadow-sm shadow-[#16423C] " style={{ backgroundColor: "rgba(102	,205,170, 0.2)" }}>
-        <div className="flex items-center mb-6 border-b border-[#16423C] pb-4">
-          <Filter className="h-7 w-7 mr-3 text-[#16423C]" />
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#16423C]">
-            Filter & Search
-          </h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Category Select */}
-          <div className="flex flex-col">
-            <label
-              htmlFor="category-select"
-              className="text-sm font-semibold mb-2 flex"
-              style={{ color: colors.activeTextColor }}
-            >
-              <ChartBarStacked
-                className="h-5 w-5 mr-2"
-                style={{ color: colors.accentColor }}
-                aria-hidden="true"
-              />
-              Category
-            </label>
-            <Select
-              onValueChange={(value) => {
-                setCategoryFilter(value);
-                setServiceFilters([]);
-              }}
-              value={categoryFilter} // Ensure controlled component
-            >
-              <SelectTrigger
-                id="category-select"
-                className="w-full text-base rounded-lg p-3 h-auto border-2 focus:ring-2 focus:ring-offset-2"
+        <CategoryFilterDisplay categoryFilter={categoryFilter} />
+        
+      </div>
+      <div
+        className="min-h-screen   relative max-w-[94rem] mx-auto rounded-lg overflow-hidden"
+        style={{
+          backgroundImage: `url(${
+            Images.userViewbackground ? Images.userViewbackground.src : ""
+          })`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        <div
+          className="mb-12 p-6 sm:p-8 rounded-xl shadow-sm shadow-[#16423C]"
+          style={{ backgroundColor: "rgba(102, 205, 170, 0.2)" }}
+        >
+          <div className="flex items-center mb-6 border-b border-[#16423C] pb-4">
+            <Filter className="h-7 w-7 mr-3 text-[#16423C]" />
+            <h2 className="text-2xl sm:text-3xl font-bold text-[#16423C]">
+              Filter & Search
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Category Select */}
+            <div className="flex flex-col">
+              <label
+                htmlFor="category-select"
+                className="text-sm font-semibold mb-2 flex"
+                style={{ color: colors.activeTextColor }}
+              >
+                <ChartBarStacked
+                  className="h-5 w-5 mr-2"
+                  style={{ color: colors.accentColor }}
+                  aria-hidden="true"
+                />
+                Category
+              </label>
+              <Select
+                onValueChange={(value) => {
+                  setCategoryFilter(value);
+                  setServiceFilters([]);
+                }}
+                value={categoryFilter} // Ensure controlled component
+              >
+                <SelectTrigger
+                  id="category-select"
+                  className="w-full text-base rounded-lg p-3 h-auto border-2 focus:ring-2 focus:ring-offset-2"
+                  style={{
+                    backgroundColor: colors.white,
+                    borderColor: colors.inputBorderColor,
+                  }}
+                >
+                  <SelectValue placeholder="Select Category" />
+                </SelectTrigger>
+                <SelectContent
+                  className="bg-white text-primary rounded-lg shadow-lg border"
+                  style={{ borderColor: colors.accentColor }}
+                >
+                  <SelectItem
+                    value="all"
+                    className="hover:bg-[#A4CCD9]/30 cursor-pointer p-3"
+                  >
+                    All Categories
+                  </SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem
+                      key={category.value}
+                      value={category.value}
+                      className="hover:bg-[#A4CCD9]/30 cursor-pointer p-3"
+                    >
+                      {category.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Services MultiSelect */}
+            <MultiSelect
+              name="services"
+              label="Services"
+              placeholder="Select Services"
+              options={serviceOptions}
+              Icon={Briefcase}
+              defaultValue={serviceFilters} // Pass selectedFilters to defaultValue
+              onChange={(value: string[]) => setServiceFilters(value)}
+            />
+
+            {/* Search Input */}
+            <div className="relative col-span-1 md:col-span-2 lg:col-span-1 flex flex-col">
+              <label
+                htmlFor="search-input"
+                className="text-sm font-semibold mb-2 flex"
+                style={{ color: colors.activeTextColor }}
+              >
+                <ScanSearch
+                  className="h-5 w-5 mr-2"
+                  style={{ color: colors.accentColor }}
+                  aria-hidden="true"
+                />
+                Search
+              </label>
+              <Input
+                id="search-input"
+                type="text"
+                placeholder="Search by name, email, bio, skills, category, or location..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-[#16423C] px-4 py-3 text-base rounded-lg h-auto border-2 focus:outline-none focus:ring-2 focus:ring-offset-2"
                 style={{
                   backgroundColor: colors.white,
                   borderColor: colors.inputBorderColor,
                 }}
-              >
-                <SelectValue placeholder="Select Category" />
-              </SelectTrigger>
-              <SelectContent
-                className="bg-white text-primary rounded-lg shadow-lg border"
-                style={{ borderColor: colors.accentColor }}
-              >
-                <SelectItem
-                  value="all"
-                  className="hover:bg-[#A4CCD9]/30 cursor-pointer p-3"
-                >
-                  All Categories
-                </SelectItem>
-                {categories.map((category) => (
-                  <SelectItem
-                    key={category.value}
-                    value={category.value}
-                    className="hover:bg-[#A4CCD9]/30 cursor-pointer p-3"
-                  >
-                    {category.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Services MultiSelect */}
-          <MultiSelect
-            name="services"
-            label="Services"
-            placeholder="Select Services"
-            options={serviceOptions}
-            Icon={Briefcase}
-            defaultValue={serviceFilters} // Pass selectedFilters to defaultValue
-            onChange={(value: string[]) => setServiceFilters(value)}
-          />
-
-          {/* Search Input */}
-          <div className="relative col-span-1 md:col-span-2 lg:col-span-1 flex flex-col">
-            <label
-              htmlFor="search-input"
-              className="text-sm font-semibold mb-2 flex"
-              style={{ color: colors.activeTextColor }}
-            >
-              <ScanSearch
-                className="h-5 w-5 mr-2"
-                style={{ color: colors.accentColor }}
-                aria-hidden="true"
+                aria-label="Search talents"
               />
-              Search
-            </label>
-            <Input
-              id="search-input"
-              type="text"
-              placeholder="Search by name, email, bio, skills, category, or location..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-[#16423C] px-4 py-3 text-base rounded-lg h-auto border-2 focus:outline-none focus:ring-2 focus:ring-offset-2"
-              style={{
-                backgroundColor: colors.white,
-                borderColor: colors.inputBorderColor,
-              }}
-              aria-label="Search talents"
-            />
+            </div>
           </div>
         </div>
-      </div>
 
-      {isLoading ? (
-        <div className="flex flex-col justify-center items-center h-64 text-center">
-          <Loader
-            className="animate-spin h-12 w-12 mb-4"
-            style={{ color: colors.accentColor }}
-          />
-          <p
-            className="text-xl font-medium"
-            style={{ color: colors.neutralTextColor }}
-          >
-            Loading talents... Hang tight!
-          </p>
-        </div>
-      ) : filteredTalents.length === 0 ? (
-        <div className="text-center py-10">
-          <p
-            className="text-2xl font-medium"
-            style={{ color: colors.neutralTextColor }}
-          >
-            No talents found matching your criteria.
-          </p>
-          <p
-            className="mt-2 text-lg"
-            style={{ color: colors.neutralTextColor }}
-          >
-            Try adjusting your filters or search query.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {filteredTalents.map((talent) => (
-            <TalentCard
-              key={talent._id}
-              talent={talent}
-              accentColor={colors.accentColor}
-              activeTextColor={colors.activeTextColor}
-              neutralTextColor={colors.neutralTextColor}
-              secondaryDarkGray={colors.secondaryDarkGray}
+        {/* Category Filter Display */}
+
+        {isLoading ? (
+          <div className="flex flex-col justify-center items-center h-64 text-center">
+            <Loader
+              className="animate-spin h-12 w-12 mb-4"
+              style={{ color: colors.accentColor }}
             />
-          ))}
-        </div>
-      )}
+            <p
+              className="text-xl font-medium"
+              style={{ color: colors.neutralTextColor }}
+            >
+              Loading talents... Hang tight!
+            </p>
+          </div>
+        ) : filteredTalents.length === 0 ? (
+          <div className="text-center py-10">
+            <p
+              className="text-2xl font-medium"
+              style={{ color: colors.neutralTextColor }}
+            >
+              No talents found matching your criteria.
+            </p>
+            <p
+              className="mt-2 text-lg"
+              style={{ color: colors.neutralTextColor }}
+            >
+              Try adjusting your filters or search query.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            {filteredTalents.map((talent) => (
+              <TalentCard
+                key={talent._id}
+                talent={talent}
+                accentColor={colors.accentColor}
+                activeTextColor={colors.activeTextColor}
+                neutralTextColor={colors.neutralTextColor}
+                secondaryDarkGray={colors.secondaryDarkGray}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

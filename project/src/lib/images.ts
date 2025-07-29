@@ -6,7 +6,7 @@ import talentProfileBackground from "../../public/backgrounds/3514723.jpg";
 import workspaceBackgroundMobailView from "../../public/backgrounds/annie-spratt-hCb3lIB8L8E-unsplash.jpg"
 import adminViewbackground from "../../public/backgrounds/vecteezy_geometric-lines-pattern-on-black-background_.jpg"
 import userViewbackground from "../../public/backgrounds/4964073.jpg"
-
+import allcategories from "../../public/catagoryPage/pexels-shkrabaanthony-4348401.jpg"
 // Centralized image exports for use across the SkillConnect platform
 export const Images = {
   logoUser,
@@ -16,5 +16,6 @@ export const Images = {
   workspaceBackground,
   workspaceBackgroundMobailView,
   adminViewbackground,
-  userViewbackground
+  userViewbackground,
+  allcategories
 };
