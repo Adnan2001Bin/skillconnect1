@@ -4,11 +4,9 @@ import Image from "next/image";
 import { Images } from "@/lib/images";
 
 // Main App component
-export default function App() { // Changed to App as per instructions
+export default function App() {
   return (
-    // Main container for the entire section
-    // Added 'font-inter' class for the Inter font
-    <div className="min-h-screen p-4 sm:p-8 lg:p-12 flex items-center justify-center font-inter bg-gray-100">
+    <div className="min-h-screen p-4 sm:p-8 lg:p-12 flex items-center justify-center font-inter ">
       <div className="w-full max-w-7xl bg-green-50 rounded-3xl shadow-2xl overflow-hidden">
         {/* Header */}
         <header className="px-6 sm:px-8 lg:px-12 py-4 sm:py-5 border-b border-gray-100">
