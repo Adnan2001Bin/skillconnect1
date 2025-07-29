@@ -1,15 +1,16 @@
-import connectDB from "@/lib/connectDB";
-import UserModel from "@/models/user.model";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { sendVerificationEmail } from "@/emails/VerificationEmail";
+import connectDB from "@/lib/connectDB";
+import UserModel from "@/models/user.model";
 
 const verifySchema = z.object({
   userName: z.string().min(1, "Username is required"),
-  code: z.string().optional(), // Make code optional for resend functionality
-  action: z.enum(["verify", "resend"]).default("verify"), // Add action type
+  code: z.string().optional(),
+  action: z.enum(["verify", "resend"]).default("verify"),
 });
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   await connectDB();
 
   try {
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
     const user = await UserModel.findOne({ userName: decodedUserName });
 
     if (!user) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, message: "User not found" },
         { status: 404 }
       );
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
       });
 
       if (!emailResponse.success) {
-        return Response.json(
+        return NextResponse.json(
           {
             success: false,
             message: emailResponse.message,
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
         );
       }
 
-      return Response.json(
+      return NextResponse.json(
         {
           success: true,
           message: "New verification code sent successfully",
@@ -61,9 +62,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Original verification logic
+    // Verification logic
     if (!code) {
-      return Response.json(
+      return NextResponse.json(
         { success: false, message: "Verification code is required" },
         { status: 400 }
       );
@@ -73,31 +74,38 @@ export async function POST(request: Request) {
     const isCodeNotExpired = new Date(user.verificationCodeExpires) > new Date();
 
     if (isCodeValid && isCodeNotExpired) {
-      user.isVerified = true;
+      user.isEmailVerified = true; // Set email verification flag
+      if (user.role !== "talent" || user.isAdminApproved) {
+        user.isVerified = true; // Set final verification only for non-talents or approved talents
+      }
       await user.save();
 
-      return Response.json(
-        { success: true, message: "Account verified successfully" },
+      return NextResponse.json(
+        {
+          success: true,
+          message: user.role === "talent" && !user.isAdminApproved
+            ? "Email verified successfully. Awaiting admin approval."
+            : "Account verified successfully",
+        },
         { status: 200 }
       );
     } else if (!isCodeNotExpired) {
-      return Response.json(
+      return NextResponse.json(
         {
           success: false,
-          message:
-            "Verification code has expired. Please request a new code.",
+          message: "Verification code has expired. Please request a new code.",
         },
         { status: 400 }
       );
     } else {
-      return Response.json(
+      return NextResponse.json(
         { success: false, message: "Incorrect verification code" },
         { status: 400 }
       );
     }
   } catch (error) {
     console.error("Error in verification process:", error);
-    return Response.json(
+    return NextResponse.json(
       { success: false, message: "Error processing your request" },
       { status: 500 }
     );

@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
-import { Loader2 as Loader, Mail, MapPin, Briefcase, Link, Star, Book, User } from "lucide-react";
+import { Loader2 as Loader, Mail, MapPin, Briefcase, Link, Star, Book, User, Check, X, AlertCircle, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { categories } from "@/lib/categoriesAndServices";
 import { TalentProfileInput } from "@/schemas/profileSchema";
@@ -34,6 +35,9 @@ export default function TalentDetailsPage() {
   const { id } = useParams();
   const [talent, setTalent] = useState<Talent | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [deletionReason, setDeletionReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch talent data
   useEffect(() => {
@@ -72,6 +76,66 @@ export default function TalentDetailsPage() {
     if (!categoryValue) return "N/A";
     const foundCategory = categories.find((cat) => cat.value === categoryValue);
     return foundCategory ? foundCategory.label : categoryValue;
+  };
+
+  // Handle approve/reject/delete actions
+  const handleAction = async (action: "approve" | "reject" | "delete") => {
+    if (action === "reject" && !rejectionReason.trim()) {
+      toast.error("Error", {
+        description: "Please provide a reason for rejection.",
+        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+      return;
+    }
+    if (action === "delete" && !deletionReason.trim()) {
+      toast.error("Error", {
+        description: "Please provide a reason for account deletion.",
+        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await axios.post(`/api/admin/talents/${id}/status`, {
+        action,
+        rejectionReason: action === "reject" ? rejectionReason : undefined,
+        deletionReason: action === "delete" ? deletionReason : undefined,
+      });
+
+      if (response.data.success) {
+        toast.success("Success", {
+          description: response.data.message,
+          className: "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
+          duration: 4000,
+        });
+        if (action === "approve") {
+          setTalent((prev) => (prev ? { ...prev, isVerified: true } : null));
+        } else if (action === "reject") {
+          setTalent((prev) => (prev ? { ...prev, isVerified: false } : null));
+          setRejectionReason("");
+        } else if (action === "delete") {
+          router.push("/admin/management/talents");
+        }
+      } else {
+        toast.error("Error", {
+          description: response.data.message || `Failed to ${action} talent.`,
+          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          duration: 4000,
+        });
+      }
+    } catch (error) {
+      console.error(`Error ${action}ing talent:`, error);
+      toast.error("Error", {
+        description: `Failed to ${action} talent. Please try again.`,
+        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (status === "loading" || loading) {
@@ -124,8 +188,77 @@ export default function TalentDetailsPage() {
             {getCategoryLabel(talent.category)}
           </p>
           <p className="text-sm mt-1" style={{ color: talent.isVerified ? accentColor : "red" }}>
-            {talent.isVerified ? "Verified" : "Not Verified"}
+            {talent.isVerified ? "Verified" : "Pending Approval"}
           </p>
+        </div>
+
+        {/* Approve/Reject/Delete Section */}
+        <div className="bg-gray-800 rounded-xl p-6 mb-6" style={{ backgroundColor: secondaryDarkGray, border: `1px solid ${accentColor}` }}>
+          <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: activeTextColor }}>
+            <AlertCircle className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+            Account Status
+          </h2>
+          <div className="flex flex-col space-y-4">
+            {!talent.isVerified && (
+              <div className="flex gap-4">
+                <Button
+                  onClick={() => handleAction("approve")}
+                  disabled={isSubmitting}
+                  style={{ backgroundColor: "#4CAF50", color: activeTextColor }}
+                  className="hover:bg-green-600"
+                >
+                  <Check className="h-5 w-5 mr-2" />
+                  Approve Talent
+                </Button>
+                <Button
+                  onClick={() => handleAction("reject")}
+                  disabled={isSubmitting}
+                  style={{ backgroundColor: "#EF4444", color: activeTextColor }}
+                  className="hover:bg-red-600"
+                >
+                  <X className="h-5 w-5 mr-2" />
+                  Reject Talent
+                </Button>
+              </div>
+            )}
+            {talent.isVerified && (
+              <Button
+                onClick={() => handleAction("delete")}
+                disabled={isSubmitting}
+                style={{ backgroundColor: "#EF4444", color: activeTextColor }}
+                className="hover:bg-red-600 w-fit"
+              >
+                <Trash2 className="h-5 w-5 mr-2" />
+                Delete Talent Account
+              </Button>
+            )}
+            {!talent.isVerified && (
+              <div>
+                <p className="font-semibold mb-2" style={{ color: activeTextColor }}>
+                  Rejection Reason (Required for Rejection)
+                </p>
+                <Textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Enter reason for rejection (e.g., incomplete portfolio, insufficient skills)"
+                  className="w-full"
+                  style={{ backgroundColor: primaryDarkGray, color: neutralTextColor, borderColor: accentColor }}
+                />
+              </div>
+            )}
+            <div>
+              <p className="font-semibold mb-2" style={{ color: activeTextColor }}>
+                Deletion Reason (Required for Account Deletion)
+              </p>
+              <Textarea
+                value={deletionReason}
+                onChange={(e) => setDeletionReason(e.target.value)}
+                placeholder="Enter reason for account deletion (e.g., bad reviews, policy violation)"
+                className="w-full"
+                style={{ backgroundColor: primaryDarkGray, color: neutralTextColor, borderColor: accentColor }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Profile Information */}
@@ -155,7 +288,7 @@ export default function TalentDetailsPage() {
             )}
             {talent.aboutThisGig && (
               <div>
-                <p className="font-semibold" style={{ color: activeTextColor }}>AboutThisGig</p>
+                <p className="font-semibold" style={{ color: activeTextColor }}>Description</p>
                 <p style={{ color: neutralTextColor }}>{talent.aboutThisGig}</p>
               </div>
             )}

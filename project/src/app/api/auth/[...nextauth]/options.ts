@@ -1,8 +1,8 @@
-import connectDB from "@/lib/connectDB";
-import UserModel from "@/models/user.model";
-import bcrypt from "bcryptjs";
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import connectDB from "@/lib/connectDB";
+import UserModel from "@/models/user.model";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -20,8 +20,32 @@ export const authOptions: NextAuthOptions = {
         await connectDB();
         const user = await UserModel.findOne({ email: credentials.email });
 
-        if (!user || !user.isVerified) {
-          throw new Error("User not found or not verified");
+        if (!user) {
+          throw new Error("User not found");
+        }
+
+        // Allow talents to sign in even if not verified
+        if (user.role === "talent" && !user.isVerified) {
+          // Return user data but indicate verification pending
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+          if (!isPasswordValid) {
+            throw new Error("Invalid password");
+          }
+          return {
+            id: user._id.toString(),
+            email: user.email,
+            userName: user.userName,
+            isVerified: user.isVerified,
+            role: user.role,
+          };
+        }
+
+        // For non-talent users, require verification
+        if (!user.isVerified) {
+          throw new Error("Please verify your account before signing in.");
         }
 
         const isPasswordValid = await bcrypt.compare(
@@ -46,7 +70,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token._id = user._id;
+        token._id = user.id;
         token.userName = user.userName;
         token.isVerified = user.isVerified;
         token.role = user.role;

@@ -14,6 +14,9 @@ declare module "next-auth" {
   interface User {
     _id?: string;
     isVerified?: boolean;
+    isEmailVerified?:boolean
+    isPendingApproval?:boolean
+    isAdminApproved?:boolean
     userName?: string;
     role?: "user" | "talent" | "admin";
   }
