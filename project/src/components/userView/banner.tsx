@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useRef, useEffect } from "react";
 import { Search, ChevronRight } from "lucide-react";
 import { Images } from "@/lib/images";
+import { useRouter } from "next/navigation";
 
 export default function Banner() {
   const videoFiles = [
@@ -19,11 +20,11 @@ export default function Banner() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const commonServices = [
-    { name: "Web Development", href: "/explore?service=Web+Development" },
-    { name: "Graphic Design", href: "/explore?service=Graphic+Design" },
-    { name: "Digital Marketing", href: "/explore?service=Digital+Marketing" },
-    { name: "Video Editing", href: "/explore?service=Video+Editing" },
-    { name: "Writing", href: "/explore?service=Writing" },
+    {id: "1", title: "Full-stack development", value: "programming_tech", },
+    {id: "2", title: "Logo design", value: "graphics_design", },
+    {id: "3", title: "Blog management", value: "digital_marketing", },
+    {id: "4", title: "2D animation", value: "video_animation", },
+    {id: "5", title: "Article writing", value: "writing_translation", },
   ];
 
   const handleVideoEnded = () => {
@@ -34,7 +35,9 @@ export default function Banner() {
   useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
-        videoRef.current.play().catch((error) => console.error("Video play failed:", error));
+        videoRef.current
+          .play()
+          .catch((error) => console.error("Video play failed:", error));
       } else {
         videoRef.current.pause();
       }
@@ -46,10 +49,22 @@ export default function Banner() {
       if (isPlaying) {
         videoRef.current.pause();
       } else {
-        videoRef.current.play().catch((error) => console.error("Video play failed:", error));
+        videoRef.current
+          .play()
+          .catch((error) => console.error("Video play failed:", error));
       }
       setIsPlaying(!isPlaying);
     }
+  };
+
+  const router = useRouter();
+
+  const handleServiceClick = (service: { value: string; title: string }) => {
+    router.push(
+      `/talentList?category=${encodeURIComponent(
+        service.value
+      )}&services=${encodeURIComponent(service.title)}`
+    );
   };
 
   return (
@@ -95,7 +110,8 @@ export default function Banner() {
             Discover Top Talent for Your Projects
           </h1>
           <p className="text-sm sm:text-base md:text-lg mb-6 drop-shadow-md">
-            Connect with skilled professionals or showcase your services today. Find the perfect match for your next big idea.
+            Connect with skilled professionals or showcase your services today.
+            Find the perfect match for your next big idea.
           </p>
           {/* Search Bar */}
           <form className="w-full max-w-4xl mb-6">
@@ -118,15 +134,16 @@ export default function Banner() {
           {/* Common Services Buttons */}
           <div className="flex flex-wrap gap-2 sm:gap-4">
             {commonServices.map((service) => (
-              <Link key={service.name} href={service.href}>
-                <Button
-                  variant="outline"
-                  className="bg-transparent border-white text-white hover:bg-white hover:text-[#67AE6E] px-3 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm md:text-base rounded-lg transition-all duration-300 flex items-center space-x-1"
-                >
-                  <span>{service.name}</span>
-                  <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
-                </Button>
-              </Link>
+              
+              <Button
+              key={service.id}
+                onClick={() => handleServiceClick(service)}
+                variant="outline"
+                className="bg-transparent border-white text-white hover:bg-white hover:text-[#67AE6E] px-3 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm md:text-base rounded-lg transition-all duration-300 flex items-center space-x-1"
+              >
+                <span>{service.title}</span>
+                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
             ))}
           </div>
         </div>

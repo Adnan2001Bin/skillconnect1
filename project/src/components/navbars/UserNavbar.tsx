@@ -131,10 +131,10 @@ export default function Navbar() {
               Messages
             </Link>
             <Link
-              href="/projects"
+              href="/talentList"
               className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md text-sm font-medium"
             >
-              My Projects
+              Find Talents
             </Link>
             <Link
               href="/notifications"

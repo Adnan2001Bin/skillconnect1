@@ -15,6 +15,9 @@ import p_icon3 from "../../public/popular-services/3405349.jpg";
 import p_icon4 from "../../public/popular-services/24559.jpg";
 import p_icon5 from "../../public/popular-services/19198406.jpg";
 import p_icon6 from "../../public/popular-services/8852115.jpg";
+import p_icon7 from "../../public/popular-services/2336.jpg";
+import p_icon8 from "../../public/popular-services/5686602.jpg";
+import p_icon9 from "../../public/popular-services/5396346.jpg";
 
 
 
@@ -64,6 +67,24 @@ export const popularServices = [
     id: "6",
     title: "Article writing",
     icon: p_icon6,
+    value: "writing_translation",
+  },
+   {
+    id: "7",
+    title: "2D animation",
+    icon: p_icon7,
+    value: "writing_translation",
+  },
+  {
+    id: "8",
+    title: "UI/UX design",
+    icon: p_icon8,
+    value: "writing_translation",
+  },
+  {
+    id: "9",
+    title: "Blog writing Illustration",
+    icon: p_icon9,
     value: "writing_translation",
   },
 ];

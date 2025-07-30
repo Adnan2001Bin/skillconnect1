@@ -27,7 +27,9 @@ export default function ExpertMatchComponent() {
         <div
           className="w-full h-full sm:w-1/2 text-center sm:text-left flex flex-col items-start justify-center"
           style={{
-            backgroundImage: `url(${Images.findExpertcom ? Images.findExpertcom.src : ""})`,
+            backgroundImage: `url(${
+              Images.findExpertcom ? Images.findExpertcom.src : ""
+            })`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -60,6 +62,9 @@ export default function ExpertMatchComponent() {
           <video
             className="rounded-lg object-cover shadow-md"
             autoPlay
+            muted
+            loop
+            playsInline
             width="100%"
             height="auto"
           >
