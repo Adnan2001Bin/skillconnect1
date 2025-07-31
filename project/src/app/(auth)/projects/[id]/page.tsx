@@ -11,17 +11,20 @@ import {
   DollarSign,
   Clock,
   FileText,
+  Tag,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { IProject } from "@/models/projects.model";
 import { Images } from "@/lib/images";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface ProjectFile {
   url: string;
   name?: string;
 }
+
 // Helper function to get category label from value
 const getCategoryLabel = (categoryValue: string | undefined) => {
   if (!categoryValue) return "N/A";
@@ -29,8 +32,24 @@ const getCategoryLabel = (categoryValue: string | undefined) => {
   return foundCategory ? foundCategory.label : categoryValue;
 };
 
+// Helper function to get status badge color
+const getStatusBadgeColor = (status: string) => {
+  switch (status) {
+    case "open":
+      return "bg-[#4CAF50] text-white";
+    case "in-progress":
+      return "bg-[#0288D1] text-white";
+    case "completed":
+      return "bg-[#2E7D32] text-white";
+    case "cancelled":
+      return "bg-[#F44336] text-white";
+    default:
+      return "bg-gray-500 text-white";
+  }
+};
+
 export default function ProjectDetailsPage() {
-  const { status } = useSession();
+  const { status: authStatus, data: session } = useSession();
   const router = useRouter();
   const { id } = useParams();
   const [project, setProject] = useState<IProject | null>(null);
@@ -70,8 +89,8 @@ export default function ProjectDetailsPage() {
     }
   }, [id]);
 
-  // Handle file download (assuming files are URLs)
-   const handleFileDownload = (file: ProjectFile) => {
+  // Handle file download
+  const handleFileDownload = (file: ProjectFile) => {
     try {
       if (!file.url) {
         throw new Error("Invalid file URL");
@@ -87,8 +106,36 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // Handle status update
+const handleStatusUpdate = async (newStatus: "completed" | "cancelled") => {
+  try {
+    const response = await axios.put(`/api/projects/${id}`, { status: newStatus });
+    if (response.data.success) {
+      setProject((prev) => {
+        if (!prev) return null; // Handle null case
+        return { ...prev, status: newStatus } as IProject; // Spread prev and update status
+      });
+      toast.success("Status Updated", {
+        description: `Project marked as ${newStatus}.`,
+        className:
+          "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+    } else {
+      throw new Error(response.data.message || "Failed to update status");
+    }
+  } catch (error) {
+    toast.error("Error", {
+      description: "Failed to update project status.",
+      className:
+        "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+      duration: 4000,
+    });
+  }
+};
+
   // Handle loading and authentication states
-  if (status === "loading") {
+  if (authStatus === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
         <Loader2 className="animate-spin h-10 w-10 text-[#17B169] mr-3" />
@@ -99,7 +146,7 @@ export default function ProjectDetailsPage() {
     );
   }
 
-  if (status !== "authenticated") {
+  if (authStatus !== "authenticated") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
         <p className="text-[#F44336] text-lg font-semibold">
@@ -141,14 +188,16 @@ export default function ProjectDetailsPage() {
     typeof file === "string" ? { url: file } : file
   );
 
+  const isClient = session?.user?.role === "user" && session?.user?._id === project.clientId;
+  const isTalent = session?.user?.role === "talent";
+  const isAdmin = session?.user?.role === "admin";
+
   return (
     <div
       className="min-h-screen bg-[#F5F6F5] py-12 px-4 sm:px-6 lg:px-8 font-sans"
       style={{
         backgroundImage: `url(${
-          Images.postprojectbg
-            ? Images.postprojectbg.src
-            : ""
+          Images.postprojectbg ? Images.postprojectbg.src : ""
         })`,
         backgroundSize: "cover",
         backgroundPosition: "center",
@@ -159,9 +208,12 @@ export default function ProjectDetailsPage() {
         {/* Header */}
         <div className="bg-[#16423C] p-6">
           <h1 className="text-3xl font-bold text-white">{project.title}</h1>
-          <p className="text-[#D3F1DF] mt-2">
-            {getCategoryLabel(project.category)}
-          </p>
+          <div className="flex items-center mt-2 gap-4">
+            <p className="text-[#D3F1DF]">{getCategoryLabel(project.category)}</p>
+            <Badge className={getStatusBadgeColor(project.status)}>
+              {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+            </Badge>
+          </div>
         </div>
 
         {/* Content */}
@@ -212,6 +264,15 @@ export default function ProjectDetailsPage() {
                 <p className="text-[#6A9C89]">{formattedCreatedAt}</p>
               </div>
             </div>
+            <div className="flex items-center">
+              <Tag className="h-5 w-5 text-[#17B169] mr-2" />
+              <div>
+                <p className="text-sm font-semibold text-[#16423C]">Status</p>
+                <p className="text-[#6A9C89]">
+                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Services */}
@@ -256,18 +317,53 @@ export default function ProjectDetailsPage() {
               </div>
             </div>
           )}
-          {/* Back Button */}
-          <div className="flex justify-center">
-            <button
+
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            {isTalent && project.status === "open" && (
+              <Button
+                onClick={() => router.push(`/projects/${id}/apply`)}
+                className={`px-6 py-2 rounded-full font-semibold ${colors.buttonHover}`}
+                style={{ backgroundColor: colors.accentColor, color: colors.primary }}
+              >
+                Apply Now
+              </Button>
+            )}
+            {(isClient || isAdmin) && project.status === "in-progress" && (
+              <Button
+                onClick={() => handleStatusUpdate("completed")}
+                className={`px-6 py-2 rounded-full font-semibold ${colors.buttonHover}`}
+                style={{ backgroundColor: colors.accentColor, color: colors.primary }}
+              >
+                Mark as Completed
+              </Button>
+            )}
+            {(isClient || isAdmin) && (project.status === "open" || project.status === "in-progress") && (
+              <Button
+                onClick={() => handleStatusUpdate("cancelled")}
+                variant="outline"
+                className="px-6 py-2 rounded-full font-semibold"
+                style={{ borderColor: colors.accentColor, color: colors.accentColor }}
+              >
+                Cancel Project
+              </Button>
+            )}
+            {isClient && project.status === "open" && (
+              <Button
+                onClick={() => router.push(`/projects/${id}/proposals`)}
+                className={`px-6 py-2 rounded-full font-semibold ${colors.buttonHover}`}
+                style={{ backgroundColor: colors.accentColor, color: colors.primary }}
+              >
+                View Proposals
+              </Button>
+            )}
+            <Button
               onClick={() => router.push("/projects")}
-              className="px-6 py-2 rounded-full font-semibold transition-colors duration-300"
-              style={{
-                backgroundColor: colors.accentColor,
-                color: colors.primary,
-              }}
+              className="px-6 py-2 rounded-full font-semibold"
+              style={{ backgroundColor: colors.accentColor, color: colors.primary }}
             >
               Back to Projects
-            </button>
+            </Button>
           </div>
         </div>
       </div>
