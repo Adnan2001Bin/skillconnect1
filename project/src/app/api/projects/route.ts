@@ -65,3 +65,34 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized. Please sign in." },
+        { status: 401 }
+      );
+    }
+
+    await connectDB();
+    const projects = await ProjectModel.find({ status: "open" }).sort({ createdAt: -1 });
+
+    return NextResponse.json(
+      { success: true, data: projects, message: "Projects fetched successfully" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error fetching projects:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}

@@ -56,7 +56,7 @@
          {/* Category */}
          {talent.category && (
            <p className="text-sm font-semibold mb-1 px-3 py-1 rounded-full" style={{ backgroundColor: accentColor, color: primary }}>
-             {getCategoryLabel(talent.category)} {/* Use the helper function here */}
+             {getCategoryLabel(talent.category)}
            </p>
          )}
 
