@@ -36,6 +36,7 @@ interface Talent extends TalentProfileInput {
   role: "talent";
 }
 
+//for userview
 export default function UserTalentView() {
   const { status } = useSession();
   const router = useRouter();

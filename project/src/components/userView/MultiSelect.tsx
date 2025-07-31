@@ -11,6 +11,7 @@ interface MultiSelectProps {
   Icon?: React.ElementType;
   onChange?: (value: string[]) => void;
   defaultValue?: string[];
+  
 }
 
 export function MultiSelect({

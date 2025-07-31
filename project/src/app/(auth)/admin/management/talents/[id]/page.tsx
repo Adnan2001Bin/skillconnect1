@@ -29,6 +29,7 @@ const accentColor = "#A5BFCC";
 const activeTextColor = "#FFFFFF";
 const neutralTextColor = "#BBBBBB";
 
+//for adminview
 export default function TalentDetailsPage() {
   const { status } = useSession();
   const router = useRouter();

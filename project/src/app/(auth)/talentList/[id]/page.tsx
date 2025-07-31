@@ -42,6 +42,7 @@ interface Talent extends TalentProfileInput {
   isVerified: boolean;
 }
 
+//for userview
 export default function UserTalentProfilePage() {
   const { status } = useSession();
   const router = useRouter();

@@ -54,6 +54,7 @@ interface TalentProfileInput {
   rejectionReason?: string | null; // Added field
 }
 
+//for talent view
 export default function TalentProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();

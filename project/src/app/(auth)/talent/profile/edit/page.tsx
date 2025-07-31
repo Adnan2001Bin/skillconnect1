@@ -24,6 +24,7 @@ import { ProfilePictureField } from "@/components/profile/ProfilePictureField";
 import { ArrayField } from "@/components/profile/ArrayField";
 import Image from "next/image";
 
+//for talent view
 export default function TalentProfileEditPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
