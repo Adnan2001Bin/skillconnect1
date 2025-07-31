@@ -5,7 +5,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 // GET handler to fetch a single talent by ID
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+)  {
   try {
     // Check for admin authentication
     const session = await getServerSession(authOptions);
@@ -19,7 +22,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     // Connect to MongoDB
     await connectDB();
 
-    const { id } = await params;
+    const { id } = await context.params;
 
     // Fetch talent by ID
     const talent = await UserModel.findOne({ _id: id, role: "talent" }).lean();

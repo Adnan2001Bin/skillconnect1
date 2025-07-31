@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, Controller, FormProvider } from "react-hook-form"; // Import FormProvider
+import { useForm, Controller, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod"; // Still need z for inferring type
+import { z } from "zod";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import axios from "axios";
+import { UploadDropzone } from "@uploadthing/react";
+import type { OurFileRouter } from "@/app/api/uploadthing/core/route"; // Import the type
 
 // Shadcn UI components
 import { Button } from "@/components/ui/button";
@@ -45,10 +46,11 @@ import { BudgetField } from "@/components/userView/form/BudgetField";
 import { TimelineField } from "@/components/userView/form/TimelineField";
 import { CustomTextField } from "@/components/userView/form/CustomTextField";
 import { CustomTextareaField } from "@/components/userView/form/CustomTextareaField";
-import { MultiSelect } from "@/components/userView/MultiSelect";
+import { MultiSelect } from "@/components/userView/MultiSelect"; // Using userView/MultiSelect
 import { categories, servicesByCategory } from "@/lib/categoriesAndServices";
 import { projectSchema } from "@/schemas/projectSchema";
 import { Images } from "@/lib/images";
+import axios from "axios";
 
 type ProjectFormData = z.infer<typeof projectSchema>;
 
@@ -57,10 +59,9 @@ export default function CreateProjectPage() {
   const router = useRouter();
   const [isUploading, setIsUploading] = useState(false);
   const [files, setFiles] = useState<string[]>([]);
-  const [currentStep, setCurrentStep] = useState(0); // State for current step
+  const [currentStep, setCurrentStep] = useState(0);
 
   const formMethods = useForm<ProjectFormData>({
-    // Renamed to formMethods
     resolver: zodResolver(projectSchema),
     defaultValues: {
       title: "",
@@ -79,7 +80,7 @@ export default function CreateProjectPage() {
     watch,
     trigger,
     formState: { errors, isSubmitting },
-  } = formMethods; // Destructure from formMethods
+  } = formMethods;
 
   const selectedCategory = watch("category");
   const availableServices = selectedCategory
@@ -88,36 +89,6 @@ export default function CreateProjectPage() {
         label: service,
       })) || []
     : [];
-
-  const handleFileUpload = async (file: File) => {
-    setIsUploading(true);
-    try {
-      const { data } = await axios.post("/api/cloudinary-signature");
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("api_key", process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY!);
-      formData.append("timestamp", data.timestamp);
-      formData.append("signature", data.signature);
-      formData.append("folder", data.folder);
-
-      const uploadResponse = await axios.post(
-        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
-        formData
-      );
-      return uploadResponse.data.secure_url;
-    } catch (error) {
-      console.error("Cloudinary Upload Error:", error);
-      toast.error("Upload Failed", {
-        description: "Failed to upload file. Please try again.",
-        className:
-          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-        duration: 4000,
-      });
-      return null;
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const steps = [
     {
@@ -171,7 +142,6 @@ export default function CreateProjectPage() {
   ];
 
   const handleNextStep = async () => {
-    // Validate fields for the current step
     const currentStepFields = steps[currentStep].fields;
     const isValid = await trigger(
       currentStepFields as (keyof ProjectFormData)[]
@@ -342,7 +312,9 @@ export default function CreateProjectPage() {
         className="lg:w-1/2 p-6 sm:p-8 bg-white max-w-4xl mx-auto lg:min-h-screen"
         style={{
           backgroundImage: `url(${
-            Images.talentProfileBackground ? Images.talentProfileBackground.src : ""
+            Images.talentProfileBackground
+              ? Images.talentProfileBackground.src
+              : ""
           })`,
           backgroundSize: "cover",
           backgroundPosition: "center",
@@ -364,7 +336,6 @@ export default function CreateProjectPage() {
             ></div>
           </div>
         </div>
-        {/* Wrap the form with FormProvider */}
         <FormProvider {...formMethods}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {currentStep === 0 && (
@@ -379,7 +350,7 @@ export default function CreateProjectPage() {
                   name="description"
                   label="Project Description"
                   placeholder="Clearly describe what you need, key features, and your goals for this project."
-                  icon={MessageSquareText} // Changed icon for description
+                  icon={MessageSquareText}
                 />
               </>
             )}
@@ -387,7 +358,7 @@ export default function CreateProjectPage() {
             {currentStep === 1 && (
               <>
                 <FormField
-                  control={formMethods.control} // Explicitly pass control here, or create a wrapper for Select
+                  control={formMethods.control}
                   name="category"
                   render={({ field }) => (
                     <FormItem>
@@ -426,7 +397,7 @@ export default function CreateProjectPage() {
                     </FormItem>
                   )}
                 />
-                <Controller // MultiSelect still needs Controller as it's not a native Shadcn form element
+                <Controller
                   control={formMethods.control}
                   name="services"
                   render={({ field }) => (
@@ -456,7 +427,7 @@ export default function CreateProjectPage() {
                   name="timeline"
                   label="Timeline (Days)"
                   placeholder="e.g., 7 (Min: 1 day, Max: 365 days)"
-                  icon={CalendarDays} // Changed icon for timeline
+                  icon={CalendarDays}
                 />
               </>
             )}
@@ -467,7 +438,7 @@ export default function CreateProjectPage() {
                   name="requirements"
                   label="Detailed Requirements & Deliverables"
                   placeholder="Outline any specific functionalities, features, or files to be delivered (e.g., 'Source code, Figma files, Deployment')."
-                  icon={Paperclip} // Changed icon for requirements
+                  icon={Paperclip}
                 />
                 <div>
                   <FormLabel className="text-[#212121] font-semibold text-base flex items-center mb-2">
@@ -476,70 +447,50 @@ export default function CreateProjectPage() {
                     />
                     Attach Files (Optional)
                   </FormLabel>
-                  <div
-                    className={`relative p-6 rounded-lg text-center cursor-pointer transition-all duration-300 ${
-                      colors.dragDropBorder
-                    } ${isUploading ? "bg-gray-100" : "bg-[#A5D6A7]/10"}`}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDrop={async (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const file = e.dataTransfer.files?.[0];
-                      if (file) {
-                        const url = await handleFileUpload(file);
-                        if (url) {
-                          setFiles((prevFiles) => [...prevFiles, url]);
-                          formMethods.setValue("files", [...files, url]); // Update form value
-                        }
+                  <UploadDropzone<OurFileRouter, "projectFileUploader">
+                    endpoint="projectFileUploader"
+                    onClientUploadComplete={(res) => {
+                      if (res) {
+                        const newFiles = res.map((file) => file.url);
+                        setFiles((prevFiles) => [...prevFiles, ...newFiles]);
+                        formMethods.setValue("files", [...files, ...newFiles]);
+                        toast.success("File Uploaded", {
+                          description: "Files have been successfully uploaded!",
+                          className:
+                            "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+                          duration: 4000,
+                        });
                       }
+                      setIsUploading(false);
                     }}
-                  >
-                    <Input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const url = await handleFileUpload(file);
-                          if (url) {
-                            setFiles((prevFiles) => [...prevFiles, url]);
-                            formMethods.setValue("files", [...files, url]); // Update form value
-                          }
-                        }
-                      }}
-                      className="hidden"
-                      id="fileUpload"
-                      disabled={isUploading}
-                    />
-                    <label
-                      htmlFor="fileUpload"
-                      className="block w-full h-full cursor-pointer"
-                    >
-                      {isUploading ? (
-                        <div className="flex flex-col items-center justify-center text-[#2E7D32]">
-                          <Loader2 className="animate-spin mb-2 h-7 w-7" />
-                          <p className="text-lg font-medium">
-                            Uploading file...
-                          </p>
-                          <p className="text-sm text-gray-500">Please wait</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center text-[#4CAF50]">
-                          <FileUp className="mb-2 h-7 w-7" />
-                          <p className="text-lg font-medium">
-                            Drag & Drop or{" "}
-                            <span className="underline">Click to Upload</span>
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Max file size: 5MB (PDF, JPG, PNG)
-                          </p>
-                        </div>
-                      )}
-                    </label>
-                  </div>
+                    onUploadError={(error: Error) => {
+                      setIsUploading(false);
+                      console.error("UploadThing Error:", error);
+                      toast.error("Upload Failed", {
+                        description:
+                          "Failed to upload files. Please try again.",
+                        className:
+                          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+                        duration: 4000,
+                      });
+                    }}
+                    onUploadBegin={() => {
+                      setIsUploading(true);
+                    }}
+                    className={`ut-button:bg-[#4CAF50] ut-button:hover:bg-[#2E7D32] ut-button:text-white ut-label:text-[#212121] ut-allowed-content:text-[#6A9C89] ut-upload-icon:text-[#4CAF50] border-dashed border-[#4CAF50] hover:border-[#2E7D32] rounded-lg p-6 ${
+                      isUploading ? "bg-gray-100" : "bg-[#A5D6A7]/10"
+                    }`}
+                    content={{
+                      button({ ready }) {
+                        return ready ? "Upload Files" : "Uploading...";
+                      },
+                      allowedContent({ isUploading }) {
+                        return isUploading
+                          ? "Uploading files..."
+                          : "Images (4MB) or PDFs (8MB), up to 5 files";
+                      },
+                    }}
+                  />
                   {files.length > 0 && (
                     <div className="mt-4 flex flex-wrap gap-3 items-center">
                       <p className="text-sm font-semibold text-[#212121]">
@@ -553,9 +504,13 @@ export default function CreateProjectPage() {
                           File {index + 1}
                           <button
                             type="button"
-                            onClick={() =>
-                              setFiles(files.filter((_, i) => i !== index))
-                            }
+                            onClick={() => {
+                              const updatedFiles = files.filter(
+                                (_, i) => i !== index
+                              );
+                              setFiles(updatedFiles);
+                              formMethods.setValue("files", updatedFiles);
+                            }}
                             className="ml-2 rounded-full p-0.5 hover:bg-[#1B5E20]"
                           >
                             <XCircle className="h-4 w-4" />
@@ -609,8 +564,7 @@ export default function CreateProjectPage() {
               )}
             </div>
           </form>
-        </FormProvider>{" "}
-        {/* End FormProvider */}
+        </FormProvider>
       </div>
     </div>
   );

@@ -7,7 +7,10 @@ import { sendApprovalEmail } from "@/emails/ApprovalEmail";
 import { sendRejectionEmail } from "@/emails/RejectionEmail";
 import { sendDeletionEmail } from "@/emails/DeletionEmail";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+)  {
   try {
     // Check for admin authentication
     const session = await getServerSession(authOptions);
@@ -30,8 +33,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       );
     }
 
+        const { id } = await context.params;
+
     // Fetch talent
-    const talent = await UserModel.findOne({ _id: params.id, role: "talent" });
+    const talent = await UserModel.findOne({ _id:id, role: "talent" });
     if (!talent) {
       return NextResponse.json(
         { success: false, message: "Talent not found." },
@@ -99,9 +104,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         );
       }
 
-      
+    const { id } = await context.params;
       // Delete the talent account
-      await UserModel.deleteOne({ _id: params.id });
+      await UserModel.deleteOne({ _id: id });
 
       // Send deletion email
       const emailResponse = await sendDeletionEmail({

@@ -157,7 +157,14 @@ export default function ProjectListingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6F5] py-12 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-[#F5F6F5] py-12 px-4 sm:px-6 lg:px-8 font-sans"style={{
+        backgroundImage: `url(${
+          Images.userViewbackground ? Images.userViewbackground.src : ""
+        })`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}>
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl sm:text-4xl font-bold text-[#16423C] mb-8 text-center">
           Explore Projects

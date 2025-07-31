@@ -71,7 +71,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         <button
           className="px-6 py-2 rounded-full font-semibold transition-colors duration-300"
           style={{ backgroundColor: colors.accentColor, color: colors.primary }}
-          onClick={() => router.push(`/project/${project._id}`)}
+          onClick={() => router.push(`/projects/${project._id}`)}
         >
           View Details
         </button>

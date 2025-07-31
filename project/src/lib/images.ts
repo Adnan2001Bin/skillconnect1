@@ -9,6 +9,8 @@ import userViewbackground from "../../public/backgrounds/4964073.jpg"
 import findExpertcom from "../../public/backgrounds/OR68VI0.jpg"
 import allcategories from "../../public/catagoryPage/pexels-shkrabaanthony-4348401.jpg"
 import postjob from "../../public/backgrounds/StockCake-Modern Office Life_1752923098.jpg"
+import postprojectbg from "../../public/backgrounds/vecteezy_abstract-white-background-with-halftone-texture_6469228.jpg"
+
 // Centralized image exports for use across the SkillConnect platform
 export const Images = {
   logoUser,
@@ -21,5 +23,6 @@ export const Images = {
   userViewbackground,
   allcategories,
   findExpertcom,
-  postjob
+  postjob,
+  postprojectbg
 };
