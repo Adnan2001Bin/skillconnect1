@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import ProposalForm from "@/components/talent/proposals/ProposalForm";
+import Loader from "@/components/Loader";
 
 interface ProjectFile {
   url: string;
@@ -71,14 +73,16 @@ const getProposalStatusBadgeColor = (status?: string) => {
 };
 
 export default function TalentProjectDetailsPage() {
-  const { status: authStatus, data: session } = useSession();
+    const { status, data: session } = useSession();
   const router = useRouter();
   const { id } = useParams();
   const [project, setProject] = useState<IProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
-  const [proposalStatus, setProposalStatus] = useState<ProposalStatus>({ hasApplied: false });
+  const [proposalStatus, setProposalStatus] = useState<ProposalStatus>({
+    hasApplied: false,
+  });
   const colors = {
     accentColor: "#8DBCC7",
     activeTextColor: "#212121",
@@ -168,39 +172,24 @@ export default function TalentProjectDetailsPage() {
     });
   };
 
-  // Handle loading and authentication states
-  if (authStatus === "loading") {
+  if (status === "loading") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF3E0] px-4">
-        <Loader2 className="animate-spin h-8 w-8 sm:h-10 sm:w-10 text-[#8DBCC7] mb-4" />
-        <p className="text-[#212121] text-base sm:text-lg font-semibold text-center">
-          Loading project...
-        </p>
-      </div>
-    );
-  }
-
-  if (authStatus !== "authenticated" || session?.user?.role !== "talent") {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF3E0] px-4">
-        <p className="text-red-600 text-base sm:text-lg font-semibold text-center">
-          Access denied. Please sign in as a talent.
-        </p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
+        <Loader text="Loading project..." color="#000000" bgColor="#90D1CA" size='large'/>
       </div>
     );
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF3E0] px-4">
-        <Loader2 className="animate-spin h-8 w-8 sm:h-10 sm:w-10 text-[#8DBCC7]" />
-      </div>
-    );
-  }
-
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
+      <Loader text="Loading project..." color="#000000" bgColor="#90D1CA" size='large'/>
+    </div>
+  );
+}
   if (error || !project) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF3E0] px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#e4e0ff] px-4">
         <div className="flex items-center text-red-600">
           <AlertCircle className="h-6 w-6 mr-2" />
           <p className="text-base sm:text-lg font-semibold text-center">
@@ -397,9 +386,14 @@ export default function TalentProjectDetailsPage() {
                   >
                     Your Proposal Status
                   </p>
-                  <Badge className={getProposalStatusBadgeColor(proposalStatus.status)}>
+                  <Badge
+                    className={getProposalStatusBadgeColor(
+                      proposalStatus.status
+                    )}
+                  >
                     {proposalStatus.status
-                      ? proposalStatus.status.charAt(0).toUpperCase() + proposalStatus.status.slice(1)
+                      ? proposalStatus.status.charAt(0).toUpperCase() +
+                        proposalStatus.status.slice(1)
                       : "Unknown"}
                   </Badge>
                 </div>
@@ -470,15 +464,17 @@ export default function TalentProjectDetailsPage() {
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            {isTalent && project.status === "open" && !proposalStatus.hasApplied && (
-              <Button
-                onClick={() => setIsApplying(true)}
-                className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
-                style={{ backgroundColor: colors.accentColor }}
-              >
-                Apply Now
-              </Button>
-            )}
+            {isTalent &&
+              project.status === "open" &&
+              !proposalStatus.hasApplied && (
+                <Button
+                  onClick={() => setIsApplying(true)}
+                  className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
+                  style={{ backgroundColor: colors.accentColor }}
+                >
+                  Apply Now
+                </Button>
+              )}
             <Button
               onClick={() => router.push("/talent/projects")}
               className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}

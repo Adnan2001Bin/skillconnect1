@@ -134,26 +134,7 @@ export default function ClientProposalsPage() {
     }
   };
 
-  // Handle loading and authentication states
-  if (authStatus === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
-        <Loader2 className="animate-spin h-10 w-10 text-[#17B169] mr-3" />
-        <p className="text-[#16423C] text-xl font-semibold">Loading proposals...</p>
-      </div>
-    );
-  }
-
-  if (authStatus !== "authenticated" || (session?.user?.role !== "user" && session?.user?.role !== "admin")) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
-        <p className="text-[#F44336] text-lg font-semibold">
-          Access denied. Only clients or admins can view proposals.
-        </p>
-      </div>
-    );
-  }
-
+ 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">

@@ -10,6 +10,7 @@ import ProjectCard from "@/components/talent/projects/ProjectCard";
 import { toast } from "sonner";
 import Image from "next/image";
 import { Images } from "@/lib/images";
+import Loader from "@/components/Loader";
 
 export default function TalentProjectsListPage() {
   const { status, data: session } = useSession();
@@ -34,7 +35,9 @@ export default function TalentProjectsListPage() {
           if (response.data.success) {
             setProjects(response.data.data);
           } else {
-            throw new Error(response.data.message || "Failed to fetch projects");
+            throw new Error(
+              response.data.message || "Failed to fetch projects"
+            );
           }
         } catch (err) {
           setError("Failed to load projects. Please try again later.");
@@ -52,22 +55,10 @@ export default function TalentProjectsListPage() {
     }
   }, [status, session]);
 
-  
-
-  if (status !== "authenticated" || session?.user?.role !== "talent") {
+  if (status === "loading") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF3E0] px-4">
-        <p className="text-red-600 text-base sm:text-lg font-semibold text-center">
-          Access denied. Please sign in as a talent.
-        </p>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4">
-        <Loader2 className="animate-spin h-8 w-8 sm:h-10 sm:w-10 text-[#8DBCC7]" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
+        <Loader text="Loading projects..." color="#000000" bgColor="#90D1CA" size='large'/>
       </div>
     );
   }
@@ -87,7 +78,9 @@ export default function TalentProjectsListPage() {
       className="min-h-screen bg-[#FFF3E0] py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8 font-sans relative mt-15"
       style={{
         backgroundImage: `url(${
-          Images.talentProfileBackground ? Images.talentProfileBackground.src : ""
+          Images.talentProfileBackground
+            ? Images.talentProfileBackground.src
+            : ""
         })`,
         backgroundSize: "cover",
         backgroundPosition: "center",

@@ -8,7 +8,6 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Loader2 as Loader,
   Edit,
   MapPin,
   Link2,
@@ -25,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Images } from "@/lib/images";
+import Loader from "@/components/Loader";
 
 interface TalentProfileInput {
   profilePicture?: string | null;
@@ -114,11 +114,8 @@ export default function TalentProfilePage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: lightAccentColor }}>
-        <Loader className="animate-spin h-10 w-10 mr-3" style={{ color: primaryColor }} />
-        <p className="text-xl font-semibold" style={{ color: darkTextColor }}>
-          Loading your profile...
-        </p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
+        <Loader text="Loading your profile..." color="#000000" bgColor="#90D1CA" size='large'/>
       </div>
     );
   }

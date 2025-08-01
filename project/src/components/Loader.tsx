@@ -1,73 +1,120 @@
-// components/IllustrationLoader.tsx
-import React, { useEffect, useState } from 'react';
-import styles from './Loader.module.css';
+'use client';
 
-type LoaderVariant = 'web-developer' | 'web-designer' | 'graphic-designer' | 'general';
+import { motion } from 'framer-motion';
 
-interface IllustrationLoaderProps {
-  variant?: LoaderVariant;
+interface CodeLoaderProps {
+  text?: string;
   size?: 'small' | 'medium' | 'large';
-  message?: string;
-  className?: string;
+  color?: string;
+  bgColor?: string;
 }
 
-const Loader: React.FC<IllustrationLoaderProps> = ({
-  variant = 'general',
+const Loader = ({
+  text = '</>',
   size = 'medium',
-  message = 'Loading talents...',
-  className = '',
-}) => {
-  const [activeIcon, setActiveIcon] = useState(0);
-
-  // Icons for different talent types
-  const icons = {
-    'web-developer': ['💻', '👨‍💻', '🔧', '⚙️'],
-    'web-designer': ['🎨', '🖌️', '🖥️', '✏️'],
-    'graphic-designer': ['🖼️', '📐', '✒️', '🖋️'],
-    'general': ['🌟', '✨', '💡', '🚀'],
-  };
-
-  // Animation effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveIcon((prev) => (prev + 1) % icons[variant].length);
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [variant]);
-
+  color = '#6366f1',
+  bgColor = '#e0e7ff'
+}: CodeLoaderProps) => {
   const sizeClasses = {
-    small: 'text-2xl',
-    medium: 'text-4xl',
-    large: 'text-6xl',
+    small: 'w-16 h-16',
+    medium: 'w-32 h-32',
+    large: 'w-48 h-48',
   };
 
   return (
-    <div className={`flex flex-col items-center justify-center ${className}`}>
-      <div className={`relative ${sizeClasses[size]}`}>
-        {/* Main animated icon */}
-        <span className={`${styles.bounce} inline-block`}>
-          {icons[variant][activeIcon]}
-        </span>
+    <div className={`relative ${sizeClasses[size]} mx-auto`}>
+      {/* Laptop illustration */}
+      <svg viewBox="0 0 200 200" className="w-full h-full">
+        {/* Laptop base */}
+        <motion.rect
+          x="30"
+          y="80"
+          width="140"
+          height="100"
+          rx="5"
+          fill={bgColor}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        />
         
-        {/* Floating decorative elements */}
-        <span className={`absolute -top-2 -left-2 ${styles.float} ${styles.delay100}`}>
-          {icons[variant][(activeIcon + 1) % icons[variant].length]}
-        </span>
-        <span className={`absolute -bottom-2 -right-2 ${styles.float} ${styles.delay200}`}>
-          {icons[variant][(activeIcon + 2) % icons[variant].length]}
-        </span>
-      </div>
+        {/* Laptop top */}
+        <motion.rect
+          x="70"
+          y="70"
+          width="60"
+          height="10"
+          rx="2"
+          fill={bgColor}
+          initial={{ y: 60 }}
+          animate={{ y: 70 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        />
+        
+        {/* Customizable text */}
+        <motion.text
+          x="100"
+          y="120"
+          textAnchor="middle"
+          fill={color}
+          fontSize="20"
+          fontFamily="monospace"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
+          {text}
+        </motion.text>
+        
+        {/* Animated line */}
+        <motion.path
+          d="M80,140 L120,140"
+          stroke={color}
+          strokeWidth="2"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 1, delay: 0.6 }}
+        />
+      </svg>
       
-      {/* Loading message */}
-      <p className={`mt-4 text-center ${styles.pulse} ${size === 'small' ? 'text-sm' : 'text-lg'}`}>
-        {message}
-      </p>
+      {/* Pulsing background */}
+      <motion.div 
+        className="absolute inset-0 rounded-full"
+        style={{ backgroundColor: `${bgColor}50` }}
+        animate={{
+          scale: [1, 1.1, 1],
+          opacity: [0.5, 0.8, 0.5]
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          ease: "easeInOut"
+        }}
+      />
       
-      {/* Animated progress bar */}
-      <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden mt-4">
-        <div className={`h-full bg-indigo-500 rounded-full ${styles.progress}`}></div>
-      </div>
+      {/* Animated dots */}
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="absolute rounded-full"
+          style={{
+            width: 8,
+            height: 8,
+            top: '20%',
+            left: `${20 + i * 30}%`,
+            backgroundColor: color
+          }}
+          animate={{
+            y: [0, -10, 0],
+            opacity: [0.6, 1, 0.6],
+          }}
+          transition={{
+            duration: 1.5,
+            repeat: Infinity,
+            delay: i * 0.3,
+          }}
+        />
+      ))}
     </div>
   );
 };

@@ -4,21 +4,11 @@ import { useSession } from "next-auth/react";
 import UserNavbar from "@/components/navbars/UserNavbar";
 import TalentLayout from "../talent/TalentLayout";
 import AdminLayout from "../admin/AdminLayout";
-import { Loader2 as Loader } from "lucide-react";
+import Loader from "../Loader";
 
 export default function Wrapper({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <Loader className="animate-spin h-10 w-10 text-teal-400 mr-3" />
-        <p className="text-gray-100 text-xl font-semibold">
-          Loading your portal...
-        </p>
-      </div>
-    );
-  }
 
   const renderContent = () => {
     if (status !== "authenticated") {
@@ -37,7 +27,11 @@ export default function Wrapper({ children }: { children: React.ReactNode }) {
           </AdminLayout>
         );
       case "talent":
-        return <TalentLayout><main>{children}</main></TalentLayout>;
+        return (
+          <TalentLayout>
+            <main>{children}</main>
+          </TalentLayout>
+        );
       case "user":
         return (
           <>
