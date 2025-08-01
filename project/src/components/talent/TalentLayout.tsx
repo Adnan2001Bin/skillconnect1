@@ -1,10 +1,11 @@
-// components/talent/TalentLayout.tsx
+// app/admin/layout.tsx
 "use client";
 
 import { useSession } from "next-auth/react";
-import TalentSidebar from "@/components/talent/TalentSidebar";
-import TalentNavbar from "@/components/navbars/TalentNavbar";
+import TalentSidebar from "./TalentSidebar";
 import { Loader2 as Loader } from "lucide-react";
+import TalentNavbar from "../navbars/TalentNavbar";
+import { useState } from "react";
 
 interface TalentLayoutProps {
   children: React.ReactNode;
@@ -12,13 +13,18 @@ interface TalentLayoutProps {
 
 export default function TalentLayout({ children }: TalentLayoutProps) {
   const { status } = useSession();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
-        <Loader className="animate-spin h-10 w-10 text-[#FF7043] mr-3" />
-        <p className="text-[#212121] text-xl font-semibold">
-          Loading your talent portal...
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <Loader className="animate-spin h-10 w-10 text-teal-400 mr-3" />
+        <p className="text-gray-100 text-xl font-semibold">
+          Loading your admin portal...
         </p>
       </div>
     );
@@ -26,24 +32,26 @@ export default function TalentLayout({ children }: TalentLayoutProps) {
 
   if (status !== "authenticated") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
-        <p className="text-[#F44336] text-lg font-semibold">
-          Access denied. Please sign in as a talent.
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <p className="text-red-500 text-lg font-semibold">
+          Access denied. Please sign in as an admin.
         </p>
       </div>
     );
   }
 
   return (
-    <div>
-      <TalentNavbar />
-      <div className="flex justify-between min-h-screenpx-10">
-        <div className=" min-h-screen w-64 fixed mt-23">
-          <TalentSidebar />
+    <div className="bg-gray-900 min-h-screen">
+      <div className="flex flex-col lg:flex-row min-h-screen">
+        <div className="fixed z-40 w-[18%] lg:h-screen">
+          <TalentSidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
         </div>
-        <main className="flex-1 ml-64 p-6">
-          {children}
-        </main>
+        <div className="flex-1 lg:ml-64 w-full lg:w-[82%]">
+          <TalentNavbar toggleSidebar={toggleSidebar} />
+          <main className="">
+            {children}
+          </main>
+        </div>
       </div>
     </div>
   );

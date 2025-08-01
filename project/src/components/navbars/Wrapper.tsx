@@ -37,7 +37,7 @@ export default function Wrapper({ children }: { children: React.ReactNode }) {
           </AdminLayout>
         );
       case "talent":
-        return <TalentLayout>{children}</TalentLayout>;
+        return <TalentLayout><main>{children}</main></TalentLayout>;
       case "user":
         return (
           <>
