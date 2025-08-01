@@ -47,26 +47,26 @@ export default function TalentNavbar() {
   };
 
   return (
-    <nav className="bg-white fixed shadow-md py-3 px-4 sm:px-6 lg:px-20 flex items-center justify-between top-0 right-0 w-full z-30 h-20">
+    <nav className="bg-white shadow-md py-3 px-4 sm:px-6 lg:px-8 flex items-center justify-between h-20 fixed top-0 w-full z-30">
       <div className="flex items-center">
         <Image
           src={Images.logoTalent}
           alt="SkillConnect Logo"
           width={110}
           height={40}
-          className="object-contain"
+          className="object-contain h-10 w-auto"
           priority
         />
       </div>
-      <div className="flex items-center space-x-2 sm:space-x-4 ">
-        <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2">
+        <div className="flex items-center">
           {profilePicture ? (
             <Image
               src={profilePicture}
               alt="Profile Picture"
-              width={49}
-              height={32}
-              className="rounded-full object-cover border-2 border-[#A4CCD9] h-[3rem] w-[3rem]" // Added w-[3rem] to maintain aspect ratio
+              width={48}
+              height={48}
+              className="rounded-full object-cover border-2 border-[#A4CCD9] h-12 w-12"
             />
           ) : (
             <div className="w-12 h-12 rounded-full bg-[#A5D6A7] flex items-center justify-center border-2 border-[#4CAF50]">

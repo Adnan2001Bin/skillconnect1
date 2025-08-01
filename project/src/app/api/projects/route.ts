@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     }
 
     await connectDB();
-    const projects = await ProjectModel.find({ status: "open" }).sort({ createdAt: -1 });
+    const projects = await ProjectModel.find().lean();
 
     return NextResponse.json(
       { success: true, data: projects, message: "Projects fetched successfully" },
