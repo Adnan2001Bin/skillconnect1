@@ -52,16 +52,7 @@ export default function TalentProjectsListPage() {
     }
   }, [status, session]);
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF3E0] px-4">
-        <Loader2 className="animate-spin h-8 w-8 sm:h-10 sm:w-10 text-[#8DBCC7] mb-4" />
-        <p className="text-[#212121] text-lg sm:text-xl font-semibold text-center">
-          Loading...
-        </p>
-      </div>
-    );
-  }
+  
 
   if (status !== "authenticated" || session?.user?.role !== "talent") {
     return (
@@ -75,7 +66,7 @@ export default function TalentProjectsListPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF3E0] px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center px-4">
         <Loader2 className="animate-spin h-8 w-8 sm:h-10 sm:w-10 text-[#8DBCC7]" />
       </div>
     );

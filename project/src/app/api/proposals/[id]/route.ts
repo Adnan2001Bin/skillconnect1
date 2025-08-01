@@ -2,60 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import connectDB from "@/lib/connectDB";
+import ProposalModel from "@/models/proposal.model";
 import ProjectModel from "@/models/projects.model";
 import { authOptions } from "../../auth/[...nextauth]/options";
-import proposalModel from "@/models/proposal.model";
 
 const updateProposalSchema = z.object({
   proposalStatus: z.enum(["accepted", "rejected"], {
     message: "Proposal status must be either 'accepted' or 'rejected'",
   }),
 });
-
-
-export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  await connectDB();
-
-  try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
-      return NextResponse.json(
-        { success: false, message: "Unauthorized. Please sign in." },
-        { status: 401 }
-      );
-    }
-
-    const { id } = await context.params;
-    const project = await ProjectModel.findById(id);
-
-    if (!project) {
-      return NextResponse.json(
-        { success: false, message: "Project not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: true, data: project, message: "Project fetched successfully" },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Error fetching project:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Internal server error",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
-}
-
-
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -85,7 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     await connectDB();
 
     // 5. Verify proposal exists
-    const proposal = await proposalModel.findById(proposalId);
+    const proposal = await ProposalModel.findById(proposalId);
     if (!proposal) {
       return NextResponse.json(
         { success: false, message: "Proposal not found" },
@@ -130,7 +85,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       );
     } else {
       // Delete the proposal if rejected
-      await proposalModel.findByIdAndDelete(proposalId);
+      await ProposalModel.findByIdAndDelete(proposalId);
 
       // Return success response
       return NextResponse.json(

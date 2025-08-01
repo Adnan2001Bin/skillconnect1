@@ -57,7 +57,7 @@ export default function ProjectDetailsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const colors = {
-    accentColor: "#4CAF50",
+    accentColor: "#17B169",
     activeTextColor: "#1B5E20",
     neutralTextColor: "#6A9C89",
     primary: "#E8F5E9",
@@ -70,11 +70,9 @@ export default function ProjectDetailsPage() {
       try {
         setLoading(true);
         const response = await axios.get(`/api/projects/${id}`);
-
         if (response.status !== 200) {
           throw new Error("Failed to fetch project");
         }
-
         setProject(response.data.data);
       } catch (err) {
         setError("Failed to load project details. Please try again later.");
@@ -107,32 +105,32 @@ export default function ProjectDetailsPage() {
   };
 
   // Handle status update
-const handleStatusUpdate = async (newStatus: "completed" | "cancelled") => {
-  try {
-    const response = await axios.put(`/api/projects/${id}`, { status: newStatus });
-    if (response.data.success) {
-      setProject((prev) => {
-        if (!prev) return null; // Handle null case
-        return { ...prev, status: newStatus } as IProject; // Spread prev and update status
-      });
-      toast.success("Status Updated", {
-        description: `Project marked as ${newStatus}.`,
+  const handleStatusUpdate = async (newStatus: "completed" | "cancelled") => {
+    try {
+      const response = await axios.put(`/api/projects/${id}`, { status: newStatus });
+      if (response.data.success) {
+        setProject((prev) => {
+          if (!prev) return null;
+          return { ...prev, status: newStatus } as IProject;
+        });
+        toast.success("Status Updated", {
+          description: `Project marked as ${newStatus}.`,
+          className:
+            "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+          duration: 4000,
+        });
+      } else {
+        throw new Error(response.data.message || "Failed to update status");
+      }
+    } catch (error) {
+      toast.error("Error", {
+        description: "Failed to update project status.",
         className:
-          "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
       });
-    } else {
-      throw new Error(response.data.message || "Failed to update status");
     }
-  } catch (error) {
-    toast.error("Error", {
-      description: "Failed to update project status.",
-      className:
-        "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-      duration: 4000,
-    });
-  }
-};
+  };
 
   // Handle loading and authentication states
   if (authStatus === "loading") {
@@ -308,7 +306,7 @@ const handleStatusUpdate = async (newStatus: "completed" | "cancelled") => {
                   <Button
                     key={index}
                     onClick={() => handleFileDownload(file)}
-                    className={`flex items-center px-4 py-2 bg-[#4CAF50] text-white rounded-full ${colors.buttonHover} transition-colors`}
+                    className={`flex items-center px-4 py-2 bg-[#17B169] text-white rounded-full ${colors.buttonHover} transition-colors`}
                   >
                     <FileText className="h-5 w-5 mr-2" />
                     {file.name || `File ${index + 1}`}
@@ -348,7 +346,7 @@ const handleStatusUpdate = async (newStatus: "completed" | "cancelled") => {
                 Cancel Project
               </Button>
             )}
-            {isClient && project.status === "open" && (
+            {(isClient || isAdmin) && (project.status === "open" || project.status === "in-progress") && (
               <Button
                 onClick={() => router.push(`/projects/${id}/proposals`)}
                 className={`px-6 py-2 rounded-full font-semibold ${colors.buttonHover}`}
