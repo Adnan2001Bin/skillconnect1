@@ -17,7 +17,7 @@ const ProposalSchema: Schema = new Schema({
   bid: { type: Number, required: true, min: 10 },
   coverLetter: { type: String, required: true, minlength: 10, maxlength: 1000 },
   files: { type: [String], default: [] },
-  status: {
+  proposalStatus: {
     type: String,
     enum: ["pending", "accepted", "rejected"],
     default: "pending",

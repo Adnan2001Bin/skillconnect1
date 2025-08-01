@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -22,6 +21,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
+import ProposalForm from "@/components/talent/proposals/ProposalForm";
 
 interface ProjectFile {
   url: string;
@@ -58,7 +58,7 @@ export default function TalentProjectDetailsPage() {
   const [project, setProject] = useState<IProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [isApplying, setIsApplying] = useState(false);
   const colors = {
     accentColor: "#8DBCC7",
     activeTextColor: "#212121",
@@ -117,6 +117,17 @@ export default function TalentProjectDetailsPage() {
         duration: 4000,
       });
     }
+  };
+
+  // Handle proposal form cancellation
+  const handleCancelProposal = () => {
+    setIsApplying(false);
+  };
+
+  // Handle successful proposal submission
+  const handleProposalSuccess = () => {
+    setIsApplying(false);
+    router.push("/talent/projects"); // Redirect to projects list after successful submission
   };
 
   // Handle loading and authentication states
@@ -183,7 +194,9 @@ export default function TalentProjectDetailsPage() {
       className="min-h-screen py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8 font-sans relative mt-15"
       style={{
         backgroundImage: `url(${
-          Images.talentProfileBackground ? Images.talentProfileBackground.src : ""
+          Images.talentProfileBackground
+            ? Images.talentProfileBackground.src
+            : ""
         })`,
         backgroundSize: "cover",
         backgroundPosition: "center",
@@ -195,7 +208,10 @@ export default function TalentProjectDetailsPage() {
         style={{ backgroundColor: colors.containerBg }}
       >
         {/* Header */}
-        <div className="p-4 sm:p-6" style={{ backgroundColor: colors.headerBg }}>
+        <div
+          className="p-4 sm:p-6"
+          style={{ backgroundColor: colors.headerBg }}
+        >
           <h1 className="text-2xl sm:text-3xl font-bold text-white line-clamp-2">
             {project.title}
           </h1>
@@ -213,10 +229,16 @@ export default function TalentProjectDetailsPage() {
         <div className="p-4 sm:p-6 md:p-8">
           {/* Description */}
           <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ color: colors.activeTextColor }}>
+            <h2
+              className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+              style={{ color: colors.activeTextColor }}
+            >
               Description
             </h2>
-            <p className="leading-relaxed text-sm sm:text-base" style={{ color: colors.neutralTextColor }}>
+            <p
+              className="leading-relaxed text-sm sm:text-base"
+              style={{ color: colors.neutralTextColor }}
+            >
               {project.description}
             </p>
           </div>
@@ -224,57 +246,103 @@ export default function TalentProjectDetailsPage() {
           {/* Details Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
             <div className="flex items-center">
-              <DollarSign className="h-5 w-5 mr-2 flex-shrink-0" style={{ color: colors.iconColor }} />
+              <DollarSign
+                className="h-5 w-5 mr-2 flex-shrink-0"
+                style={{ color: colors.iconColor }}
+              />
               <div>
-                <p className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: colors.activeTextColor }}
+                >
                   Budget
                 </p>
-                <p className="text-sm" style={{ color: colors.neutralTextColor }}>
+                <p
+                  className="text-sm"
+                  style={{ color: colors.neutralTextColor }}
+                >
                   ${project.budget.toLocaleString()}
                 </p>
               </div>
             </div>
             <div className="flex items-center">
-              <Clock className="h-5 w-5 mr-2 flex-shrink-0" style={{ color: colors.iconColor }} />
+              <Clock
+                className="h-5 w-5 mr-2 flex-shrink-0"
+                style={{ color: colors.iconColor }}
+              />
               <div>
-                <p className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: colors.activeTextColor }}
+                >
                   Timeline
                 </p>
-                <p className="text-sm" style={{ color: colors.neutralTextColor }}>
+                <p
+                  className="text-sm"
+                  style={{ color: colors.neutralTextColor }}
+                >
                   {project.timeline} days
                 </p>
               </div>
             </div>
             <div className="flex items-center">
-              <Briefcase className="h-5 w-5 mr-2 flex-shrink-0" style={{ color: colors.iconColor }} />
+              <Briefcase
+                className="h-5 w-5 mr-2 flex-shrink-0"
+                style={{ color: colors.iconColor }}
+              />
               <div>
-                <p className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: colors.activeTextColor }}
+                >
                   Category
                 </p>
-                <p className="text-sm" style={{ color: colors.neutralTextColor }}>
+                <p
+                  className="text-sm"
+                  style={{ color: colors.neutralTextColor }}
+                >
                   {getCategoryLabel(project.category)}
                 </p>
               </div>
             </div>
             <div className="flex items-center">
-              <CalendarDays className="h-5 w-5 mr-2 flex-shrink-0" style={{ color: colors.iconColor }} />
+              <CalendarDays
+                className="h-5 w-5 mr-2 flex-shrink-0"
+                style={{ color: colors.iconColor }}
+              />
               <div>
-                <p className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: colors.activeTextColor }}
+                >
                   Posted On
                 </p>
-                <p className="text-sm" style={{ color: colors.neutralTextColor }}>
+                <p
+                  className="text-sm"
+                  style={{ color: colors.neutralTextColor }}
+                >
                   {formattedCreatedAt}
                 </p>
               </div>
             </div>
             <div className="flex items-center">
-              <Tag className="h-5 w-5 mr-2 flex-shrink-0" style={{ color: colors.iconColor }} />
+              <Tag
+                className="h-5 w-5 mr-2 flex-shrink-0"
+                style={{ color: colors.iconColor }}
+              />
               <div>
-                <p className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                <p
+                  className="text-sm font-semibold"
+                  style={{ color: colors.activeTextColor }}
+                >
                   Status
                 </p>
-                <p className="text-sm" style={{ color: colors.neutralTextColor }}>
-                  {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                <p
+                  className="text-sm"
+                  style={{ color: colors.neutralTextColor }}
+                >
+                  {project.status.charAt(0).toUpperCase() +
+                    project.status.slice(1)}
                 </p>
               </div>
             </div>
@@ -282,10 +350,16 @@ export default function TalentProjectDetailsPage() {
 
           {/* Services */}
           <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ color: colors.activeTextColor }}>
+            <h2
+              className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+              style={{ color: colors.activeTextColor }}
+            >
               Services Required
             </h2>
-            <ul className="list-disc list-inside text-sm sm:text-base" style={{ color: colors.neutralTextColor }}>
+            <ul
+              className="list-disc list-inside text-sm sm:text-base"
+              style={{ color: colors.neutralTextColor }}
+            >
               {project.services.map((service, index) => (
                 <li key={index}>{service}</li>
               ))}
@@ -294,10 +368,16 @@ export default function TalentProjectDetailsPage() {
 
           {/* Requirements */}
           <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ color: colors.activeTextColor }}>
+            <h2
+              className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+              style={{ color: colors.activeTextColor }}
+            >
               Requirements
             </h2>
-            <p className="leading-relaxed text-sm sm:text-base" style={{ color: colors.neutralTextColor }}>
+            <p
+              className="leading-relaxed text-sm sm:text-base"
+              style={{ color: colors.neutralTextColor }}
+            >
               {project.requirements}
             </p>
           </div>
@@ -305,7 +385,10 @@ export default function TalentProjectDetailsPage() {
           {/* Files */}
           {projectFiles.length > 0 && (
             <div className="mb-6 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ color: colors.activeTextColor }}>
+              <h2
+                className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+                style={{ color: colors.activeTextColor }}
+              >
                 Attached Files
               </h2>
               <div className="flex flex-wrap gap-3 sm:gap-4">
@@ -317,7 +400,9 @@ export default function TalentProjectDetailsPage() {
                     style={{ backgroundColor: colors.accentColor }}
                   >
                     <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                    <span className="line-clamp-1">{file.name || `File ${index + 1}`}</span>
+                    <span className="line-clamp-1">
+                      {file.name || `File ${index + 1}`}
+                    </span>
                   </Button>
                 ))}
               </div>
@@ -328,7 +413,7 @@ export default function TalentProjectDetailsPage() {
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             {isTalent && project.status === "open" && (
               <Button
-                onClick={() => router.push(`/talent/projects/${id}/apply`)}
+                onClick={() => setIsApplying(true)}
                 className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
                 style={{ backgroundColor: colors.accentColor }}
               >
@@ -345,6 +430,19 @@ export default function TalentProjectDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Proposal Form Modal */}
+      {isApplying && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 sm:mx-6 lg:mx-8 p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <ProposalForm
+              projectId={id as string}
+              onCancel={handleCancelProposal}
+              onSuccess={handleProposalSuccess}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
