@@ -6,7 +6,7 @@ export interface IProposal extends Document {
   bid: number;
   coverLetter: string;
   files?: string[];
-  status: "pending" | "accepted" | "rejected";
+  proposalStatus: "pending" | "accepted" | "rejected";
   createdAt: Date;
   updatedAt: Date;
 }

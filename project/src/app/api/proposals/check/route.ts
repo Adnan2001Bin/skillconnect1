@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
@@ -43,8 +44,9 @@ export async function GET(req: NextRequest) {
       {
         success: true,
         hasApplied: !!existingProposal,
+        status: existingProposal ? existingProposal.proposalStatus : undefined,
         message: existingProposal
-          ? "Proposal already exists for this project."
+          ? "Proposal found for this project."
           : "No proposal found for this project.",
       },
       { status: 200 }

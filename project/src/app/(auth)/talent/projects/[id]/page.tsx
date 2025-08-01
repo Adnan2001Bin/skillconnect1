@@ -28,6 +28,11 @@ interface ProjectFile {
   name?: string;
 }
 
+interface ProposalStatus {
+  hasApplied: boolean;
+  status?: "pending" | "accepted" | "rejected";
+}
+
 // Helper function to get category label from value
 const getCategoryLabel = (categoryValue: string | undefined) => {
   if (!categoryValue) return "N/A";
@@ -51,6 +56,20 @@ const getStatusBadgeColor = (status: string) => {
   }
 };
 
+// Helper function to get proposal status badge color
+const getProposalStatusBadgeColor = (status?: string) => {
+  switch (status) {
+    case "pending":
+      return "bg-[#FBBF24] text-white"; // Yellow for pending
+    case "accepted":
+      return "bg-[#34D399] text-white"; // Green for accepted
+    case "rejected":
+      return "bg-[#EF4444] text-white"; // Red for rejected
+    default:
+      return "bg-[#757575] text-white"; // Neutral gray for no status
+  }
+};
+
 export default function TalentProjectDetailsPage() {
   const { status: authStatus, data: session } = useSession();
   const router = useRouter();
@@ -59,6 +78,7 @@ export default function TalentProjectDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  const [proposalStatus, setProposalStatus] = useState<ProposalStatus>({ hasApplied: false });
   const colors = {
     accentColor: "#8DBCC7",
     activeTextColor: "#212121",
@@ -71,23 +91,36 @@ export default function TalentProjectDetailsPage() {
     border: "#90D1CA30",
   };
 
-  // Fetch project details
+  // Fetch project details and proposal status
   useEffect(() => {
-    const fetchProject = async () => {
+    const fetchProjectAndProposal = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`/api/talent/projects/${id}`);
-        if (response.status !== 200) {
+
+        // Fetch project details
+        const projectResponse = await axios.get(`/api/talent/projects/${id}`);
+        if (projectResponse.status !== 200) {
           throw new Error("Failed to fetch project");
         }
-        const projectData = response.data.data;
+        const projectData = projectResponse.data.data;
         if (!["open", "in-progress"].includes(projectData.status)) {
           throw new Error("Project is not available for viewing.");
         }
         setProject(projectData);
+
+        // Fetch proposal status if user is authenticated
+        if (session?.user?._id) {
+          const proposalResponse = await axios.get(`/api/proposals/check`, {
+            params: { projectId: id, talentId: session.user._id },
+          });
+          setProposalStatus({
+            hasApplied: proposalResponse.data.hasApplied,
+            status: proposalResponse.data.status,
+          });
+        }
       } catch (err) {
         setError("Failed to load project details. Please try again later.");
-        console.error("Error fetching project:", err);
+        console.error("Error fetching project or proposal:", err);
         toast.error("Error", {
           description: "Failed to load project details. Please try again.",
           className: "bg-red-700 text-white border-red-800 bg-opacity-80",
@@ -99,9 +132,9 @@ export default function TalentProjectDetailsPage() {
     };
 
     if (id) {
-      fetchProject();
+      fetchProjectAndProposal();
     }
-  }, [id]);
+  }, [id, session]);
 
   // Handle file download
   const handleFileDownload = (file: ProjectFile) => {
@@ -127,7 +160,12 @@ export default function TalentProjectDetailsPage() {
   // Handle successful proposal submission
   const handleProposalSuccess = () => {
     setIsApplying(false);
-    router.push("/talent/projects"); // Redirect to projects list after successful submission
+    setProposalStatus({ hasApplied: true, status: "pending" });
+    toast.success("Proposal Submitted", {
+      description: "Your proposal has been submitted and is pending review.",
+      className: "bg-[#8DBCC7] text-white border-[#90D1CA] bg-opacity-80",
+      duration: 4000,
+    });
   };
 
   // Handle loading and authentication states
@@ -335,7 +373,7 @@ export default function TalentProjectDetailsPage() {
                   className="text-sm font-semibold"
                   style={{ color: colors.activeTextColor }}
                 >
-                  Status
+                  Project Status
                 </p>
                 <p
                   className="text-sm"
@@ -346,6 +384,27 @@ export default function TalentProjectDetailsPage() {
                 </p>
               </div>
             </div>
+            {proposalStatus.hasApplied && (
+              <div className="flex items-center">
+                <FileText
+                  className="h-5 w-5 mr-2 flex-shrink-0"
+                  style={{ color: colors.iconColor }}
+                />
+                <div>
+                  <p
+                    className="text-sm font-semibold"
+                    style={{ color: colors.activeTextColor }}
+                  >
+                    Your Proposal Status
+                  </p>
+                  <Badge className={getProposalStatusBadgeColor(proposalStatus.status)}>
+                    {proposalStatus.status
+                      ? proposalStatus.status.charAt(0).toUpperCase() + proposalStatus.status.slice(1)
+                      : "Unknown"}
+                  </Badge>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Services */}
@@ -411,7 +470,7 @@ export default function TalentProjectDetailsPage() {
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            {isTalent && project.status === "open" && (
+            {isTalent && project.status === "open" && !proposalStatus.hasApplied && (
               <Button
                 onClick={() => setIsApplying(true)}
                 className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
