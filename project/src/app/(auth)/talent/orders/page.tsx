@@ -148,7 +148,7 @@ export default function TalentOrdersPage() {
         className:
           "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
-    });
+      });
     }
   };
 
@@ -350,8 +350,8 @@ export default function TalentOrdersPage() {
                     <TableCell style={{ color: colors.grayTextColor }}>
                       {new Date(order.createdAt).toLocaleDateString()}
                     </TableCell>
-                    <TableCell>
-                      {getAvailableStatuses(order.status).length > 0 ? (
+                    <TableCell className="flex gap-2">
+                      {getAvailableStatuses(order.status).length > 0 && (
                         <Select
                           onValueChange={(value) => handleStatusChange(order._id, value)}
                         >
@@ -372,11 +372,25 @@ export default function TalentOrdersPage() {
                             ))}
                           </SelectContent>
                         </Select>
-                      ) : (
-                        <span style={{ color: colors.grayTextColor }}>
-                          No actions available
-                        </span>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/talent/clients/${order.clientId}`)}
+                        style={{
+                          borderColor: colors.accentColor,
+                          color: colors.accentColor,
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.backgroundColor = colors.lightAccentColor)
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.backgroundColor = "transparent")
+                        }
+                      >
+                        <User className="h-4 w-4 mr-2" />
+                        View Client
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

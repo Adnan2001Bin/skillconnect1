@@ -53,6 +53,7 @@ export default function TalentSidebar({
       icon: SquareChartGantt,
       subItems: [
         { name: "Project Management", href: "/talent/projects" },
+        { name: "Orders Management", href: "/talent/orders" },
         { name: "Transaction Management", href: "/talent/transactions" },
         { name: "Content Management", href: "/talent/content" },
       ],
