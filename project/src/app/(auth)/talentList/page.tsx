@@ -215,7 +215,7 @@ export default function UserTalentView() {
         }}
       >
         <div
-          className="mb-12 p-6 sm:p-8 rounded-xl shadow-sm shadow-[#16423C]"
+          className="mb-12 p-6 sm:p-8 shadow-sm shadow-[#16423C]"
           style={{ backgroundColor: "rgba(102, 205, 170, 0.2)" }}
         >
           <div className="flex items-center mb-6 border-b border-[#16423C] pb-4">

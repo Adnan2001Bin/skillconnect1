@@ -6,9 +6,9 @@ import ProjectModel from "@/models/projects.model";
 import { authOptions } from "../../auth/[...nextauth]/options";
 import proposalModel from "@/models/proposal.model";
 
-const updateProposalSchema = z.object({
-  proposalStatus: z.enum(["accepted", "rejected"], {
-    message: "Proposal status must be either 'accepted' or 'rejected'",
+const updateProjectSchema = z.object({
+  status: z.enum(["completed", "cancelled"], {
+    message: "Project status must be either 'completed' or 'cancelled'",
   }),
 });
 
@@ -63,81 +63,96 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     const session = await getServerSession(authOptions);
     if (!session || (session.user.role !== "user" && session.user.role !== "admin")) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Only clients or admins can update proposals." },
+        { success: false, message: "Unauthorized. Only clients or admins can update projects." },
         { status: 401 }
       );
     }
 
-    // 2. Extract proposalId from params
-    const proposalId = params.id;
-    if (!proposalId) {
+    // 2. Extract projectId from params
+    const projectId = params.id;
+    if (!projectId) {
       return NextResponse.json(
-        { success: false, message: "Proposal ID is required" },
+        { success: false, message: "Project ID is required" },
         { status: 400 }
       );
     }
 
     // 3. Parse and validate request body
     const body = await req.json();
-    const validatedData = updateProposalSchema.parse(body);
+    const validatedData = updateProjectSchema.parse(body);
 
     // 4. Connect to the database
     await connectDB();
 
-    // 5. Verify proposal exists
-    const proposal = await proposalModel.findById(proposalId);
-    if (!proposal) {
+    // 5. Verify project exists
+    const project = await ProjectModel.findById(projectId);
+    if (!project) {
       return NextResponse.json(
-        { success: false, message: "Proposal not found" },
+        { success: false, message: "Project not found" },
         { status: 404 }
       );
     }
 
-    // 6. Verify project exists and user has access
-    const project = await ProjectModel.findById(proposal.projectId);
-    if (!project) {
-      return NextResponse.json(
-        { success: false, message: "Associated project not found" },
-        { status: 404 }
-      );
-    }
+    // 6. Verify user has access
     if (session.user.role === "user" && project.clientId !== session.user._id) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. You can only update proposals for your own projects." },
+        { success: false, message: "Unauthorized. You can only update your own projects." },
         { status: 403 }
       );
     }
 
-    // 7. Handle proposal status update
-    if (validatedData.proposalStatus === "accepted") {
-      // Update proposal status and project status
-      proposal.proposalStatus = validatedData.proposalStatus;
-      proposal.updatedAt = new Date();
-      await proposal.save();
+    // 7. Validate project status transition
+    if (project.status !== "open" && project.status !== "in-progress") {
+      return NextResponse.json(
+        { success: false, message: "Project cannot be updated from its current status." },
+        { status: 400 }
+      );
+    }
 
-      // Update project status to "in-progress"
-      project.status = "in-progress";
+    // 8. Handle project status update
+    if (validatedData.status === "cancelled") {
+      // Update project status
+      project.status = validatedData.status;
+      project.updatedAt = new Date();
       await project.save();
 
-      // Return success response
+      // Delete all associated proposals
+      await proposalModel.deleteMany({ projectId });
+
       return NextResponse.json(
         {
           success: true,
-          message: "Proposal accepted successfully",
-          data: proposal,
+          message: "Project cancelled and all proposals deleted successfully",
+          data: project,
         },
         { status: 200 }
       );
-    } else {
-      // Delete the proposal if rejected
-      await proposalModel.findByIdAndDelete(proposalId);
+    } else if (validatedData.status === "completed") {
+      // Check if there is an accepted proposal
+      const acceptedProposal = await proposalModel.findOne({ projectId, proposalStatus: "accepted" });
+      if (!acceptedProposal) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Cannot mark project as completed without an accepted proposal.",
+          },
+          { status: 400 }
+        );
+      }
 
-      // Return success response
+      // Update project status
+      project.status = validatedData.status;
+      project.updatedAt = new Date();
+      await project.save();
+
+      // Delete all pending proposals
+      await proposalModel.deleteMany({ projectId, proposalStatus: "pending" });
+
       return NextResponse.json(
         {
           success: true,
-          message: "Proposal rejected and deleted successfully",
-          data: null,
+          message: "Project marked as completed and pending proposals deleted successfully",
+          data: project,
         },
         { status: 200 }
       );
@@ -149,11 +164,11 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         { status: 400 }
       );
     }
-    console.error("Error updating proposal:", error);
+    console.error("Error updating project:", error);
     return NextResponse.json(
       {
         success: false,
-        message: "Internal server error. Failed to update proposal.",
+        message: "Internal server error. Failed to update project.",
         error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }

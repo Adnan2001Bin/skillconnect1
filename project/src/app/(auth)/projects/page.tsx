@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -19,6 +18,14 @@ const getCategoryLabel = (categoryValue: string | undefined) => {
   const foundCategory = categories.find((cat) => cat.value === categoryValue);
   return foundCategory ? foundCategory.label : categoryValue;
 };
+
+// Define status options for filter
+const statusOptions = [
+  { value: "open", label: "Open" },
+  { value: "in-progress", label: "In Progress" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 // Hero Section component
 const HeroSection = ({ onSearch }: { onSearch: (query: string) => void }) => {
@@ -59,7 +66,7 @@ const HeroSection = ({ onSearch }: { onSearch: (query: string) => void }) => {
           </button>
         </form>
       </div>
-      <div className="md:w-1/2 flex justify-end ">
+      <div className="md:w-1/2 flex justify-end">
         <Image
           src={Images.postjob}
           alt="Discover Talent"
@@ -78,7 +85,10 @@ export default function ProjectListingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [minPrice, setMinPrice] = useState<string>("");
+  const [maxPrice, setMaxPrice] = useState<string>("");
 
   const colors = {
     accentColor: "#17B169",
@@ -120,20 +130,39 @@ export default function ProjectListingPage() {
     setSelectedCategories(values);
   };
 
+  // Handle status filter changes
+  const handleStatusChange = (values: string[]) => {
+    setSelectedStatuses(values);
+  };
+
+  // Handle price range changes
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>, type: "min" | "max") => {
+    const value = e.target.value;
+    if (type === "min") {
+      setMinPrice(value);
+    } else {
+      setMaxPrice(value);
+    }
+  };
   // Handle search query changes from the HeroSection
   const handleSearch = (query: string) => {
     setSearchQuery(query.toLowerCase());
   };
 
-  // Filter projects based on selected categories AND search query
+  // Filter projects based on selected categories, statuses, price range, and search query
   const filteredProjects = projects.filter((project) => {
     const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(project.category);
-    const matchesSearch = searchQuery === "" ||
+    const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(project.status);
+    const matchesSearch =
+      searchQuery === "" ||
       project.title.toLowerCase().includes(searchQuery) ||
       project.description.toLowerCase().includes(searchQuery) ||
       getCategoryLabel(project.category).toLowerCase().includes(searchQuery);
+    const min = minPrice ? parseFloat(minPrice) : 0;
+    const max = maxPrice ? parseFloat(maxPrice) : Infinity;
+    const matchesPrice = project.budget >= min && project.budget <= max;
 
-    return matchesCategory && matchesSearch;
+    return matchesCategory && matchesStatus && matchesSearch && matchesPrice;
   });
 
   // Handle loading and authentication states
@@ -157,14 +186,17 @@ export default function ProjectListingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6F5] py-12 px-4 sm:px-6 lg:px-8 font-sans"style={{
+    <div
+      className="min-h-screen bg-[#F5F6F5] py-12 px-4 sm:px-6 lg:px-8 font-sans"
+      style={{
         backgroundImage: `url(${
           Images.userViewbackground ? Images.userViewbackground.src : ""
         })`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
-      }}>
+      }}
+    >
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl sm:text-4xl font-bold text-[#16423C] mb-8 text-center">
           Explore Projects
@@ -173,26 +205,60 @@ export default function ProjectListingPage() {
         {/* Hero Section */}
         <HeroSection onSearch={handleSearch} />
 
-        {/* Category Filter */}
-        <div className="mb-8 max-w-md mx-auto">
-          <MultiSelect
-            name="categoryFilter"
-            label="Filter by Category"
-            placeholder="Select categories..."
-            options={categories.map((cat) => ({
-              value: cat.value,
-              label: cat.label,
-            }))}
-            Icon={Filter}
-            onChange={handleCategoryChange}
-            defaultValue={selectedCategories}
-          />
+        {/* Filters */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:gap-4 max-w-4xl mx-auto">
+          <div className="mb-4 sm:mb-0 sm:w-1/3">
+            <MultiSelect
+              name="categoryFilter"
+              label="Filter by Category"
+              placeholder="Select categories..."
+              options={categories.map((cat) => ({
+                value: cat.value,
+                label: cat.label,
+              }))}
+              Icon={Filter}
+              onChange={handleCategoryChange}
+              defaultValue={selectedCategories}
+            />
+          </div>
+          <div className="mb-4 sm:mb-0 sm:w-1/3">
+            <MultiSelect
+              name="statusFilter"
+              label="Filter by Status"
+              placeholder="Select statuses..."
+              options={statusOptions}
+              Icon={Filter}
+              onChange={handleStatusChange}
+              defaultValue={selectedStatuses}
+            />
+          </div>
+          <div className="sm:w-1/3">
+            <label className="block text-sm font-semibold text-[#16423C] mb-2">
+              Filter by Price Range
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                placeholder="Min"
+                value={minPrice}
+                onChange={(e) => handlePriceChange(e, "min")}
+                min="0"
+                className="w-1/2 pl-4 pr-2 py-3 rounded-full border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#17B169] text-[#16423C]"
+              />
+              <input
+                type="number"
+                placeholder="Max"
+                value={maxPrice}
+                onChange={(e) => handlePriceChange(e, "max")}
+                min="0"
+                className="w-1/2 pl-4 pr-2 py-3 rounded-full border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#17B169] text-[#16423C]"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Error Message */}
-        {error && (
-          <p className="text-red-600 text-center mb-6">{error}</p>
-        )}
+        {error && <p className="text-red-600 text-center mb-6">{error}</p>}
 
         {/* Projects Grid */}
         {loading ? (

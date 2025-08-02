@@ -35,7 +35,7 @@
 
    return (
      <div
-       className="rounded-xl shadow-sm shadow-[#16423C] border-1 border-[#16423C] overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-101 flex flex-col h-full"
+       className="rounded-xl shadow-sm shadow-[#16423C] border-1 border-[#16423C] overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-100 flex flex-col h-full"
        
      style={{ backgroundColor: "rgba(163,209,198, 0.4)" }}>
        <div className="relative p-6 flex flex-col items-center text-center">

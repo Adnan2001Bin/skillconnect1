@@ -9,7 +9,7 @@ import { Menu, X, Search, Bell, User, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Images } from "@/lib/images";
-import { UserProfileInput } from "@/schemas/profileSchema"; 
+import { UserProfileInput } from "@/schemas/profileSchema";
 import axios from "axios";
 import { toast } from "sonner";
 
@@ -74,11 +74,9 @@ export default function Navbar() {
   }, []);
 
   const handleSignOut = async () => {
-      await signOut({ redirect: false });
-      router.push("/home");
-    };
-
-
+    await signOut({ redirect: false });
+    router.push("/home");
+  };
 
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50">
@@ -86,13 +84,14 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link href="/dashboard">
+            <Link href="/home">
               <Image
-                src={Images.logoUser || "/logo.png"}
+                src={Images.logoUser}
                 alt="Logo"
                 width={100}
                 height={40}
                 className="object-contain"
+                priority
               />
             </Link>
           </div>
@@ -118,11 +117,18 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
+
             <Link
-              href="/explore"
+              href="/talentList"
               className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md text-sm font-medium"
             >
-              Explore
+              Find Talents
+            </Link>
+            <Link
+              href="/projects"
+              className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md text-sm font-medium"
+            >
+              Projects
             </Link>
             <Link
               href="/messages"
@@ -130,12 +136,7 @@ export default function Navbar() {
             >
               Messages
             </Link>
-            <Link
-              href="/talentList"
-              className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md text-sm font-medium"
-            >
-              Find Talents
-            </Link>
+            
             <Link
               href="/notifications"
               className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md"
@@ -166,7 +167,8 @@ export default function Navbar() {
                         borderColor: primaryColor,
                       }}
                     >
-                      <User className="h-6 w-6 text-white" /> {/* Adjusted icon size */}
+                      <User className="h-6 w-6 text-white" />{" "}
+                      {/* Adjusted icon size */}
                     </div>
                   )}
                   {/* Dropdown Indicator */}
@@ -186,14 +188,14 @@ export default function Navbar() {
                       Dashboard
                     </Link>
                     {/* Conditional link based on user role */}
-                     
-                      <Link
-                        href="/client/profile" // Assuming a client profile page
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
-                      >
-                        My Profile
-                      </Link>
-                    
+
+                    <Link
+                      href="/client/profile" // Assuming a client profile page
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
+                    >
+                      My Profile
+                    </Link>
+
                     <Link
                       href="/wallet"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
@@ -235,9 +237,9 @@ export default function Navbar() {
 
             {/* Call to Action Button */}
             {status === "authenticated" && (
-              <Link href= "/post-project">
+              <Link href="/post-project">
                 <Button className="bg-[#4CAF50] hover:bg-[#388E3C] text-white">
-                   "Post a Project"
+                  "Post a Project"
                 </Button>
               </Link>
             )}
@@ -316,13 +318,13 @@ export default function Navbar() {
                 >
                   Dashboard
                 </Link>
- 
-                      <Link
-                        href="/client/profile" // Assuming a client profile page
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
-                      >
-                        My Profile
-                      </Link>
+
+                <Link
+                  href="/client/profile" // Assuming a client profile page
+                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
+                >
+                  My Profile
+                </Link>
 
                 <Link
                   href="/wallet"
@@ -368,11 +370,11 @@ export default function Navbar() {
             {/* Mobile Call to Action */}
             {status === "authenticated" && (
               <Link
-                href={ "/post-project"}
+                href={"/post-project"}
                 className="block px-4 py-2 mt-2 bg-[#4CAF50] text-white rounded-md hover:bg-[#388E3C]"
                 onClick={toggleMenu}
               >
-                 "Post a Project"
+                "Post a Project"
               </Link>
             )}
           </div>
