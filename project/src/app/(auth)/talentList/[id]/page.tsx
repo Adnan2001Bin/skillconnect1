@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -17,6 +18,21 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Loader,
   ArrowLeft,
   MapPin,
@@ -34,6 +50,28 @@ import { categories } from "@/lib/categoriesAndServices";
 import { Images } from "@/lib/images";
 import { TalentProfileInput } from "@/schemas/profileSchema";
 
+// Define RatePlan type to match talentProfileSchema
+interface RatePlan {
+  type: "Basic" | "Standard" | "Premium";
+  description: string;
+  price: number;
+  whatsIncluded: string[];
+  deliveryDays: number;
+}
+
+// Define Order type for orders fetched from API
+interface Order {
+  _id: string;
+  talentId: string;
+  clientId: string;
+  ratePlan: RatePlan;
+  projectDetails: {
+    title: string;
+    description: string;
+  };
+  status: string;
+}
+
 interface Talent extends TalentProfileInput {
   _id: string;
   userName: string;
@@ -42,13 +80,18 @@ interface Talent extends TalentProfileInput {
   isVerified: boolean;
 }
 
-//for userview
 export default function UserTalentProfilePage() {
-  const { status } = useSession();
+  const { status, data: session } = useSession();
   const router = useRouter();
   const params = useParams();
   const [talent, setTalent] = useState<Talent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
+  const [selectedRatePlan, setSelectedRatePlan] = useState<RatePlan | null>(null);
+  const [projectTitle, setProjectTitle] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingOrders, setPendingOrders] = useState<Set<string>>(new Set());
 
   const colors = {
     primary: "#D3F1DF",
@@ -63,24 +106,42 @@ export default function UserTalentProfilePage() {
 
   useEffect(() => {
     if (status === "authenticated" && params.id) {
-      const fetchTalent = async () => {
+      const fetchTalentAndOrders = async () => {
         setIsLoading(true);
         try {
-          const response = await axios.get(`/api/profile/${params.id}`);
-          if (response.data.success) {
-            setTalent(response.data.data);
+          // Fetch talent profile
+          const talentResponse = await axios.get(`/api/profile/${params.id}`);
+          if (talentResponse.data.success) {
+            setTalent(talentResponse.data.data);
+
+            // Fetch pending orders for the current client and talent
+            if (session?.user?.role === "user") {
+              const ordersResponse = await axios.get("/api/orders", {
+                params: {
+                  talentId: params.id,
+                  clientId: session.user._id,
+                  status: "pending",
+                },
+              });
+              if (ordersResponse.data.success) {
+                const pendingTypes = new Set<string>(
+                  ordersResponse.data.data.map((order: Order) => order.ratePlan.type)
+                );
+                setPendingOrders(pendingTypes);
+              }
+            }
           } else {
             toast.error("Error", {
               description:
-                response.data.message || "Failed to fetch talent profile.",
+                talentResponse.data.message || "Failed to fetch talent profile.",
               className:
                 "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
               duration: 4000,
             });
-            router.push("/user/talents");
+            router.push("/talentList");
           }
         } catch (error) {
-          console.error("Error fetching talent:", error);
+          console.error("Error fetching talent or orders:", error);
           toast.error("Error", {
             description: "An error occurred while fetching the talent profile.",
             className:
@@ -92,17 +153,84 @@ export default function UserTalentProfilePage() {
           setIsLoading(false);
         }
       };
-      fetchTalent();
+      fetchTalentAndOrders();
     } else if (status === "unauthenticated") {
       router.replace("/sign-in");
     }
-  }, [status, params.id, router]);
+  }, [status, params.id, session, router]);
 
   // Helper function to get the category label
   const getCategoryLabel = (categoryValue: string | null | undefined) => {
     if (!categoryValue) return "";
     const foundCategory = categories.find((cat) => cat.value === categoryValue);
     return foundCategory ? foundCategory.label : categoryValue;
+  };
+
+  // Handle opening the order dialog
+  const handleOpenOrderDialog = (ratePlan: RatePlan) => {
+    if (session?.user?.role !== "user") {
+      toast.error("Error", {
+        description: "Only clients can request orders.",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+      return;
+    }
+    if (pendingOrders.has(ratePlan.type)) {
+      toast.error("Error", {
+        description: `You already have a pending order for the ${ratePlan.type} plan.`,
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+      return;
+    }
+    setSelectedRatePlan(ratePlan);
+    setProjectTitle("");
+    setProjectDescription("");
+    setIsOrderDialogOpen(true);
+  };
+
+  // Handle order submission
+  const handleRequestOrder = async () => {
+    if (!selectedRatePlan || !talent) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await axios.post("/api/orders", {
+        talentId: talent._id,
+        ratePlan: selectedRatePlan,
+        projectDetails: {
+          title: projectTitle,
+          description: projectDescription,
+        },
+      });
+
+      if (response.data.success) {
+        toast.success("Success", {
+          description: "Order requested successfully.",
+          className:
+            "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+          duration: 4000,
+        });
+        setPendingOrders((prev) => new Set(prev).add(selectedRatePlan.type));
+        setIsOrderDialogOpen(false);
+      } else {
+        throw new Error(response.data.message || "Failed to request order.");
+      }
+    } catch (error) {
+      console.error("Error requesting order:", error);
+      toast.error("Error", {
+        description:
+          error instanceof Error ? error.message : "Failed to request order.",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (status === "loading" || isLoading) {
@@ -151,6 +279,88 @@ export default function UserTalentProfilePage() {
         backgroundRepeat: "no-repeat",
       }}
     >
+      {/* Order Dialog */}
+      <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
+        <DialogContent
+          className="sm:max-w-[425px]"
+          style={{ borderColor: colors.inputBorderColor }}
+        >
+          <DialogHeader>
+            <DialogTitle style={{ color: colors.activeTextColor }}>
+              Request Order: {selectedRatePlan?.type}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label
+                htmlFor="projectTitle"
+                className="text-sm font-medium"
+                style={{ color: colors.activeTextColor }}
+              >
+                Project Title
+              </label>
+              <Input
+                id="projectTitle"
+                value={projectTitle}
+                onChange={(e) => setProjectTitle(e.target.value)}
+                placeholder="Enter project title"
+                style={{
+                  borderColor: colors.inputBorderColor,
+                  color: colors.activeTextColor,
+                }}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label
+                htmlFor="projectDescription"
+                className="text-sm font-medium"
+                style={{ color: colors.activeTextColor }}
+              >
+                Project Description
+              </label>
+              <Textarea
+                id="projectDescription"
+                value={projectDescription}
+                onChange={(e) => setProjectDescription(e.target.value)}
+                placeholder="Describe your project"
+                rows={4}
+                style={{
+                  borderColor: colors.inputBorderColor,
+                  color: colors.activeTextColor,
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsOrderDialogOpen(false)}
+              style={{
+                borderColor: colors.accentColor,
+                color: colors.accentColor,
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleRequestOrder}
+              disabled={isSubmitting || !projectTitle || !projectDescription}
+              style={{
+                backgroundColor: colors.accentColor,
+                color: colors.white,
+              }}
+            >
+              {isSubmitting ? (
+                <Loader className="animate-spin h-5 w-5 mr-2" />
+              ) : null}
+              Request Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Header: Profile Picture, Name, Category, Location */}
       <div className="relative z-10 mb-8">
         <Button
@@ -466,7 +676,7 @@ export default function UserTalentProfilePage() {
         </div>
 
         {/* Right Section: Rate Plans */}
-        <div className="w-full lg:w-2/5 ">
+        <div className="w-full lg:w-2/5">
           {talent.ratePlans && talent.ratePlans.length > 0 && (
             <div
               className="bg-transparent rounded-lg shadow-md shadow-[#16423C] p-6 border sticky top-6"
@@ -495,9 +705,7 @@ export default function UserTalentProfilePage() {
                     <TabsTrigger
                       key={plan.type}
                       value={plan.type}
-                      // Apply active state styles directly via Tailwind classes
                       className="data-[state=active]:bg-accent data-[state=active]:text-white font-medium py-1 px-4 rounded-md transition-colors duration-200"
-                      // Default text color for non-active tabs
                       style={{ color: colors.activeTextColor }}
                     >
                       {plan.type}
@@ -562,6 +770,40 @@ export default function UserTalentProfilePage() {
                         />
                         <span>Delivery in {plan.deliveryDays} days</span>
                       </div>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>
+                              <Button
+                                className="w-full mt-4 rounded-full font-semibold"
+                                style={{
+                                  backgroundColor: pendingOrders.has(plan.type)
+                                    ? colors.neutralTextColor
+                                    : colors.accentColor,
+                                  color: colors.white,
+                                }}
+                                onClick={() => handleOpenOrderDialog(plan)}
+                                disabled={pendingOrders.has(plan.type)}
+                              >
+                                {pendingOrders.has(plan.type)
+                                  ? "Pending Order"
+                                  : "Request Order"}
+                              </Button>
+                            </span>
+                          </TooltipTrigger>
+                          {pendingOrders.has(plan.type) && (
+                            <TooltipContent
+                              style={{
+                                backgroundColor: colors.errorRed,
+                                color: colors.white,
+                              }}
+                            >
+                              You already have a pending order for the{" "}
+                              {plan.type} plan.
+                            </TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </TabsContent>
                 ))}

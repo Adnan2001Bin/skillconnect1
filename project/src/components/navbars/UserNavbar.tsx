@@ -120,6 +120,7 @@ export default function Navbar() {
 
             <Link
               href="/talentList"
+              
               className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md text-sm font-medium"
             >
               Find Talents

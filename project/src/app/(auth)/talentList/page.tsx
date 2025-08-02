@@ -176,6 +176,8 @@ export default function UserTalentView() {
     );
   }
 
+  
+
   if (status !== "authenticated") {
     return (
       <div
