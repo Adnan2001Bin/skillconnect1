@@ -1,4 +1,5 @@
 "use client";
+
 import { categories } from "@/lib/categoriesAndServices";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -7,6 +8,20 @@ import axios from "axios";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Edit,
   MapPin,
@@ -21,12 +36,15 @@ import {
   CalendarDays,
   Briefcase,
   AlertCircle,
+  Verified,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Images } from "@/lib/images";
 import Loader from "@/components/Loader";
 
 interface TalentProfileInput {
+  userName?: string | null;
   profilePicture?: string | null;
   bio?: string | null;
   location?: string | null;
@@ -50,17 +68,16 @@ interface TalentProfileInput {
   languageProficiency?: string[];
   category?: string;
   services?: string[];
-  isVerified: boolean; // Added field
-  rejectionReason?: string | null; // Added field
+  isVerified: boolean;
+  rejectionReason?: string | null;
 }
 
-//for talent view
 export default function TalentProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [profileData, setProfileData] = useState<TalentProfileInput | null>(null);
 
-  // Define new color variables
+  // Define color variables
   const primaryColor = "#8DBCC7";
   const secondaryColor = "#A4CCD9";
   const accentColor = "#90D1CA";
@@ -75,54 +92,88 @@ export default function TalentProfilePage() {
           const response = await axios.get("/api/profile");
           if (response.data.success) {
             setProfileData(response.data.data);
+          } else {
+            toast.error("Error", {
+              description: response.data.message || "Failed to load profile data.",
+              className:
+                "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+              duration: 4000,
+            });
+            router.push("/talent/dashboard");
           }
         } catch (error) {
           console.error("Error fetching profile:", error);
-          toast.error("Error fetching profile", {
+          toast.error("Error", {
             description: "Failed to load profile data. Please try again.",
-            className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+            className:
+              "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
             duration: 4000,
           });
+          router.push("/talent/dashboard");
         }
       };
       fetchProfile();
     }
-  }, [status, session]);
+  }, [status, session, router]);
 
   // Helper function to get the category label
   const getCategoryLabel = (categoryValue: string | null | undefined) => {
     if (!categoryValue) return "";
-    const foundCategory = categories.find(cat => cat.value === categoryValue);
+    const foundCategory = categories.find((cat) => cat.value === categoryValue);
     return foundCategory ? foundCategory.label : categoryValue;
   };
 
   // Helper function to get profile status
   const getProfileStatus = () => {
-    if (!profileData) return { status: "Loading", color: grayTextColor, message: "Loading profile status..." };
+    if (!profileData)
+      return {
+        status: "Loading",
+        color: grayTextColor,
+        message: "Loading profile status...",
+      };
     if (profileData.isVerified) {
-      return { status: "Approved", color: "#10B981", message: "Your profile is approved and visible to clients." };
+      return {
+        status: "Approved",
+        color: "#10B981",
+        message: "Your profile is approved and visible to clients.",
+      };
     } else if (profileData.rejectionReason) {
-      return { 
-        status: "Rejected", 
-        color: "#EF4444", 
-        message: `Your profile was rejected. Reason: ${profileData.rejectionReason}. Please update your profile and resubmit for review.` 
+      return {
+        status: "Rejected",
+        color: "#EF4444",
+        message: `Your profile was rejected. Reason: ${profileData.rejectionReason}. Please update your profile and resubmit for review.`,
       };
     } else {
-      return { status: "Under Approval", color: "#F59E0B", message: "Your profile is under review by our admin team. You can still edit your profile." };
+      return {
+        status: "Under Approval",
+        color: "#F59E0B",
+        message:
+          "Your profile is under review by our admin team. You can still edit your profile.",
+      };
     }
   };
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
-        <Loader text="Loading your profile..." color="#000000" bgColor="#90D1CA" size='large'/>
+      <div
+        className="min-h-screen flex flex-col items-center justify-center bg-white px-4"
+      >
+        <Loader
+          text="Loading your profile..."
+          color="#000000"
+          bgColor={accentColor}
+          size="large"
+        />
       </div>
     );
   }
 
   if (status !== "authenticated" || session?.user?.role !== "talent") {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: lightAccentColor }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: lightAccentColor }}
+      >
         <p className="text-lg font-semibold text-red-600">
           Access denied. Please sign in as a talent to view your profile.
         </p>
@@ -134,192 +185,204 @@ export default function TalentProfilePage() {
 
   return (
     <div
-      className="min-h-screen py-10 px-4 sm:px-6 lg:px-8 mt-17 relative max-w-7xl mx-auto shadow-xl rounded-lg overflow-hidden border border-gray-200"
+      className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-8 relative max-w-[94rem] mx-auto"
       style={{
         backgroundImage: `url(${
-          Images.talentProfileBackground
-            ? Images.talentProfileBackground.src
-            : ""
+          Images.talentProfileBackground ? Images.talentProfileBackground.src : ""
         })`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
       }}
     >
-      <div className="absolute inset-0 z-0"></div>
+      <div className="relative z-10 mb-8 mt-19">
+        {/* Navigation Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <Button
+            onClick={() => router.push("/talent/profile/edit")}
+            className="font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
+            style={{ backgroundColor: accentColor, color: darkTextColor }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = secondaryColor)
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = accentColor)
+            }
+          >
+            <Edit className="h-5 w-5 mr-2" />
+            Edit Profile
+          </Button>
+        </div>
 
-      <div className="relative z-10 p-6 lg:p-10 flex flex-col lg:flex-row gap-8">
-        <div className="w-full lg:w-1/3 flex-shrink-0">
-          <div className="bg-transparent rounded-lg shadow-gray-600 shadow-lg p-6 pb-8 border text-center relative pt-20 Card" style={{ borderColor: secondaryColor }}>
-            <div className="absolute -top-16 left-1/2 transform -translate-x-1/2">
-              {profileData?.profilePicture ? (
-                <Image
-                  src={profileData.profilePicture}
-                  alt="Profile Picture"
-                  width={140}
-                  height={140}
-                  className="rounded-full object-cover border-4 shadow-lg h-[8.75rem] w-[8.75rem]"
-                  style={{ borderColor: lightAccentColor }}
+        {/* Profile Status */}
+        <div
+          className="bg-transparent rounded-lg shadow-md shadow-[#212121] p-6 border mb-6"
+          style={{ borderColor: primaryColor }}
+        >
+          <div className="flex items-center gap-4">
+            <Badge
+              style={{
+                backgroundColor: profileStatus.color,
+                color: "#FFFFFF",
+              }}
+              className="px-3 py-1 rounded-full text-sm font-medium"
+            >
+              {profileStatus.status}
+            </Badge>
+            <p style={{ color: darkTextColor }}>{profileStatus.message}</p>
+          </div>
+        </div>
+
+        {/* Header: Profile Picture, Name, Category, Location */}
+        <div
+          className="flex flex-col items-center md:flex-row md:items-start gap-6 bg-transparent rounded-lg shadow-sm shadow-[#212121] p-6 border"
+          style={{ borderColor: primaryColor }}
+        >
+          <div className="flex-shrink-0">
+            {profileData?.profilePicture ? (
+              <Image
+                src={profileData.profilePicture}
+                alt="Profile Picture"
+                width={120}
+                height={120}
+                className="rounded-full object-cover border-4 shadow-md w-32 h-32"
+                style={{ borderColor: accentColor }}
+              />
+            ) : (
+              <div
+                className="w-32 h-32 rounded-full flex items-center justify-center border-4 shadow-md"
+                style={{
+                  backgroundColor: primaryColor,
+                  borderColor: accentColor,
+                }}
+              >
+                <Briefcase
+                  className="h-16 w-16"
+                  style={{ color: darkTextColor }}
                 />
-              ) : (
-                <div className="w-[8.75rem] h-[8.75rem] rounded-full flex items-center justify-center border-4 shadow-lg" style={{ backgroundColor: lightAccentColor, borderColor: primaryColor }}>
-                  <User className="h-20 w-20 text-white" />
-                </div>
+              </div>
+            )}
+          </div>
+          <div className="text-center md:text-left">
+            <h1
+              className="text-3xl sm:text-4xl font-bold flex items-center"
+              style={{ color: darkTextColor }}
+            >
+              {profileData?.userName || "Your Name"}
+              {profileData?.isVerified && (
+                <Verified
+                  className="h-6 w-6 ml-2"
+                  style={{ color: accentColor }}
+                />
               )}
-            </div>
-
-            <h1 className="mt-6 text-3xl font-bold text-gray-800">
-              {session?.user?.userName || "Talent Name"}
             </h1>
             {profileData?.category && (
-              <p className="text-lg mt-2 font-medium" style={{ color: grayTextColor }}>
+              <p
+                className="text-lg mt-2 font-medium"
+                style={{ color: grayTextColor }}
+              >
                 {getCategoryLabel(profileData.category)}
               </p>
             )}
             {profileData?.location && (
-              <p className="text-md mt-3 flex items-center justify-center" style={{ color: grayTextColor }}>
-                <MapPin className="h-5 w-5 mr-2" style={{ color: primaryColor }} />
+              <p
+                className="text-md mt-2 flex items-center justify-center md:justify-start"
+                style={{ color: grayTextColor }}
+              >
+                <MapPin
+                  className="h-5 w-5 mr-2"
+                  style={{ color: accentColor }}
+                />
                 {profileData.location}
               </p>
             )}
-
-            <hr className="my-6 border-t border-gray-200" />
-
-            {profileData?.socialLinks && profileData.socialLinks.length > 0 && (
-              <div className="text-left mb-6">
-                <h4 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
-                  <Link2 className="h-5 w-5 mr-2" style={{ color: primaryColor }} />
-                  Social Links
-                </h4>
-                <div className="flex flex-wrap gap-3">
-                  {profileData.socialLinks.map((link, index) => (
-                    <a
-                      key={index}
-                      href={link.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-white px-4 py-2 rounded-full transition-colors duration-200 text-sm font-medium shadow-sm"
-                      style={{ backgroundColor: secondaryColor, transitionProperty: "background-color", transitionDuration: "200ms" }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = accentColor}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = secondaryColor}
-                    >
-                      {link.platform}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {profileData?.languageProficiency && profileData.languageProficiency.length > 0 && (
-              <div className="text-left mb-6">
-                <h4 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
-                  <Languages className="h-5 w-5 mr-2" style={{ color: primaryColor }} />
-                  Languages
-                </h4>
-                <div className="flex flex-wrap gap-2">
-                  {profileData.languageProficiency.map((lang, index) => (
-                    <Badge
-                      key={index}
-                      className="text-gray-800 px-3 py-1.5 rounded-full text-sm font-medium shadow-sm"
-                      style={{ backgroundColor: lightAccentColor, transitionProperty: "background-color", transitionDuration: "200ms" }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = secondaryColor}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = lightAccentColor}
-                    >
-                      {lang}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-8">
-              <Button
-                onClick={() => router.push("/talent/profile/edit")}
-                className="w-full text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-300 flex items-center justify-center shadow-md"
-                style={{ backgroundColor: primaryColor }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = accentColor}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = primaryColor}
-              >
-                <Edit className="h-5 w-5 mr-2" />
-                Edit Profile
-              </Button>
-            </div>
           </div>
         </div>
+      </div>
 
-        <div className="w-full lg:w-2/3 space-y-8">
-          {/* Profile Status Section */}
-          <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
-            <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-              <AlertCircle className="h-6 w-6 mr-2" style={{ color: profileStatus.color }} />
-              Profile Status
-            </h3>
-            <p className="text-lg font-medium" style={{ color: profileStatus.color }}>
-              {profileStatus.status}
-            </p>
-            <p className="text-gray-700 leading-relaxed text-md mt-2">
-              {profileStatus.message}
-            </p>
-            {!profileData?.isVerified && (
-              <Button
-                onClick={() => router.push("/talent/profile/edit")}
-                className="mt-4 text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center"
-                style={{ backgroundColor: primaryColor }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = accentColor}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = primaryColor}
+      {/* Main Content: Two Columns */}
+      <div className="relative z-10 flex flex-col lg:flex-row gap-8">
+        {/* Left Section: Bio, About This Gig, Skills, Portfolio, Social Links, Languages */}
+        <div className="w-full lg:w-3/5 space-y-6">
+          {profileData?.bio && (
+            <div
+              className="bg-transparent rounded-lg shadow-md shadow-[#212121] p-6 border"
+              style={{ borderColor: primaryColor }}
+            >
+              <h3
+                className="text-xl font-bold mb-3 flex items-center"
+                style={{ color: darkTextColor }}
               >
-                <Edit className="h-5 w-5 mr-2" />
-                {profileData?.rejectionReason ? "Revise Profile" : "Complete Profile"}
-              </Button>
-            )}
-          </div>
-
-          {profileData?.category && (
-            <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                <Briefcase className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
-                Category
+                <Info
+                  className="h-5 w-5 mr-2"
+                  style={{ color: accentColor }}
+                />
+                Bio
               </h3>
-              <p className="text-gray-700 leading-relaxed text-lg">{getCategoryLabel(profileData.category)}</p>
+              <p
+                className="text-base"
+                style={{ color: grayTextColor }}
+              >
+                {profileData.bio}
+              </p>
             </div>
           )}
 
-          {profileData?.services && profileData.services.length > 0 && (
-            <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                <Star className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
-                Services
+          {profileData?.aboutThisGig && (
+            <div
+              className="bg-transparent rounded-lg shadow-md shadow-[#212121] p-6 border"
+              style={{ borderColor: primaryColor }}
+            >
+              <h3
+                className="text-xl font-bold mb-3 flex items-center"
+                style={{ color: darkTextColor }}
+              >
+                <Info
+                  className="h-5 w-5 mr-2"
+                  style={{ color: accentColor }}
+                />
+                About This Gig
               </h3>
-              <div className="flex flex-wrap gap-3">
-                {profileData.services.map((service, index) => (
-                  <Badge
-                    key={index}
-                    className="text-gray-800 px-4 py-2 rounded-full text-base font-medium shadow-sm"
-                    style={{ backgroundColor: lightAccentColor, transitionProperty: "background-color", transitionDuration: "200ms" }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = secondaryColor}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = lightAccentColor}
-                  >
-                    {service}
-                  </Badge>
-                ))}
-              </div>
+              <p
+                className="text-base"
+                style={{ color: grayTextColor }}
+              >
+                {profileData.aboutThisGig}
+              </p>
             </div>
           )}
 
           {profileData?.skills && profileData.skills.length > 0 && (
-            <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                <Star className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
+            <div
+              className="bg-transparent rounded-lg shadow-md shadow-[#212121] p-6 border"
+              style={{ borderColor: primaryColor }}
+            >
+              <h3
+                className="text-xl font-bold mb-3 flex items-center"
+                style={{ color: darkTextColor }}
+              >
+                <Star
+                  className="h-5 w-5 mr-2"
+                  style={{ color: accentColor }}
+                />
                 Skills
               </h3>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {profileData.skills.map((skill, index) => (
                   <Badge
                     key={index}
-                    className="text-gray-800 px-4 py-2 rounded-full text-base font-medium shadow-sm"
-                    style={{ backgroundColor: lightAccentColor, transitionProperty: "background-color", transitionDuration: "200ms" }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = secondaryColor}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = lightAccentColor}
+                    className="px-3 py-1 rounded-full text-sm font-medium shadow-sm"
+                    style={{
+                      backgroundColor: primaryColor,
+                      color: darkTextColor,
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.backgroundColor = accentColor)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.backgroundColor = primaryColor)
+                    }
                   >
                     {skill}
                   </Badge>
@@ -328,123 +391,280 @@ export default function TalentProfilePage() {
             </div>
           )}
 
-          {profileData?.aboutThisGig && (
-            <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                <Info className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
-                About This Gig
+          {profileData?.portfolio && profileData.portfolio.length > 0 && (
+            <div
+              className="bg-transparent rounded-lg shadow-md shadow-[#212121] p-6 border"
+              style={{ borderColor: primaryColor }}
+            >
+              <h3
+                className="text-xl font-bold mb-4 flex items-center"
+                style={{ color: darkTextColor }}
+              >
+                <Package
+                  className="h-5 w-5 mr-2"
+                  style={{ color: accentColor }}
+                />
+                Portfolio
               </h3>
-              <p className="text-gray-700 leading-relaxed text-lg">{profileData.aboutThisGig}</p>
+              <Carousel
+                className="w-full"
+                opts={{
+                  align: "start",
+                  loop: true,
+                }}
+              >
+                <CarouselContent className="-ml-4">
+                  {profileData.portfolio.map((project, index) => (
+                    <CarouselItem
+                      key={index}
+                      className="pl-4 basis-full sm:basis-1/2"
+                    >
+                      <div
+                        className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 h-full flex flex-col"
+                        style={{ borderColor: primaryColor }}
+                      >
+                        {project.imageUrl && (
+                          <div className="relative w-full h-48">
+                            <Image
+                              src={project.imageUrl}
+                              alt={project.title}
+                              fill
+                              className="object-cover rounded-t-lg"
+                            />
+                          </div>
+                        )}
+                        <div className="p-4 flex flex-col flex-grow">
+                          <h4
+                            className="text-lg font-semibold mb-2"
+                            style={{ color: darkTextColor }}
+                          >
+                            {project.title}
+                          </h4>
+                          <p
+                            className="text-sm mb-3 flex-grow"
+                            style={{ color: grayTextColor }}
+                          >
+                            {project.description}
+                          </p>
+                          {project.projectUrl && (
+                            <a
+                              href={project.projectUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center text-sm font-medium mt-auto"
+                              style={{ color: accentColor }}
+                              onMouseEnter={(e) =>
+                                (e.currentTarget.style.color = secondaryColor)
+                              }
+                              onMouseLeave={(e) =>
+                                (e.currentTarget.style.color = accentColor)
+                              }
+                            >
+                              View Project <Link2 className="h-4 w-4 ml-1" />
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious
+                  className="hidden sm:flex"
+                  style={{
+                    backgroundColor: accentColor,
+                    color: darkTextColor,
+                  }}
+                />
+                <CarouselNext
+                  className="hidden sm:flex"
+                  style={{
+                    backgroundColor: accentColor,
+                    color: darkTextColor,
+                  }}
+                />
+              </Carousel>
             </div>
           )}
 
-          {profileData?.whatIOffer && profileData.whatIOffer.length > 0 && (
-            <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                <Check className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
-                What I Offer
+          {profileData?.socialLinks && profileData.socialLinks.length > 0 && (
+            <div
+              className="bg-transparent rounded-lg shadow-md shadow-[#212121] p-6 border"
+              style={{ borderColor: primaryColor }}
+            >
+              <h3
+                className="text-xl font-bold mb-3 flex items-center"
+                style={{ color: darkTextColor }}
+              >
+                <Link2
+                  className="h-5 w-5 mr-2"
+                  style={{ color: accentColor }}
+                />
+                Social Links
               </h3>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-6 text-gray-700">
-                {profileData.whatIOffer.map((item, index) => (
-                  <li key={index} className="flex items-center">
-                    <Check className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {profileData?.ratePlans && profileData.ratePlans.length > 0 && (
-            <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
-              <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <DollarSign className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
-                My Rate Plans
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {profileData.ratePlans.map((plan, index) => (
-                  <div
+              <div className="flex flex-wrap gap-2">
+                {profileData.socialLinks.map((link, index) => (
+                  <a
                     key={index}
-                    className="border rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow duration-200 flex flex-col justify-between h-full"
-                    style={{ borderColor: accentColor, background: `linear-gradient(to bottom right, ${lightAccentColor}10, ${secondaryColor}10)` }}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm"
+                    style={{
+                      backgroundColor: accentColor,
+                      color: darkTextColor,
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.backgroundColor = secondaryColor)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.backgroundColor = accentColor)
+                    }
                   >
-                    <div>
-                      <h4 className="text-xl font-bold mb-2" style={{ color: primaryColor }}>
+                    {link.platform}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {profileData?.languageProficiency && profileData.languageProficiency.length > 0 && (
+            <div
+              className="bg-transparent rounded-lg shadow-md shadow-[#212121] p-6 border"
+              style={{ borderColor: primaryColor }}
+            >
+              <h3
+                className="text-xl font-bold mb-3 flex items-center"
+                style={{ color: darkTextColor }}
+              >
+                <Languages
+                  className="h-5 w-5 mr-2"
+                  style={{ color: accentColor }}
+                />
+                Languages
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {profileData.languageProficiency.map((language, index) => (
+                  <Badge
+                    key={index}
+                    className="px-3 py-1 rounded-full text-sm font-medium shadow-sm"
+                    style={{
+                      backgroundColor: primaryColor,
+                      color: darkTextColor,
+                    }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.backgroundColor = accentColor)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.backgroundColor = primaryColor)
+                    }
+                  >
+                    {language}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Section: Rate Plans */}
+        <div className="w-full lg:w-2/5">
+          {profileData?.ratePlans && profileData.ratePlans.length > 0 && (
+            <div
+              className="bg-transparent rounded-lg shadow-md shadow-[#212121] p-6 border sticky top-6"
+              style={{ borderColor: primaryColor }}
+            >
+              <h3
+                className="text-xl font-bold mb-4 flex items-center"
+                style={{ color: darkTextColor }}
+              >
+                <DollarSign
+                  className="h-5 w-5 mr-2"
+                  style={{ color: accentColor }}
+                />
+                Rate Plans
+              </h3>
+              <Tabs defaultValue={profileData.ratePlans[0]?.type} className="w-full">
+                <TabsList
+                  className="grid w-full"
+                  style={{
+                    gridTemplateColumns: `repeat(${profileData.ratePlans.length}, minmax(0, 1fr))`,
+                    backgroundColor: primaryColor,
+                    borderColor: primaryColor,
+                  }}
+                >
+                  {profileData.ratePlans.map((plan) => (
+                    <TabsTrigger
+                      key={plan.type}
+                      value={plan.type}
+                      className="data-[state=active]:bg-accent data-[state=active]:text-dark font-medium py-1 px-4 rounded-md transition-colors duration-200"
+                      style={{ color: darkTextColor }}
+                    >
+                      {plan.type}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+                {profileData.ratePlans.map((plan) => (
+                  <TabsContent
+                    key={plan.type}
+                    value={plan.type}
+                    className="mt-4"
+                  >
+                    <div
+                      className="border rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow duration-200"
+                      style={{
+                        borderColor: accentColor,
+                        background: `linear-gradient(to bottom right, ${primaryColor}10, ${accentColor}10)`,
+                      }}
+                    >
+                      <h4
+                        className="text-lg font-bold mb-2"
+                        style={{ color: accentColor }}
+                      >
                         {plan.type}
                       </h4>
-                      <p className="text-3xl font-extrabold text-gray-900 mb-3">${plan.price}</p>
-                      <p className="text-gray-600 mb-4 text-sm">{plan.description}</p>
-                      <ul className="text-gray-700 space-y-1 mb-4 text-sm">
+                      <p
+                        className="text-2xl font-extrabold mb-2"
+                        style={{ color: darkTextColor }}
+                      >
+                        ${plan.price}
+                      </p>
+                      <p
+                        className="text-sm mb-3"
+                        style={{ color: grayTextColor }}
+                      >
+                        {plan.description}
+                      </p>
+                      <ul
+                        className="text-sm space-y-1 mb-3"
+                        style={{ color: grayTextColor }}
+                      >
                         {plan.whatsIncluded.map((item, i) => (
                           <li key={i} className="flex items-center">
-                            <Check className="h-4 w-4 text-green-600 mr-2 flex-shrink-0" />
+                            <Check
+                              className="h-4 w-4 mr-2 flex-shrink-0"
+                              style={{ color: accentColor }}
+                            />
                             <span>{item}</span>
                           </li>
                         ))}
                       </ul>
-                    </div>
-                    <div className="mt-auto pt-4 border-t flex items-center text-sm text-gray-600" style={{ borderColor: lightAccentColor }}>
-                      <CalendarDays className="h-4 w-4 mr-2" style={{ color: primaryColor }} />
-                      <span>Delivery in {plan.deliveryDays} days</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {profileData?.portfolio && profileData.portfolio.length > 0 && (
-            <div className="bg-transparent rounded-lg shadow-lg shadow-gray-400 p-6 border" style={{ borderColor: secondaryColor }}>
-              <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <Package className="h-6 w-6 mr-2" style={{ color: primaryColor }} />
-                My Portfolio
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                {profileData.portfolio.map((project, index) => (
-                  <div
-                    key={index}
-                    className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200"
-                    style={{ borderColor: lightAccentColor }}
-                  >
-                    {project.imageUrl && (
-                      <div className="relative w-full h-48 bg-gray-100 flex items-center justify-center">
-                        <Image
-                          src={project.imageUrl}
-                          alt={project.title}
-                          layout="fill"
-                          objectFit="cover"
-                          className="rounded-t-lg"
+                      <div
+                        className="pt-3 border-t flex items-center text-sm"
+                        style={{
+                          borderColor: primaryColor,
+                          color: grayTextColor,
+                        }}
+                      >
+                        <CalendarDays
+                          className="h-4 w-4 mr-2"
+                          style={{ color: accentColor }}
                         />
+                        <span>Delivery in {plan.deliveryDays} days</span>
                       </div>
-                    )}
-                    <div className="p-4">
-                      <h4 className="text-xl font-semibold text-gray-800 mb-2">{project.title}</h4>
-                      <p className="text-gray-600 text-sm mb-3">{project.description}</p>
-                      {project.projectUrl && (
-                        <a
-                          href={project.projectUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center font-medium text-sm transition-colors duration-200"
-                          style={{ color: primaryColor }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = accentColor}
-                          onMouseLeave={(e) => e.currentTarget.style.color = primaryColor}
-                        >
-                          View Project <Link2 className="h-4 w-4 ml-1" />
-                        </a>
-                      )}
                     </div>
-                  </div>
+                  </TabsContent>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {!profileData && (
-            <div className="text-center py-10 rounded-lg shadow-inner border border-dashed" style={{ backgroundColor: lightAccentColor, borderColor: primaryColor }}>
-              <p className="text-lg" style={{ color: grayTextColor }}>
-                No detailed profile data available yet. <br /> Click "Edit Profile" to set up your comprehensive profile.
-              </p>
+              </Tabs>
             </div>
           )}
         </div>

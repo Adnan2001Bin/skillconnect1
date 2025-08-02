@@ -260,7 +260,6 @@ export default function TalentProfileEditPage() {
           layout="fill"
           objectFit="cover"
           quality={80}
-          className="opacity-40"
         />
       </div>
       <div className="relative z-10 w-full max-w-5xl flex flex-col md:flex-row rounded-2xl shadow-2xl overflow-hidden bg-transparent">

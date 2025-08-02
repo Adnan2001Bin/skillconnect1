@@ -57,7 +57,7 @@ export default function TalentProjectsListPage() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-blue-50">
         <Loader text="Loading projects..." color="#000000" bgColor="#90D1CA" size='large'/>
       </div>
     );
@@ -65,7 +65,7 @@ export default function TalentProjectsListPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFF3E0] px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-blue-50 px-4">
         <p className="text-red-600 text-base sm:text-lg font-semibold text-center">
           {error}
         </p>
@@ -75,7 +75,7 @@ export default function TalentProjectsListPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#FFF3E0] py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8 font-sans relative mt-15"
+      className="min-h-screen py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8 font-sans relative mt-15"
       style={{
         backgroundImage: `url(${
           Images.talentProfileBackground
@@ -87,16 +87,7 @@ export default function TalentProjectsListPage() {
         backgroundRepeat: "no-repeat",
       }}
     >
-      <div className="absolute inset-0 z-0">
-        <Image
-          src={Images.talentProfileBackground}
-          alt="Abstract digital background"
-          fill
-          style={{ objectFit: "cover" }}
-          quality={80}
-          className="opacity-40"
-        />
-      </div>
+    
       <div className="relative z-10 max-w-7xl mx-auto">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#212121] mb-6 sm:mb-8 text-center sm:text-left">
           Available Projects

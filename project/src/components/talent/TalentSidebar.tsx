@@ -91,16 +91,16 @@ export default function TalentSidebar({
               priority
             />
           </div>
-          <nav className="space-y-2">
+          <nav className="space-y-1 ">
             {navItems.map((item) =>
               item.subItems ? (
-                <div key={item.name} className="space-y-2">
+                <div key={item.name} className="space-y-1">
                   <div
-                    className="flex items-center space-x-3 p-3 rounded-lg"
+                    className="flex items-center space-x-3 p-3 rounded-lg "
                     style={{ color: neutralTextColor }}
                   >
-                    <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-                    <span className="font-medium text-sm sm:text-base">{item.name}</span>
+                    <item.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    <span className="font-medium text-sm sm:text-sm">{item.name}</span>
                   </div>
                   <div className="ml-6 border-l-2" style={{ borderColor: secondaryDarkGray }}>
                     {item.subItems.map((subItem) => (
@@ -129,7 +129,7 @@ export default function TalentSidebar({
                       >
                         <div className="flex items-center gap-3">
                           <hr className="w-3" style={{ borderColor: secondaryDarkGray }} />
-                          <span className="font-medium text-sm sm:text-base">{subItem.name}</span>
+                          <span className="font-medium text-sm sm:text-sm">{subItem.name}</span>
                         </div>
                       </Link>
                     ))}
@@ -140,7 +140,7 @@ export default function TalentSidebar({
                   key={item.name}
                   href={item.href!}
                   onClick={toggleSidebar}
-                  className="w-full flex items-center space-x-3 p-3 sm:p-4 rounded-lg transition-all duration-200"
+                  className="w-full flex items-center space-x-3 p-3 sm:p-2 rounded-lg transition-all duration-200 "
                   style={{
                     backgroundColor: pathname === item.href ? accentColor : "transparent",
                     color: pathname === item.href ? activeTextColor : neutralTextColor,
@@ -159,8 +159,8 @@ export default function TalentSidebar({
                   }}
                   aria-current={pathname === item.href ? "page" : undefined}
                 >
-                  <item.icon className="h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" aria-hidden="true" />
-                  <span className="font-medium text-sm sm:text-base">{item.name}</span>
+                  <item.icon className="h-5 w-5 sm:h-4 sm:w-4 flex-shrink-0" aria-hidden="true" />
+                  <span className="font-medium text-sm sm:text-sm">{item.name}</span>
                 </Link>
               )
             )}
