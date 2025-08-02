@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -33,7 +32,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  Loader,
   ArrowLeft,
   MapPin,
   Link2,
@@ -45,10 +43,12 @@ import {
   CalendarDays,
   Briefcase,
   Verified,
+  Loader2,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { Images } from "@/lib/images";
 import { TalentProfileInput } from "@/schemas/profileSchema";
+import Loader from "@/components/Loader";
 
 // Define RatePlan type to match talentProfileSchema
 interface RatePlan {
@@ -87,7 +87,9 @@ export default function UserTalentProfilePage() {
   const [talent, setTalent] = useState<Talent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
-  const [selectedRatePlan, setSelectedRatePlan] = useState<RatePlan | null>(null);
+  const [selectedRatePlan, setSelectedRatePlan] = useState<RatePlan | null>(
+    null
+  );
   const [projectTitle, setProjectTitle] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -125,7 +127,9 @@ export default function UserTalentProfilePage() {
               });
               if (ordersResponse.data.success) {
                 const pendingTypes = new Set<string>(
-                  ordersResponse.data.data.map((order: Order) => order.ratePlan.type)
+                  ordersResponse.data.data.map(
+                    (order: Order) => order.ratePlan.type
+                  )
                 );
                 setPendingOrders(pendingTypes);
               }
@@ -133,7 +137,8 @@ export default function UserTalentProfilePage() {
           } else {
             toast.error("Error", {
               description:
-                talentResponse.data.message || "Failed to fetch talent profile.",
+                talentResponse.data.message ||
+                "Failed to fetch talent profile.",
               className:
                 "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
               duration: 4000,
@@ -235,20 +240,13 @@ export default function UserTalentProfilePage() {
 
   if (status === "loading" || isLoading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center animate-pulse"
-        style={{ backgroundColor: colors.primary }}
-      >
+      <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
         <Loader
-          className="animate-spin h-12 w-12 mr-4"
-          style={{ color: colors.accentColor }}
+          text="Loading talent profile.."
+          color="#000000"
+          bgColor="#90D1CA"
+          size="large"
         />
-        <p
-          className="text-2xl font-semibold"
-          style={{ color: colors.activeTextColor }}
-        >
-          Loading talent profile...
-        </p>
       </div>
     );
   }
@@ -353,7 +351,7 @@ export default function UserTalentProfilePage() {
               }}
             >
               {isSubmitting ? (
-                <Loader className="animate-spin h-5 w-5 mr-2" />
+                <Loader2 className="animate-spin h-5 w-5 mr-2" />
               ) : null}
               Request Order
             </Button>

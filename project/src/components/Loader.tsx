@@ -57,11 +57,11 @@ const Loader = ({
           y="120"
           textAnchor="middle"
           fill={color}
-          fontSize="20"
+          fontSize="15"
           fontFamily="monospace"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
         >
           {text}
         </motion.text>

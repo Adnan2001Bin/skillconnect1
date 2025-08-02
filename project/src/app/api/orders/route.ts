@@ -82,9 +82,9 @@ export async function GET(req: NextRequest) {
     const clientId = searchParams.get("clientId");
     const status = searchParams.get("status");
 
-    if (!talentId || !clientId) {
+    if (!clientId) {
       return NextResponse.json(
-        { success: false, message: "talentId and clientId are required" },
+        { success: false, message: "clientId is required" },
         { status: 400 }
       );
     }
@@ -93,7 +93,10 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     // 4. Fetch orders
-    const query: any = { talentId, clientId };
+    const query: any = { clientId };
+    if (talentId) {
+      query.talentId = talentId;
+    }
     if (status) {
       query.status = status;
     }

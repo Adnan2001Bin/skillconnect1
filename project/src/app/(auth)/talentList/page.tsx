@@ -8,7 +8,7 @@ import {
   Briefcase,
   ChartBarStacked,
   Filter,
-  Loader,
+  Loader2,
   ScanSearch,
 } from "lucide-react";
 
@@ -28,6 +28,7 @@ import { TalentProfileInput } from "@/schemas/profileSchema";
 import { useSession } from "next-auth/react";
 import CategoryFilterDisplay from "@/components/userView/CategoryFilterDisplay";
 import { Button } from "@/components/ui/button";
+import Loader from "@/components/Loader";
 
 interface Talent extends TalentProfileInput {
   _id: string;
@@ -158,21 +159,15 @@ export default function UserTalentView() {
 
   if (status === "loading") {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center animate-pulse"
-        style={{ backgroundColor: colors.primary }}
-      >
+      <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
         <Loader
-          className="animate-spin h-12 w-12 mr-4"
-          style={{ color: colors.accentColor }}
+          text="Loading talent data..."
+          color="#000000"
+          bgColor="#90D1CA"
+          size="large"
         />
-        <p
-          className="text-2xl font-semibold"
-          style={{ color: colors.activeTextColor }}
-        >
-          Loading talent data...
-        </p>
       </div>
+        
     );
   }
 
@@ -327,7 +322,7 @@ export default function UserTalentView() {
 
         {isLoading ? (
           <div className="flex flex-col justify-center items-center h-64 text-center">
-            <Loader
+            <Loader2
               className="animate-spin h-12 w-12 mb-4"
               style={{ color: colors.accentColor }}
             />
