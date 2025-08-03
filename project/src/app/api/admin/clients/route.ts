@@ -4,72 +4,48 @@ import UserModel from "@/models/user.model";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import mongoose from "mongoose";
+import orderModel from "@/models/order.model";
 
-interface ClientResponse {
+interface Response {
   success: boolean;
   message: string;
-  data?: any;
-}
-
-export async function GET(request: NextRequest): Promise<NextResponse<ClientResponse>> {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized. Only admins can access this endpoint." },
-      { status: 401 }
-    );
-  }
-
-  await connectDB();
-
-  try {
-    const clients = await UserModel.find({ role: "user" })
-      .select("userName email role bio profilePicture")
-      .lean();
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Clients retrieved successfully",
-        data: clients,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Error fetching clients:", error);
-    const errorMessage = error instanceof Error ? error.message : "Error fetching clients";
-    return NextResponse.json(
-      { success: false, message: errorMessage },
-      { status: 500 }
-    );
-  }
+  error?: string;
 }
 
 export async function DELETE(
-  request: NextRequest
-): Promise<NextResponse<ClientResponse>> {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== "admin") {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized. Only admins can access this endpoint." },
-      { status: 401 }
-    );
-  }
-
-  await connectDB();
-
+  request: NextRequest,
+  { params }: { params: { orderId: string } }
+): Promise<NextResponse<Response>> {
   try {
-    const { clientId } = await request.json();
-    if (!mongoose.Types.ObjectId.isValid(clientId)) {
+    // Authenticate user session
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "admin") {
       return NextResponse.json(
-        { success: false, message: "Invalid client ID" },
+        {
+          success: false,
+          message: "Unauthorized. Only admins can delete orders.",
+        },
+        { status: 401 }
+      );
+    }
+
+    // Extract orderId from URL parameters
+    const { orderId } = params;
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid order ID" },
         { status: 400 }
       );
     }
 
-    const client = await UserModel.findByIdAndDelete(clientId);
-    if (!client) {
+    // Connect to the database
+    await connectDB();
+
+    // Find and delete order
+    const order = await orderModel.findByIdAndDelete(orderId);
+    if (!order) {
       return NextResponse.json(
-        { success: false, message: "Client not found" },
+        { success: false, message: "Order not found" },
         { status: 404 }
       );
     }
@@ -77,15 +53,18 @@ export async function DELETE(
     return NextResponse.json(
       {
         success: true,
-        message: "Client deleted successfully",
+        message: "Order deleted successfully",
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error deleting client:", error);
-    const errorMessage = error instanceof Error ? error.message : "Error deleting client";
+    console.error("Error deleting order:", error);
     return NextResponse.json(
-      { success: false, message: errorMessage },
+      {
+        success: false,
+        message: "Internal server error. Failed to delete order.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

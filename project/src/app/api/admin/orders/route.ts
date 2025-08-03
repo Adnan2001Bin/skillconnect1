@@ -2,33 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
-import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { authOptions } from "../../auth/[...nextauth]/options";
 import mongoose from "mongoose";
 
-export async function DELETE(req: NextRequest, { params }: { params: { orderId: string } }) {
+interface Response {
+  success: boolean;
+  message: string;
+  data?: any;
+}
+export async function DELETE(
+  request: NextRequest
+): Promise<NextResponse<Response>> {
   try {
     // Authenticate user session
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "admin") {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Only admins can delete orders." },
+        {
+          success: false,
+          message: "Unauthorized. Only admins can delete orders.",
+        },
         { status: 401 }
-      );
-    }
-
-    const { orderId } = params;
-    console.log("Received orderId for deletion:", orderId); // Debug log
-
-    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
-      return NextResponse.json(
-        { success: false, message: "Invalid order ID", receivedId: orderId },
-        { status: 400 }
       );
     }
 
     // Connect to the database
     await connectDB();
-
+    const { orderId } = await request.json();
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid order ID" },
+        { status: 400 }
+      );
+    }
     // Find and delete order
     const order = await OrderModel.findByIdAndDelete(orderId);
     if (!order) {

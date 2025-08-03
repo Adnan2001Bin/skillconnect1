@@ -209,7 +209,7 @@ export default function ProjectListingPage() {
         <HeroSection onSearch={handleSearch} />
 
         <div
-        className="min-h-screen relative max-w-[94rem] mx-auto rounded-lg overflow-hidden py-10 px-3"
+          className="min-h-screen relative max-w-[94rem] mx-auto rounded-lg overflow-hidden py-10 px-3"
           style={{
             backgroundImage: `url(${
               Images.userViewbackground ? Images.userViewbackground.src : ""

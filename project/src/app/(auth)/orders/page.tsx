@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { ArrowLeft, User } from "lucide-react";
 import Loader from "@/components/Loader";
+import { Images } from "@/lib/images";
 
 // Define RatePlan type to match talentProfileSchema
 interface RatePlan {
@@ -60,10 +61,10 @@ export default function ClientOrdersPage() {
     primary: "#D3F1DF",
     secondaryDarkGray: "rgba(255,255,255, 0)",
     accentColor: "#17B169",
-    activeTextColor: "#16423C",
-    neutralTextColor: "#6A9C89",
+    activeTextColor: "#FFFFFF",
+    neutralTextColor: "#D3ECCD",
     white: "#FFFFFF",
-    inputBorderColor: "#16423C",
+    inputBorderColor: "#FFFFFF",
     errorRed: "#EF4444",
   };
 
@@ -142,7 +143,6 @@ export default function ClientOrdersPage() {
     switch (status) {
       case "pending":
         return {
-          backgroundColor: colors.neutralTextColor,
           color: colors.white,
         };
       case "accepted":
@@ -159,10 +159,7 @@ export default function ClientOrdersPage() {
 
   if (status === "loading" || isLoading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50"
-       
-      >
+      <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
         <Loader
           text="Loading your orders..."
           color="#000000"
@@ -188,10 +185,17 @@ export default function ClientOrdersPage() {
 
   return (
     <div
-      className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-8 max-w-[94rem] mx-auto"
-      style={{ backgroundColor: colors.primary }}
+      className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-8 max-w-[94rem] mx-auto "
+      style={{
+        backgroundImage: `url(${
+          Images.userViewbackground ? Images.userViewbackground.src : ""
+        })`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
     >
-      <div className="relative z-10 mb-8">
+      <div className="relative z-10 mb-8 mt-20 p-5 rounded-2xl" style={{ backgroundColor: "rgba(163,209,198, 0.2)" }}>
         <Button
           onClick={() => router.push("/user/talents")}
           className="mb-6 font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
