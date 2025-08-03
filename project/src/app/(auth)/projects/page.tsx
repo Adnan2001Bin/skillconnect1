@@ -47,7 +47,8 @@ const HeroSection = ({ onSearch }: { onSearch: (query: string) => void }) => {
           Discover Amazing Talent & Projects
         </h2>
         <p className="text-[#6A9C89] mb-6 text-lg">
-          Find the perfect freelance services for your projects or showcase your skills to potential clients.
+          Find the perfect freelance services for your projects or showcase your
+          skills to potential clients.
         </p>
         <form onSubmit={handleSearchSubmit} className="relative">
           <input
@@ -57,7 +58,10 @@ const HeroSection = ({ onSearch }: { onSearch: (query: string) => void }) => {
             value={searchQuery}
             onChange={handleSearchChange}
           />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#6A9C89]" size={20} />
+          <Search
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#6A9C89]"
+            size={20}
+          />
           <button
             type="submit"
             className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#17B169] text-white rounded-full px-5 py-2 hover:bg-[#16423C] transition-colors"
@@ -136,7 +140,10 @@ export default function ProjectListingPage() {
   };
 
   // Handle price range changes
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>, type: "min" | "max") => {
+  const handlePriceChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    type: "min" | "max"
+  ) => {
     const value = e.target.value;
     if (type === "min") {
       setMinPrice(value);
@@ -151,8 +158,12 @@ export default function ProjectListingPage() {
 
   // Filter projects based on selected categories, statuses, price range, and search query
   const filteredProjects = projects.filter((project) => {
-    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(project.category);
-    const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(project.status);
+    const matchesCategory =
+      selectedCategories.length === 0 ||
+      selectedCategories.includes(project.category);
+    const matchesStatus =
+      selectedStatuses.length === 0 ||
+      selectedStatuses.includes(project.status);
     const matchesSearch =
       searchQuery === "" ||
       project.title.toLowerCase().includes(searchQuery) ||
@@ -170,7 +181,9 @@ export default function ProjectListingPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
         <Loader2 className="animate-spin h-10 w-10 text-[#17B169] mr-3" />
-        <p className="text-[#16423C] text-xl font-semibold">Loading projects...</p>
+        <p className="text-[#16423C] text-xl font-semibold">
+          Loading projects...
+        </p>
       </div>
     );
   }
@@ -186,17 +199,7 @@ export default function ProjectListingPage() {
   }
 
   return (
-    <div
-      className="min-h-screen bg-[#F5F6F5] py-12 px-4 sm:px-6 lg:px-8 font-sans"
-      style={{
-        backgroundImage: `url(${
-          Images.userViewbackground ? Images.userViewbackground.src : ""
-        })`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
+    <div className="min-h-screen bg-[#F5F6F5] py-12 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl sm:text-4xl font-bold text-[#16423C] mb-8 text-center">
           Explore Projects
@@ -205,77 +208,89 @@ export default function ProjectListingPage() {
         {/* Hero Section */}
         <HeroSection onSearch={handleSearch} />
 
-        {/* Filters */}
-        <div className="mb-8 flex flex-col sm:flex-row sm:gap-4 max-w-4xl mx-auto">
-          <div className="mb-4 sm:mb-0 sm:w-1/3">
-            <MultiSelect
-              name="categoryFilter"
-              label="Filter by Category"
-              placeholder="Select categories..."
-              options={categories.map((cat) => ({
-                value: cat.value,
-                label: cat.label,
-              }))}
-              Icon={Filter}
-              onChange={handleCategoryChange}
-              defaultValue={selectedCategories}
-            />
-          </div>
-          <div className="mb-4 sm:mb-0 sm:w-1/3">
-            <MultiSelect
-              name="statusFilter"
-              label="Filter by Status"
-              placeholder="Select statuses..."
-              options={statusOptions}
-              Icon={Filter}
-              onChange={handleStatusChange}
-              defaultValue={selectedStatuses}
-            />
-          </div>
-          <div className="sm:w-1/3">
-            <label className="block text-sm font-semibold text-[#16423C] mb-2">
-              Filter by Price Range
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="number"
-                placeholder="Min"
-                value={minPrice}
-                onChange={(e) => handlePriceChange(e, "min")}
-                min="0"
-                className="w-1/2 pl-4 pr-2 py-3 rounded-full border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#17B169] text-[#16423C]"
-              />
-              <input
-                type="number"
-                placeholder="Max"
-                value={maxPrice}
-                onChange={(e) => handlePriceChange(e, "max")}
-                min="0"
-                className="w-1/2 pl-4 pr-2 py-3 rounded-full border border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#17B169] text-[#16423C]"
+        <div
+        className="min-h-screen relative max-w-[94rem] mx-auto rounded-lg overflow-hidden py-10 px-3"
+          style={{
+            backgroundImage: `url(${
+              Images.userViewbackground ? Images.userViewbackground.src : ""
+            })`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          {/* Filters */}
+          <div className="mb-8 flex flex-col sm:flex-row sm:gap-4 max-w-4xl mx-auto">
+            <div className="mb-4 sm:mb-0 sm:w-1/3">
+              <MultiSelect
+                name="categoryFilter"
+                label="Filter by Category"
+                placeholder="Select categories..."
+                options={categories.map((cat) => ({
+                  value: cat.value,
+                  label: cat.label,
+                }))}
+                Icon={Filter}
+                onChange={handleCategoryChange}
+                defaultValue={selectedCategories}
               />
             </div>
+            <div className="mb-4 sm:mb-0 sm:w-1/3">
+              <MultiSelect
+                name="statusFilter"
+                label="Filter by Status"
+                placeholder="Select statuses..."
+                options={statusOptions}
+                Icon={Filter}
+                onChange={handleStatusChange}
+                defaultValue={selectedStatuses}
+              />
+            </div>
+            <div className="sm:w-1/3">
+              <label className="block text-sm font-semibold text-white mb-2">
+                Filter by Price Range
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Min"
+                  value={minPrice}
+                  onChange={(e) => handlePriceChange(e, "min")}
+                  min="0"
+                  className="w-1/2 pl-4 pr-2 py-3 rounded-full border border-gray-100 focus:outline-none focus:ring-1 focus:ring-[#16423C] text-white"
+                />
+                <input
+                  type="number"
+                  placeholder="Max"
+                  value={maxPrice}
+                  onChange={(e) => handlePriceChange(e, "max")}
+                  min="0"
+                  className="w-1/2 pl-4 pr-2 py-3 rounded-full border border-gray-100 focus:outline-none focus:ring-1 focus:ring-[#16423C] text-white"
+                />
+              </div>
+            </div>
           </div>
+
+          {/* Error Message */}
+          {error && <p className="text-red-600 text-center mb-6">{error}</p>}
+
+          {/* Projects Grid */}
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="animate-spin h-10 w-10 text-[#17B169]" />
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <p className="text-center text-[#6A9C89] text-lg">
+              No projects found for the selected criteria.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProjects.map((project) => (
+                <ProjectCard key={project._id} project={project} />
+              ))}
+            </div>
+          )}
         </div>
-
-        {/* Error Message */}
-        {error && <p className="text-red-600 text-center mb-6">{error}</p>}
-
-        {/* Projects Grid */}
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="animate-spin h-10 w-10 text-[#17B169]" />
-          </div>
-        ) : filteredProjects.length === 0 ? (
-          <p className="text-center text-[#6A9C89] text-lg">
-            No projects found for the selected criteria.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProjects.map((project) => (
-              <ProjectCard key={project._id} project={project} />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

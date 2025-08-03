@@ -28,9 +28,9 @@ export function MultiSelect({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Define color scheme consistent with UserTalentView
-  const accentColor = "#16423C";
+  const accentColor = "#17B169";
   const primary = "#16423C";
-  const activeTextColor = "#16423C"; // Used for the label
+  const activeTextColor = "#FFFFFF"; // Used for the label
   const white = "#FFFFFF"; // For the dropdown background and text
 
 

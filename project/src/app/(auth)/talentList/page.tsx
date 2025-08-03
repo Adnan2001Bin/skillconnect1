@@ -53,7 +53,7 @@ export default function UserTalentView() {
     primary: "#D3F1DF",
     secondaryDarkGray: "rgba(255,255,255, 0)",
     accentColor: "#17B169",
-    activeTextColor: "#16423C",
+    activeTextColor: "#FFFFFF",
     neutralTextColor: "#6A9C89",
     white: "#FFFFFF",
     inputBorderColor: "#16423C",
@@ -190,8 +190,7 @@ export default function UserTalentView() {
     <div className="min-h-screen font-sans py-10 px-4 sm:px-6 lg:px-10 mt-2 bg-white">
       <div className="mb-4 flex flex-col items-center">
         <h1
-          className="text-4xl sm:text-5xl font-bold mb-8 text-center drop-shadow-lg"
-          style={{ color: colors.activeTextColor }}
+          className="text-4xl sm:text-5xl font-bold mb-8 text-center drop-shadow-lg text-[#16423C]"
         >
           Discover Your{" "}
           <span style={{ color: colors.accentColor }}>Talents</span>
@@ -201,7 +200,7 @@ export default function UserTalentView() {
         
       </div>
       <div
-        className="min-h-screen   relative max-w-[94rem] mx-auto rounded-lg overflow-hidden"
+        className="min-h-screen   relative max-w-[94rem] mx-auto rounded-lg overflow-hidden py-10 px-3"
         style={{
           backgroundImage: `url(${
             Images.userViewbackground ? Images.userViewbackground.src : ""
@@ -212,12 +211,12 @@ export default function UserTalentView() {
         }}
       >
         <div
-          className="mb-12 p-6 sm:p-8 shadow-sm shadow-[#16423C]"
+          className="mb-12 p-6 sm:p-8 shadow-sm shadow-white"
           style={{ backgroundColor: "rgba(102, 205, 170, 0.2)" }}
         >
-          <div className="flex items-center mb-6 border-b border-[#16423C] pb-4">
-            <Filter className="h-7 w-7 mr-3 text-[#16423C]" />
-            <h2 className="text-2xl sm:text-3xl font-bold text-[#16423C]">
+          <div className="flex items-center mb-6 border-b border-white pb-4">
+            <Filter className="h-7 w-7 mr-3 text-white" />
+            <h2 className="text-2xl sm:text-3xl font-bold text-white">
               Filter & Search
             </h2>
           </div>

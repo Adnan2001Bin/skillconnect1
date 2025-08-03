@@ -96,16 +96,16 @@ export default function UserTalentProfilePage() {
   const [pendingOrders, setPendingOrders] = useState<Set<string>>(new Set());
 
   const colors = {
-    primary: "#D3F1DF",
-    secondaryDarkGray: "rgba(255,255,255, 0)",
+    primary: "#16423C",
+    secondaryDarkGray: "rgba(106,156,137, 0)",
     accentColor: "#17B169",
-    activeTextColor: "#16423C",
+    activeTextColor: "#FFFFFF",
     neutralTextColor: "#6A9C89",
     white: "#FFFFFF",
-    inputBorderColor: "#16423C",
+    inputBorderColor: "#6A9C89",
     errorRed: "#EF4444",
   };
-
+// 16423C
   useEffect(() => {
     if (status === "authenticated" && params.id) {
       const fetchTalentAndOrders = async () => {
@@ -324,7 +324,7 @@ export default function UserTalentProfilePage() {
                 rows={4}
                 style={{
                   borderColor: colors.inputBorderColor,
-                  color: colors.activeTextColor,
+                  color: colors.primary,
                 }}
               />
             </div>
@@ -360,7 +360,7 @@ export default function UserTalentProfilePage() {
       </Dialog>
 
       {/* Header: Profile Picture, Name, Category, Location */}
-      <div className="relative z-10 mb-8">
+      <div className="relative z-10 mb-8" style={{ backgroundColor: "rgba(163,209,198, 0.2)" }}>
         <Button
           onClick={() => router.push("/user/talents")}
           className="mb-6 font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
@@ -442,13 +442,13 @@ export default function UserTalentProfilePage() {
       </div>
 
       {/* Main Content: Two Columns */}
-      <div className="relative z-10 flex flex-col lg:flex-row gap-8">
+      <div className="relative z-10 flex flex-col lg:flex-row gap-8" >
         {/* Left Section: Bio, About This Gig, Skills, Portfolio, Social Links */}
-        <div className="w-full lg:w-3/5 space-y-6">
+        <div className="w-full lg:w-3/5 space-y-6" >
           {talent.bio && (
             <div
-              className="bg-transparent rounded-lg shadow-md shadow-[#16423C] p-6 border"
-              style={{ borderColor: colors.inputBorderColor }}
+              className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
+              style={{ borderColor: colors.inputBorderColor ,backgroundColor: "rgba(163,209,198, 0.2)"}}
             >
               <h3
                 className="text-xl font-bold mb-3 flex items-center"
@@ -471,8 +471,8 @@ export default function UserTalentProfilePage() {
 
           {talent.aboutThisGig && (
             <div
-              className="bg-transparent rounded-lg shadow-md shadow-[#16423C] p-6 border"
-              style={{ borderColor: colors.inputBorderColor }}
+              className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
+              style={{ borderColor: colors.inputBorderColor,backgroundColor: "rgba(163,209,198, 0.2)" }}
             >
               <h3
                 className="text-xl font-bold mb-3 flex items-center"
@@ -495,8 +495,8 @@ export default function UserTalentProfilePage() {
 
           {talent.skills && talent.skills.length > 0 && (
             <div
-              className="bg-transparent rounded-lg shadow-md shadow-[#16423C] p-6 border"
-              style={{ borderColor: colors.inputBorderColor }}
+              className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
+              style={{ borderColor: colors.inputBorderColor ,backgroundColor: "rgba(163,209,198, 0.2)"}}
             >
               <h3
                 className="text-xl font-bold mb-3 flex items-center"
@@ -534,8 +534,8 @@ export default function UserTalentProfilePage() {
 
           {talent.portfolio && talent.portfolio.length > 0 && (
             <div
-              className="bg-transparent rounded-lg shadow-md shadow-[#16423C] p-6 border"
-              style={{ borderColor: colors.inputBorderColor }}
+              className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
+              style={{ borderColor: colors.inputBorderColor ,backgroundColor: "rgba(163,209,198, 0.2)"}}
             >
               <h3
                 className="text-xl font-bold mb-4 flex items-center"
@@ -631,8 +631,8 @@ export default function UserTalentProfilePage() {
 
           {talent.socialLinks && talent.socialLinks.length > 0 && (
             <div
-              className="bg-transparent rounded-lg shadow-md shadow-[#16423C] p-6 border"
-              style={{ borderColor: colors.inputBorderColor }}
+              className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
+              style={{ borderColor: colors.inputBorderColor ,backgroundColor: "rgba(163,209,198, 0.2)"}}
             >
               <h3
                 className="text-xl font-bold mb-3 flex items-center"
@@ -677,7 +677,7 @@ export default function UserTalentProfilePage() {
         <div className="w-full lg:w-2/5">
           {talent.ratePlans && talent.ratePlans.length > 0 && (
             <div
-              className="bg-transparent rounded-lg shadow-md shadow-[#16423C] p-6 border sticky top-6"
+              className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border sticky top-6"
               style={{ borderColor: colors.inputBorderColor }}
             >
               <h3
@@ -704,7 +704,7 @@ export default function UserTalentProfilePage() {
                       key={plan.type}
                       value={plan.type}
                       className="data-[state=active]:bg-accent data-[state=active]:text-white font-medium py-1 px-4 rounded-md transition-colors duration-200"
-                      style={{ color: colors.activeTextColor }}
+                      style={{ color: colors.neutralTextColor }}
                     >
                       {plan.type}
                     </TabsTrigger>
@@ -720,7 +720,7 @@ export default function UserTalentProfilePage() {
                       className="border rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow duration-200"
                       style={{
                         borderColor: colors.accentColor,
-                        background: `linear-gradient(to bottom right, ${colors.primary}10, ${colors.accentColor}10)`,
+                        
                       }}
                     >
                       <h4
@@ -743,7 +743,7 @@ export default function UserTalentProfilePage() {
                       </p>
                       <ul
                         className="text-sm space-y-1 mb-3"
-                        style={{ color: colors.neutralTextColor }}
+                        style={{ color: colors.activeTextColor }}
                       >
                         {plan.whatsIncluded.map((item, i) => (
                           <li key={i} className="flex items-center">
@@ -759,7 +759,7 @@ export default function UserTalentProfilePage() {
                         className="pt-3 border-t flex items-center text-sm"
                         style={{
                           borderColor: colors.inputBorderColor,
-                          color: colors.neutralTextColor,
+                          color: colors.activeTextColor,
                         }}
                       >
                         <CalendarDays

@@ -13,9 +13,9 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const router = useRouter();
   const colors = {
     accentColor: "#17B169",
-    activeTextColor: "#16423C",
-    neutralTextColor: "#6A9C89",
-    primary: "#D3F1DF",
+    activeTextColor: "#FFFFFF", // Changed to white
+    neutralTextColor: "#FFFFFF", // Changed to white
+    primary: "#FFFFFF", // Changed to white
   };
 
   // Format the createdAt date to a readable format
@@ -33,7 +33,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   return (
     <div
       className="rounded-xl shadow-sm border border-[#16423C] overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-101 flex flex-col h-full"
-      style={{ backgroundColor: "rgba(163,209,198, 0.4)" }}
+      style={{ backgroundColor: "rgba(163,209,198, 0.2)" }}
     >
       <div className="p-6 flex flex-col flex-grow">
         {/* Title */}

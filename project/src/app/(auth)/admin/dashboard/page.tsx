@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import io, { Socket } from "socket.io-client";
-import { Loader2, AlertCircle, Briefcase, FileText, AlertTriangle, Clock } from "lucide-react";
+import { Loader2 as Loader, AlertCircle, Briefcase, FileText, AlertTriangle, Clock } from "lucide-react";
 import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -50,24 +49,23 @@ export default function AdminDashboardPage() {
   const [timeRange, setTimeRange] = useState<string>("30");
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  const colors = {
-    accentColor: "#17B169",
-    activeTextColor: "#16423C",
-    neutralTextColor: "#6A9C89",
-    primary: "#D3F1DF",
-    buttonHover: "hover:bg-[#2E7D32]",
-  };
+  // Define color scheme consistent with AdminTalentView
+  const primaryDarkGray = "#2D3748";
+  const secondaryDarkGray = "rgba(58, 71, 80, 0.6)";
+  const accentColor = "#A5BFCC";
+  const activeTextColor = "#E0E0E0";
+  const neutralTextColor = "#B0B0B0";
+  const white = "#FFFFFF";
+  const inputBorderColor = "#667580";
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "admin") {
-      // Initialize Socket.IO connection
       const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
         auth: { userId: session.user._id },
       });
 
       setSocket(socketInstance);
 
-      // Handle connection errors
       socketInstance.on("connect_error", (err) => {
         console.error("Socket connection error:", err);
         setError("Failed to connect to real-time updates.");
@@ -78,16 +76,13 @@ export default function AdminDashboardPage() {
         });
       });
 
-      // Listen for dashboard data updates
       socketInstance.on("dashboardUpdate", (data: DashboardData) => {
         setDashboardData(data);
         setLoading(false);
       });
 
-      // Request initial dashboard data
       socketInstance.emit("getDashboardData", { timeRange });
 
-      // Cleanup on unmount
       return () => {
         socketInstance.disconnect();
       };
@@ -116,12 +111,12 @@ export default function AdminDashboardPage() {
             ]
           : [0, 0, 0, 0],
         backgroundColor: [
-          colors.accentColor,
-          "#0288D1",
-          "#2E7D32",
-          "#F44336",
+          accentColor,
+          "#60A5FA", // Light blue for in progress
+          "#34D399", // Green for completed
+          "#EF4444", // Red for cancelled
         ],
-        borderColor: [colors.activeTextColor],
+        borderColor: [activeTextColor],
         borderWidth: 1,
       },
     ],
@@ -130,30 +125,57 @@ export default function AdminDashboardPage() {
   const chartOptions = {
     responsive: true,
     plugins: {
-      legend: { position: "top" as const },
-      title: { display: true, text: "Projects by Status" },
+      legend: {
+        position: "top" as const,
+        labels: {
+          color: activeTextColor,
+        },
+      },
+      title: {
+        display: true,
+        text: "Projects by Status",
+        color: activeTextColor,
+      },
     },
     scales: {
+      x: {
+        ticks: { color: activeTextColor },
+        grid: { color: neutralTextColor },
+      },
       y: {
         beginAtZero: true,
-        title: { display: true, text: "Number of Projects" },
+        title: {
+          display: true,
+          text: "Number of Projects",
+          color: activeTextColor,
+        },
+        ticks: { color: activeTextColor },
+        grid: { color: neutralTextColor },
       },
     },
   };
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
-        <Loader2 className="animate-spin h-10 w-10 text-[#17B169] mr-3" />
-        <p className="text-[#16423C] text-xl font-semibold">Loading dashboard...</p>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: primaryDarkGray }}
+      >
+        <Loader className="animate-spin h-10 w-10 mr-3" style={{ color: accentColor }} />
+        <p className="text-xl font-semibold" style={{ color: activeTextColor }}>
+          Loading dashboard...
+        </p>
       </div>
     );
   }
 
   if (status !== "authenticated" || session?.user?.role !== "admin") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
-        <p className="text-[#F44336] text-lg font-semibold">
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: primaryDarkGray }}
+      >
+        <p className="text-lg font-semibold" style={{ color: "#EF4444" }}>
           Access denied. Please sign in as an admin.
         </p>
       </div>
@@ -162,27 +184,42 @@ export default function AdminDashboardPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#F5F6F5] py-12 px-4 sm:px-6 lg:px-8 font-sans mt-17"
+      className="min-h-screen font-sans py-10 px-4 sm:px-6 lg:px-8 mt-17 relative max-w-7xl mx-auto"
       style={{
-        backgroundImage: `url(${Images.userViewbackground ? Images.userViewbackground.src : ""})`,
+        backgroundImage: `url(${Images.adminViewbackground ? Images.adminViewbackground.src : ""})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
     >
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl sm:text-4xl font-bold text-[#16423C] mb-8 text-center">
-          Admin Dashboard
+        <h1 className="text-3xl sm:text-4xl font-bold text-center" style={{ color: activeTextColor }}>
+          <span style={{ color: accentColor }}>Admin</span> Dashboard
         </h1>
 
         <div className="mb-8 flex justify-end">
           <Select value={timeRange} onValueChange={handleTimeRangeChange}>
-            <SelectTrigger className="w-48 bg-white border-[#17B169]">
+            <SelectTrigger
+              className="w-48 text-base rounded-lg p-3 h-auto border-2 focus:ring-2 focus:ring-offset-2"
+              style={{
+                backgroundColor: white,
+                borderColor: inputBorderColor,
+                color: primaryDarkGray,
+                boxShadow: `0 0 0 2px ${accentColor}`,
+              }}
+            >
               <SelectValue placeholder="Select time range" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              className="bg-white text-primaryDarkGray rounded-lg shadow-lg border"
+              style={{ borderColor: accentColor }}
+            >
               {timeRangeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
+                <SelectItem
+                  key={option.value}
+                  value={option.value}
+                  className="hover:bg-[#A4CCD9]/30 cursor-pointer p-3"
+                >
                   {option.label}
                 </SelectItem>
               ))}
@@ -199,93 +236,90 @@ export default function AdminDashboardPage() {
 
         {loading || !dashboardData ? (
           <div className="flex justify-center items-center h-64">
-            <Loader2 className="animate-spin h-10 w-10 text-[#17B169]" />
+            <Loader className="animate-spin h-10 w-10" style={{ color: accentColor }} />
           </div>
         ) : (
           <div className="space-y-8">
-            {/* Metrics Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="bg-white bg-opacity-90 backdrop-blur-sm">
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
                 <CardHeader>
-                  <CardTitle className="text-[#16423C] flex items-center">
-                    <Briefcase className="h-5 w-5 mr-2 text-[#17B169]" />
+                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                    <Briefcase className="h-5 w-5 mr-2" style={{ color: accentColor }} />
                     Total Projects
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[#17B169]">{dashboardData.totalProjects}</p>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.totalProjects}</p>
                 </CardContent>
               </Card>
-              <Card className="bg-white bg-opacity-90 backdrop-blur-sm">
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
                 <CardHeader>
-                  <CardTitle className="text-[#16423C] flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-[#17B169]" />
+                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                    <FileText className="h-5 w-5 mr-2" style={{ color: accentColor }} />
                     Active Proposals
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[#17B169]">{dashboardData.activeProposals}</p>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.activeProposals}</p>
                 </CardContent>
               </Card>
-              <Card className="bg-white bg-opacity-90 backdrop-blur-sm">
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
                 <CardHeader>
-                  <CardTitle className="text-[#16423C] flex items-center">
-                    <AlertTriangle className="h-5 w-5 mr-2 text-[#17B169]" />
+                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                    <AlertTriangle className="h-5 w-5 mr-2" style={{ color: accentColor }} />
                     Disputes
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[#17B169]">{dashboardData.disputes}</p>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.disputes}</p>
                 </CardContent>
               </Card>
-              <Card className="bg-white bg-opacity-90 backdrop-blur-sm">
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
                 <CardHeader>
-                  <CardTitle className="text-[#16423C] flex items-center">
-                    <AlertCircle className="h-5 w-5 mr-2 text-[#17B169]" />
+                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                    <AlertCircle className="h-5 w-5 mr-2" style={{ color: accentColor }} />
                     High-Priority Issues
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold text-[#17B169]">{dashboardData.highPriorityIssues.length}</p>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.highPriorityIssues.length}</p>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Projects by Status Chart */}
-            <Card className="bg-white bg-opacity-90 backdrop-blur-sm">
+            <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
               <CardHeader>
-                <CardTitle className="text-[#16423C]">Projects by Status</CardTitle>
+                <CardTitle style={{ color: activeTextColor }}>Projects by Status</CardTitle>
               </CardHeader>
               <CardContent>
                 <Bar data={chartData} options={chartOptions} />
               </CardContent>
             </Card>
 
-            {/* Recent Activity */}
-            <Card className="bg-white bg-opacity-90 backdrop-blur-sm">
+            <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
               <CardHeader>
-                <CardTitle className="text-[#16423C] flex items-center">
-                  <Clock className="h-5 w-5 mr-2 text-[#17B169]" />
+                <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                  <Clock className="h-5 w-5 mr-2" style={{ color: accentColor }} />
                   Recent Activity
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {dashboardData.recentActivity.length === 0 ? (
-                  <p className="text-[#6A9C89]">No recent activity.</p>
+                  <p style={{ color: neutralTextColor }}>No recent activity.</p>
                 ) : (
                   <ul className="space-y-4">
                     {dashboardData.recentActivity.map((activity) => (
                       <li key={activity.id} className="flex items-center justify-between">
                         <div>
-                          <p className="text-[#16423C] font-semibold">{activity.title}</p>
-                          <p className="text-[#6A9C89] text-sm">
+                          <p className="font-semibold" style={{ color: activeTextColor }}>{activity.title}</p>
+                          <p className="text-sm" style={{ color: neutralTextColor }}>
                             {activity.type} - {new Date(activity.timestamp).toLocaleString()}
                           </p>
                         </div>
                         <Button
                           onClick={() => router.push(`/admin/management/projects/${activity.id}`)}
-                          className={`px-4 py-1 rounded-full ${colors.buttonHover}`}
-                          style={{ backgroundColor: colors.accentColor, color: colors.primary }}
+                          className="px-4 py-1 rounded-full"
+                          style={{ backgroundColor: accentColor, color: primaryDarkGray }}
                         >
                           View
                         </Button>
@@ -296,29 +330,28 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* High-Priority Issues */}
-            <Card className="bg-white bg-opacity-90 backdrop-blur-sm">
+            <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
               <CardHeader>
-                <CardTitle className="text-[#16423C] flex items-center">
-                  <AlertCircle className="h-5 w-5 mr-2 text-[#17B169]" />
+                <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                  <AlertCircle className="h-5 w-5 mr-2" style={{ color: accentColor }} />
                   High-Priority Issues
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {dashboardData.highPriorityIssues.length === 0 ? (
-                  <p className="text-[#6A9C89]">No high-priority issues.</p>
+                  <p style={{ color: neutralTextColor }}>No high-priority issues.</p>
                 ) : (
                   <ul className="space-y-4">
                     {dashboardData.highPriorityIssues.map((issue) => (
                       <li key={issue.id} className="flex items-center justify-between">
                         <div>
-                          <p className="text-[#16423C] font-semibold">{issue.title}</p>
-                          <p className="text-[#6A9C89] text-sm">{issue.issue}</p>
+                          <p className="font-semibold" style={{ color: activeTextColor }}>{issue.title}</p>
+                          <p className="text-sm" style={{ color: neutralTextColor }}>{issue.issue}</p>
                         </div>
                         <Button
                           onClick={() => router.push(`/admin/management/projects/${issue.id}`)}
-                          className={`px-4 py-1 rounded-full ${colors.buttonHover}`}
-                          style={{ backgroundColor: colors.accentColor, color: colors.primary }}
+                          className="px-4 py-1 rounded-full"
+                          style={{ backgroundColor: accentColor, color: primaryDarkGray }}
                         >
                           View
                         </Button>
@@ -329,19 +362,18 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* Quick Links */}
             <div className="flex justify-center gap-4">
               <Button
                 onClick={() => router.push("/admin/management/projects")}
-                className={`px-6 py-2 rounded-full font-semibold ${colors.buttonHover}`}
-                style={{ backgroundColor: colors.accentColor, color: colors.primary }}
+                className="px-6 py-2 rounded-full font-semibold"
+                style={{ backgroundColor: accentColor, color: primaryDarkGray }}
               >
                 Manage Projects
               </Button>
               <Button
-                onClick={() => router.push("/admin/management/projects")}
-                className={`px-6 py-2 rounded-full font-semibold ${colors.buttonHover}`}
-                style={{ backgroundColor: colors.accentColor, color: colors.primary }}
+                onClick={() => router.push("/admin/management/proposals")}
+                className="px-6 py-2 rounded-full font-semibold"
+                style={{ backgroundColor: accentColor, color: primaryDarkGray }}
               >
                 Manage Proposals
               </Button>
