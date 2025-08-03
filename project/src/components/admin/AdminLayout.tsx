@@ -43,7 +43,7 @@ export default function AdminLayout({ children }: TalentLayoutProps) {
   return (
     <div className="bg-gray-900 min-h-screen">
       <div className="flex flex-col lg:flex-row min-h-screen">
-        <div className="fixed z-40 w-[18%] lg:h-screen">
+        <div className="fixed z-40 w-[19%] lg:h-screen">
           <AdminSidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
         </div>
         <div className="flex-1 lg:ml-64 w-full lg:w-[82%]">
