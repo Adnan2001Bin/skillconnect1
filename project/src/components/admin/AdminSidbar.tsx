@@ -50,7 +50,7 @@ export default function AdminSidebar({
       name: "Management",
       icon: SquareChartGantt,
       subItems: [
-        { name: "User Management", href: "/admin/management/users" },
+        { name: "User Management", href: "/admin/management/clients" },
         { name: "Talent Management", href: "/admin/management/talents" },
         { name: "Project Management", href: "/admin/management/projects" },
         {

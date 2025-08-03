@@ -5,6 +5,7 @@ import { Check, ChevronDown } from "lucide-react";
 
 interface MultiSelectProps {
   name: string;
+  style?: React.CSSProperties;
   label: string;
   placeholder: string;
   options: { value: string; label: string }[];
@@ -15,6 +16,7 @@ interface MultiSelectProps {
 
 export function MultiSelect({
   name,
+  style,
   label,
   placeholder,
   options,
