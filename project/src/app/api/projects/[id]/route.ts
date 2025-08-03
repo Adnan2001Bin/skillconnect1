@@ -175,3 +175,54 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     );
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "admin") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized. Only admins can delete projects." },
+        { status: 401 }
+      );
+    }
+
+    const projectId = params.id;
+    if (!projectId) {
+      return NextResponse.json(
+        { success: false, message: "Project ID is required" },
+        { status: 400 }
+      );
+    }
+
+    await connectDB();
+
+    const project = await ProjectModel.findById(projectId);
+    if (!project) {
+      return NextResponse.json(
+        { success: false, message: "Project not found" },
+        { status: 404 }
+      );
+    }
+
+    await ProjectModel.findByIdAndDelete(projectId);
+    await proposalModel.deleteMany({ projectId });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Project and associated proposals deleted successfully",
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error deleting project:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Internal server error. Failed to delete project.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}
