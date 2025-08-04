@@ -4,6 +4,7 @@ import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import mongoose from "mongoose";
+import UserModel from "@/models/user.model";
 
 export async function DELETE(req: NextRequest, { params }: { params: { orderId: string } }) {
   try {
@@ -53,6 +54,54 @@ export async function DELETE(req: NextRequest, { params }: { params: { orderId: 
         message: "Internal server error. Failed to delete order.",
         error: error instanceof Error ? error.message : "Unknown error",
       },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+)  {
+  try {
+    // Check for admin authentication
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized: Please sign in" },
+        { status: 401 }
+      );
+    }
+
+    // Connect to MongoDB
+    await connectDB();
+
+    const { id } = await context.params;
+
+    // Fetch talent by ID
+    const talent = await UserModel.findOne({ _id: id, role: "user" }).lean();
+    if (!talent) {
+      return NextResponse.json(
+        { success: false, message: "user not found." },
+        { status: 404 }
+      );
+    }
+
+    // Return talent data
+    return NextResponse.json({
+      success: true,
+      data: {
+        _id: talent._id.toString(),
+        userName: talent.userName,
+        email: talent.email,
+        profilePicture: talent.profilePicture || null,
+        bio: talent.bio || null,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching talent:", error);
+    return NextResponse.json(
+      { success: false, message: "Internal server error." },
       { status: 500 }
     );
   }

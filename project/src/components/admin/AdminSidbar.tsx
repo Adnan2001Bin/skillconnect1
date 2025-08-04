@@ -53,11 +53,12 @@ export default function AdminSidebar({
         { name: "User Management", href: "/admin/management/clients" },
         { name: "Talent Management", href: "/admin/management/talents" },
         { name: "Project Management", href: "/admin/management/projects" },
+        { name: "Order Management", href: "/admin/management/orders" },
+
         {
           name: "Transaction Management",
           href: "/admin/management/transactions",
-        },
-        { name: "Content Management", href: "/admin/management/content" },
+        }
       ],
     },
     { name: "Security & Moderation", icon: Eye, href: "/admin/security" },

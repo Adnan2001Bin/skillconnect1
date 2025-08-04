@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -5,7 +6,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import io, { Socket } from "socket.io-client";
 import { Loader2 as Loader, AlertCircle, Briefcase, FileText, AlertTriangle, Clock } from "lucide-react";
-import { Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,16 +21,19 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Images } from "@/lib/images";
+import { Bar } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 interface DashboardData {
   totalProjects: number;
   projectsByStatus: { open: number; inProgress: number; completed: number; cancelled: number };
+  totalOrders: number;
+  ordersByStatus: { pending: number; accepted: number; rejected: number; completed: number; cancelled: number };
   activeProposals: number;
   disputes: number;
   recentActivity: { id: string; title: string; type: string; timestamp: string }[];
-  highPriorityIssues: { id: string; title: string; issue: string }[];
+  highPriorityIssues: { id: string; title: string; issue: string; type: "project" | "order" }[];
 }
 
 const timeRangeOptions = [
@@ -48,8 +51,9 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<string>("30");
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [chartType, setChartType] = useState<"projects" | "orders">("projects");
 
-  // Define color scheme consistent with AdminTalentView
+  // Define color scheme consistent with AdminClientsView
   const primaryDarkGray = "#2D3748";
   const secondaryDarkGray = "rgba(58, 71, 80, 0.6)";
   const accentColor = "#A5BFCC";
@@ -98,24 +102,35 @@ export default function AdminDashboardPage() {
   };
 
   const chartData = {
-    labels: ["Open", "In Progress", "Completed", "Cancelled"],
+    labels: chartType === "projects"
+      ? ["Open", "In Progress", "Completed", "Cancelled"]
+      : ["Pending", "Accepted", "Rejected", "Completed", "Cancelled"],
     datasets: [
       {
-        label: "Projects by Status",
+        label: chartType === "projects" ? "Projects by Status" : "Orders by Status",
         data: dashboardData
-          ? [
-              dashboardData.projectsByStatus.open,
-              dashboardData.projectsByStatus.inProgress,
-              dashboardData.projectsByStatus.completed,
-              dashboardData.projectsByStatus.cancelled,
-            ]
-          : [0, 0, 0, 0],
+          ? chartType === "projects"
+            ? [
+                dashboardData.projectsByStatus.open,
+                dashboardData.projectsByStatus.inProgress,
+                dashboardData.projectsByStatus.completed,
+                dashboardData.projectsByStatus.cancelled,
+              ]
+            : [
+                dashboardData.ordersByStatus.pending,
+                dashboardData.ordersByStatus.accepted,
+                dashboardData.ordersByStatus.rejected,
+                dashboardData.ordersByStatus.completed,
+                dashboardData.ordersByStatus.cancelled,
+              ]
+          : [0, 0, 0, 0, 0],
         backgroundColor: [
           accentColor,
-          "#60A5FA", // Light blue for in progress
+          "#60A5FA", // Light blue for in progress/accepted
           "#34D399", // Green for completed
           "#EF4444", // Red for cancelled
-        ],
+          chartType === "orders" ? "#FBBF24" : undefined, // Yellow for rejected (orders only)
+        ].filter(Boolean),
         borderColor: [activeTextColor],
         borderWidth: 1,
       },
@@ -133,7 +148,7 @@ export default function AdminDashboardPage() {
       },
       title: {
         display: true,
-        text: "Projects by Status",
+        text: chartType === "projects" ? "Projects by Status" : "Orders by Status",
         color: activeTextColor,
       },
     },
@@ -146,7 +161,7 @@ export default function AdminDashboardPage() {
         beginAtZero: true,
         title: {
           display: true,
-          text: "Number of Projects",
+          text: chartType === "projects" ? "Number of Projects" : "Number of Orders",
           color: activeTextColor,
         },
         ticks: { color: activeTextColor },
@@ -184,7 +199,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div
-      className="min-h-screen font-sans py-10 px-4 sm:px-6 lg:px-8 mt-17 relative max-w-7xl mx-auto"
+      className="min-h-screen font-sans py-10 px-4 sm:px-6 lg:px-13 mt-17 relative max-w-7xl mx-auto"
       style={{
         backgroundImage: `url(${Images.adminViewbackground ? Images.adminViewbackground.src : ""})`,
         backgroundSize: "cover",
@@ -197,7 +212,7 @@ export default function AdminDashboardPage() {
           <span style={{ color: accentColor }}>Admin</span> Dashboard
         </h1>
 
-        <div className="mb-8 flex justify-end">
+        <div className="mb-8 flex justify-end gap-4">
           <Select value={timeRange} onValueChange={handleTimeRangeChange}>
             <SelectTrigger
               className="w-48 text-base rounded-lg p-3 h-auto border-2 focus:ring-2 focus:ring-offset-2"
@@ -223,6 +238,26 @@ export default function AdminDashboardPage() {
                   {option.label}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={chartType} onValueChange={(value) => setChartType(value as "projects" | "orders")}>
+            <SelectTrigger
+              className="w-48 text-base rounded-lg p-3 h-auto border-2 focus:ring-2 focus:ring-offset-2"
+              style={{
+                backgroundColor: white,
+                borderColor: inputBorderColor,
+                color: primaryDarkGray,
+                boxShadow: `0 0 0 2px ${accentColor}`,
+              }}
+            >
+              <SelectValue placeholder="Select chart type" />
+            </SelectTrigger>
+            <SelectContent
+              className="bg-white text-primaryDarkGray rounded-lg shadow-lg border"
+              style={{ borderColor: accentColor }}
+            >
+              <SelectItem value="projects">Projects</SelectItem>
+              <SelectItem value="orders">Orders</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -255,6 +290,17 @@ export default function AdminDashboardPage() {
               <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
                 <CardHeader>
                   <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                    <Briefcase className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                    Total Orders
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.totalOrders}</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
+                <CardHeader>
+                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
                     <FileText className="h-5 w-5 mr-2" style={{ color: accentColor }} />
                     Active Proposals
                   </CardTitle>
@@ -274,25 +320,16 @@ export default function AdminDashboardPage() {
                   <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.disputes}</p>
                 </CardContent>
               </Card>
-              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
-                <CardHeader>
-                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
-                    <AlertCircle className="h-5 w-5 mr-2" style={{ color: accentColor }} />
-                    High-Priority Issues
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.highPriorityIssues.length}</p>
-                </CardContent>
-              </Card>
             </div>
 
             <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
               <CardHeader>
-                <CardTitle style={{ color: activeTextColor }}>Projects by Status</CardTitle>
+                <CardTitle style={{ color: activeTextColor }}>{chartType === "projects" ? "Projects by Status" : "Orders by Status"}</CardTitle>
               </CardHeader>
               <CardContent>
-                <Bar data={chartData} options={chartOptions} />
+                <div className="h-80">
+                  <Bar data={chartData} options={chartOptions} />
+                </div>
               </CardContent>
             </Card>
 
@@ -317,7 +354,7 @@ export default function AdminDashboardPage() {
                           </p>
                         </div>
                         <Button
-                          onClick={() => router.push(`/admin/management/projects/${activity.id}`)}
+                          onClick={() => router.push(`/admin/management/${activity.type.startsWith("Order") ? "orders" : "projects"}/${activity.id}`)}
                           className="px-4 py-1 rounded-full"
                           style={{ backgroundColor: accentColor, color: primaryDarkGray }}
                         >
@@ -345,11 +382,13 @@ export default function AdminDashboardPage() {
                     {dashboardData.highPriorityIssues.map((issue) => (
                       <li key={issue.id} className="flex items-center justify-between">
                         <div>
-                          <p className="font-semibold" style={{ color: activeTextColor }}>{issue.title}</p>
+                          <p className="font-semibold" style={{ color: activeTextColor }}>
+                            {issue.title} <Badge variant="destructive">High Priority</Badge>
+                          </p>
                           <p className="text-sm" style={{ color: neutralTextColor }}>{issue.issue}</p>
                         </div>
                         <Button
-                          onClick={() => router.push(`/admin/management/projects/${issue.id}`)}
+                          onClick={() => router.push(`/admin/management/${issue.type === "order" ? "orders" : "projects"}/${issue.id}`)}
                           className="px-4 py-1 rounded-full"
                           style={{ backgroundColor: accentColor, color: primaryDarkGray }}
                         >
@@ -369,6 +408,13 @@ export default function AdminDashboardPage() {
                 style={{ backgroundColor: accentColor, color: primaryDarkGray }}
               >
                 Manage Projects
+              </Button>
+              <Button
+                onClick={() => router.push("/admin/management/orders")}
+                className="px-6 py-2 rounded-full font-semibold"
+                style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+              >
+                Manage Orders
               </Button>
               <Button
                 onClick={() => router.push("/admin/management/proposals")}
