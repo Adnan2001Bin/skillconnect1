@@ -14,9 +14,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Loader, ArrowLeft, User, Mail, Info, Briefcase, MessageSquare } from "lucide-react";
+import { Loader, ArrowLeft, User, Mail, Info, Briefcase, MessageSquare, Edit, Trash2 } from "lucide-react";
 import { Images } from "@/lib/images";
 import Image from "next/image";
 import io, { Socket } from "socket.io-client";
@@ -37,6 +38,7 @@ interface Message {
   conversationId: string;
   createdAt: string;
   isRead: boolean;
+  updatedAt?: string;
 }
 
 export default function ClientProfilePage() {
@@ -47,8 +49,11 @@ export default function ClientProfilePage() {
   const [client, setClient] = useState<ClientProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [editedContent, setEditedContent] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -82,7 +87,6 @@ export default function ClientProfilePage() {
 
       socketInstance.on("newMessage", (message: Message) => {
         setMessages((prev) => {
-          // Prevent duplicates by filtering out messages with the same _id
           if (prev.some((m) => m._id === message._id)) {
             console.warn("Duplicate message received:", message._id);
             return prev;
@@ -92,11 +96,20 @@ export default function ClientProfilePage() {
       });
 
       socketInstance.on("messages", (fetchedMessages: Message[]) => {
-        // Deduplicate messages by _id
         const uniqueMessages = Array.from(
           new Map(fetchedMessages.map((m) => [m._id, m])).values()
         );
         setMessages(uniqueMessages);
+      });
+
+      socketInstance.on("messageUpdated", (updatedMessage: Message) => {
+        setMessages((prev) =>
+          prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m))
+        );
+      });
+
+      socketInstance.on("messageDeleted", ({ messageId }: { messageId: string }) => {
+        setMessages((prev) => prev.filter((m) => m._id !== messageId));
       });
 
       socketInstance.on("error", ({ message }) => {
@@ -163,6 +176,31 @@ export default function ClientProfilePage() {
     setNewMessage("");
   };
 
+  // Handle opening the edit message dialog
+  const handleOpenEditDialog = (message: Message) => {
+    setEditingMessage(message);
+    setEditedContent(message.content);
+    setIsEditDialogOpen(true);
+  };
+
+  // Handle editing a message
+  const handleEditMessage = () => {
+    if (!editingMessage || !editedContent.trim() || !socket) return;
+    socket.emit("editMessage", {
+      messageId: editingMessage._id,
+      content: editedContent,
+    });
+    setIsEditDialogOpen(false);
+    setEditingMessage(null);
+    setEditedContent("");
+  };
+
+  // Handle deleting a message
+  const handleDeleteMessage = (messageId: string) => {
+    if (!socket) return;
+    socket.emit("deleteMessage", { messageId });
+  };
+
   if (status === "loading" || isLoading) {
     return (
       <div
@@ -213,6 +251,43 @@ export default function ClientProfilePage() {
         backgroundRepeat: "no-repeat",
       }}
     >
+      {/* Edit Message Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]" style={{ borderColor: colors.primaryColor }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: colors.darkTextColor }}>
+              Edit Message
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Input
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              placeholder="Edit your message"
+              style={{ borderColor: colors.primaryColor, color: colors.darkTextColor }}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              style={{ borderColor: colors.accentColor, color: colors.accentColor }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleEditMessage}
+              disabled={!editedContent.trim()}
+              style={{ backgroundColor: colors.accentColor, color: colors.darkTextColor }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Chat Dialog */}
       <Dialog open={isChatDialogOpen} onOpenChange={setIsChatDialogOpen}>
         <DialogContent className="sm:max-w-[500px]" style={{ borderColor: colors.primaryColor }}>
@@ -248,12 +323,35 @@ export default function ClientProfilePage() {
                       color: colors.darkTextColor,
                     }}
                   >
-                    <p className="text-sm font-semibold">
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm font-semibold">
                         {message.senderId.userName === session.user.userName ? "You" : message.senderId.userName}
                       </p>
+                      {message.senderId.userName === session.user.userName && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenEditDialog(message)}
+                            style={{ color: colors.darkTextColor }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteMessage(message._id)}
+                            style={{ color: "#EF4444" }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                     <p className="text-sm">{message.content}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {new Date(message.createdAt).toLocaleTimeString()}
+                      {new Date(message.updatedAt || message.createdAt).toLocaleTimeString()}
+                      {message.updatedAt && message.updatedAt !== message.createdAt && " (Edited)"}
                     </p>
                   </div>
                 </div>
