@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -44,11 +44,13 @@ import {
   Briefcase,
   Verified,
   Loader2,
+  MessageSquare,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { Images } from "@/lib/images";
 import { TalentProfileInput } from "@/schemas/profileSchema";
 import Loader from "@/components/Loader";
+import io, { Socket } from "socket.io-client";
 
 // Define RatePlan type to match talentProfileSchema
 interface RatePlan {
@@ -72,6 +74,17 @@ interface Order {
   status: string;
 }
 
+// Define Message type for chat
+interface Message {
+  _id: string;
+  senderId: { userName: string };
+  receiverId: string;
+  content: string;
+  conversationId: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
 interface Talent extends TalentProfileInput {
   _id: string;
   userName: string;
@@ -87,13 +100,16 @@ export default function UserTalentProfilePage() {
   const [talent, setTalent] = useState<Talent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
-  const [selectedRatePlan, setSelectedRatePlan] = useState<RatePlan | null>(
-    null
-  );
+  const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
+  const [selectedRatePlan, setSelectedRatePlan] = useState<RatePlan | null>(null);
   const [projectTitle, setProjectTitle] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingOrders, setPendingOrders] = useState<Set<string>>(new Set());
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const colors = {
     primary: "#16423C",
@@ -105,18 +121,60 @@ export default function UserTalentProfilePage() {
     inputBorderColor: "#6A9C89",
     errorRed: "#EF4444",
   };
-// 16423C
+
   useEffect(() => {
     if (status === "authenticated" && params.id) {
+      // Initialize Socket.IO
+      const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+        auth: { userId: session.user._id },
+      });
+
+      setSocket(socketInstance);
+
+      socketInstance.on("connect_error", (err) => {
+        console.error("Socket connection error:", err);
+        toast.error("Connection Error", {
+          description: "Failed to connect to messaging service.",
+          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+          duration: 4000,
+        });
+      });
+
+      socketInstance.on("newMessage", (message: Message) => {
+        setMessages((prev) => {
+          // Prevent duplicates by filtering out messages with the same _id
+          if (prev.some((m) => m._id === message._id)) {
+            console.warn("Duplicate message received:", message._id);
+            return prev;
+          }
+          return [...prev, message];
+        });
+      });
+
+      socketInstance.on("messages", (fetchedMessages: Message[]) => {
+        // Deduplicate messages by _id
+        const uniqueMessages = Array.from(
+          new Map(fetchedMessages.map((m) => [m._id, m])).values()
+        );
+        setMessages(uniqueMessages);
+      });
+
+      socketInstance.on("error", ({ message }) => {
+        toast.error("Error", {
+          description: message,
+          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+          duration: 4000,
+        });
+      });
+
+      // Fetch talent profile and orders
       const fetchTalentAndOrders = async () => {
         setIsLoading(true);
         try {
-          // Fetch talent profile
           const talentResponse = await axios.get(`/api/profile/${params.id}`);
           if (talentResponse.data.success) {
             setTalent(talentResponse.data.data);
 
-            // Fetch pending orders for the current client and talent
             if (session?.user?.role === "user") {
               const ordersResponse = await axios.get("/api/orders", {
                 params: {
@@ -127,20 +185,18 @@ export default function UserTalentProfilePage() {
               });
               if (ordersResponse.data.success) {
                 const pendingTypes = new Set<string>(
-                  ordersResponse.data.data.map(
-                    (order: Order) => order.ratePlan.type
-                  )
+                  ordersResponse.data.data.map((order: Order) => order.ratePlan.type)
                 );
                 setPendingOrders(pendingTypes);
               }
+
+              // Fetch messages
+              socketInstance.emit("getMessages", { otherUserId: params.id });
             }
           } else {
             toast.error("Error", {
-              description:
-                talentResponse.data.message ||
-                "Failed to fetch talent profile.",
-              className:
-                "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+              description: talentResponse.data.message || "Failed to fetch talent profile.",
+              className: "bg-red-600 text-white border-red-700 bg-opacity-80",
               duration: 4000,
             });
             router.push("/talentList");
@@ -149,8 +205,7 @@ export default function UserTalentProfilePage() {
           console.error("Error fetching talent or orders:", error);
           toast.error("Error", {
             description: "An error occurred while fetching the talent profile.",
-            className:
-              "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+            className: "bg-red-600 text-white border-red-700 bg-opacity-80",
             duration: 4000,
           });
           router.push("/user/talents");
@@ -158,11 +213,23 @@ export default function UserTalentProfilePage() {
           setIsLoading(false);
         }
       };
+
       fetchTalentAndOrders();
+
+      return () => {
+        socketInstance.disconnect();
+      };
     } else if (status === "unauthenticated") {
       router.replace("/sign-in");
     }
   }, [status, params.id, session, router]);
+
+  // Scroll to bottom of chat when messages update
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   // Helper function to get the category label
   const getCategoryLabel = (categoryValue: string | null | undefined) => {
@@ -176,8 +243,7 @@ export default function UserTalentProfilePage() {
     if (session?.user?.role !== "user") {
       toast.error("Error", {
         description: "Only clients can request orders.",
-        className:
-          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
         duration: 4000,
       });
       return;
@@ -185,8 +251,7 @@ export default function UserTalentProfilePage() {
     if (pendingOrders.has(ratePlan.type)) {
       toast.error("Error", {
         description: `You already have a pending order for the ${ratePlan.type} plan.`,
-        className:
-          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
         duration: 4000,
       });
       return;
@@ -215,8 +280,7 @@ export default function UserTalentProfilePage() {
       if (response.data.success) {
         toast.success("Success", {
           description: "Order requested successfully.",
-          className:
-            "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
           duration: 4000,
         });
         setPendingOrders((prev) => new Set(prev).add(selectedRatePlan.type));
@@ -227,10 +291,8 @@ export default function UserTalentProfilePage() {
     } catch (error) {
       console.error("Error requesting order:", error);
       toast.error("Error", {
-        description:
-          error instanceof Error ? error.message : "Failed to request order.",
-        className:
-          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        description: error instanceof Error ? error.message : "Failed to request order.",
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
         duration: 4000,
       });
     } finally {
@@ -238,15 +300,20 @@ export default function UserTalentProfilePage() {
     }
   };
 
+  // Handle sending a message
+  const handleSendMessage = () => {
+    if (!newMessage.trim() || !socket || !talent) return;
+    socket.emit("sendMessage", {
+      receiverId: talent._id,
+      content: newMessage,
+    });
+    setNewMessage("");
+  };
+
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
-        <Loader
-          text="Loading talent profile.."
-          color="#000000"
-          bgColor="#90D1CA"
-          size="large"
-        />
+        <Loader text="Loading talent profile.." color="#000000" bgColor="#90D1CA" size="large" />
       </div>
     );
   }
@@ -258,8 +325,7 @@ export default function UserTalentProfilePage() {
         style={{ backgroundColor: colors.primary }}
       >
         <p className="text-xl font-bold" style={{ color: colors.errorRed }}>
-          Access denied or talent not found. Please sign in or try another
-          profile.
+          Access denied or talent not found. Please sign in or try another profile.
         </p>
       </div>
     );
@@ -269,9 +335,7 @@ export default function UserTalentProfilePage() {
     <div
       className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-8 relative max-w-[94rem] mx-auto"
       style={{
-        backgroundImage: `url(${
-          Images.userViewbackground ? Images.userViewbackground.src : ""
-        })`,
+        backgroundImage: `url(${Images.userViewbackground ? Images.userViewbackground.src : ""})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -279,10 +343,7 @@ export default function UserTalentProfilePage() {
     >
       {/* Order Dialog */}
       <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
-        <DialogContent
-          className="sm:max-w-[425px]"
-          style={{ borderColor: colors.inputBorderColor }}
-        >
+        <DialogContent className="sm:max-w-[425px]" style={{ borderColor: colors.inputBorderColor }}>
           <DialogHeader>
             <DialogTitle style={{ color: colors.activeTextColor }}>
               Request Order: {selectedRatePlan?.type}
@@ -290,11 +351,7 @@ export default function UserTalentProfilePage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <label
-                htmlFor="projectTitle"
-                className="text-sm font-medium"
-                style={{ color: colors.activeTextColor }}
-              >
+              <label htmlFor="projectTitle" className="text-sm font-medium" style={{ color: colors.activeTextColor }}>
                 Project Title
               </label>
               <Input
@@ -302,10 +359,7 @@ export default function UserTalentProfilePage() {
                 value={projectTitle}
                 onChange={(e) => setProjectTitle(e.target.value)}
                 placeholder="Enter project title"
-                style={{
-                  borderColor: colors.inputBorderColor,
-                  color: colors.activeTextColor,
-                }}
+                style={{ borderColor: colors.inputBorderColor, color: colors.activeTextColor }}
               />
             </div>
             <div className="grid gap-2">
@@ -322,10 +376,7 @@ export default function UserTalentProfilePage() {
                 onChange={(e) => setProjectDescription(e.target.value)}
                 placeholder="Describe your project"
                 rows={4}
-                style={{
-                  borderColor: colors.inputBorderColor,
-                  color: colors.primary,
-                }}
+                style={{ borderColor: colors.inputBorderColor, color: colors.primary }}
               />
             </div>
           </div>
@@ -334,10 +385,7 @@ export default function UserTalentProfilePage() {
               type="button"
               variant="outline"
               onClick={() => setIsOrderDialogOpen(false)}
-              style={{
-                borderColor: colors.accentColor,
-                color: colors.accentColor,
-              }}
+              style={{ borderColor: colors.accentColor, color: colors.accentColor }}
             >
               Cancel
             </Button>
@@ -345,38 +393,108 @@ export default function UserTalentProfilePage() {
               type="button"
               onClick={handleRequestOrder}
               disabled={isSubmitting || !projectTitle || !projectDescription}
-              style={{
-                backgroundColor: colors.accentColor,
-                color: colors.white,
-              }}
+              style={{ backgroundColor: colors.accentColor, color: colors.white }}
             >
-              {isSubmitting ? (
-                <Loader2 className="animate-spin h-5 w-5 mr-2" />
-              ) : null}
+              {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : null}
               Request Order
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Chat Dialog */}
+      {session?.user?.role === "user" && (
+        <Dialog open={isChatDialogOpen} onOpenChange={setIsChatDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]" style={{ borderColor: colors.inputBorderColor, backgroundColor: "rgba(163,209,198, 0.3)" }}>
+            <DialogHeader>
+              <DialogTitle style={{ color: colors.activeTextColor }}>
+                Chat with {talent.userName}
+              </DialogTitle>
+            </DialogHeader>
+            <div
+              className="max-h-96 overflow-y-auto p-4 "
+              style={{ backgroundColor: "rgba(163,209,198, 0.6)", borderColor: colors.inputBorderColor }}
+              ref={chatContainerRef}
+            >
+              {messages.length === 0 ? (
+                <p style={{ color: colors.neutralTextColor }}>No messages yet.</p>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message._id}
+                    className={`mb-4 flex ${message.senderId.userName === session.user.userName ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-xs p-3 rounded-lg shadow-sm ${
+                        message.senderId.userName === session.user.userName
+                          ? "bg-accent text-white"
+                          : "bg-primary text-white"
+                      }`}
+                      style={{
+                        backgroundColor:
+                          message.senderId.userName === session.user.userName ? colors.accentColor : colors.primary,
+                      }}
+                    >
+                      <p className="text-sm font-semibold">
+                        {message.senderId.userName === session.user.userName ? "You" : message.senderId.userName}
+                      </p>
+                      <p className="text-sm">{message.content}</p>
+                      <p className="text-xs text-gray-300 mt-1">
+                        {new Date(message.createdAt).toLocaleTimeString()}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2 p-4">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type a message..."
+                style={{ borderColor: colors.inputBorderColor, color: colors.white }}
+                onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+              />
+              <Button
+                onClick={handleSendMessage}
+                style={{ backgroundColor: colors.accentColor, color: colors.white }}
+                disabled={!newMessage.trim()}
+              >
+                Send
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Header: Profile Picture, Name, Category, Location */}
       <div className="relative z-10 mb-8" style={{ backgroundColor: "rgba(163,209,198, 0.2)" }}>
-        <Button
-          onClick={() => router.push("/user/talents")}
-          className="mb-6 font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
-          style={{ backgroundColor: colors.accentColor, color: colors.white }}
-          onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = colors.neutralTextColor)
-          }
-          onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor = colors.accentColor)
-          }
-        >
-          <ArrowLeft className="h-5 w-5 mr-2" />
-          Back to Talents
-        </Button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <Button
+            onClick={() => router.push("/user/talents")}
+            className="font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
+            style={{ backgroundColor: colors.accentColor, color: colors.white }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.neutralTextColor)}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.accentColor)}
+          >
+            <ArrowLeft className="h-5 w-5 mr-2" />
+            Back to Talents
+          </Button>
+          {session?.user?.role === "user" && (
+            <Button
+              onClick={() => setIsChatDialogOpen(true)}
+              className="font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
+              style={{ backgroundColor: colors.accentColor, color: colors.white }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.neutralTextColor)}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.accentColor)}
+            >
+              <MessageSquare className="h-5 w-5 mr-2" />
+              Message Talent
+            </Button>
+          )}
+        </div>
         <div
-          className="flex flex-col items-center md:flex-row md:items-start gap-6 bg-transparent rounded-lg shadow-sm shadow-[#16423C] p-6 border"
+          className="flex flex-col items-center md:flex-row md:items-start gap-6 bg-transparent rounded-lg shadow-sm shadow-[#16423C] p-6 border mt-4"
           style={{ borderColor: colors.inputBorderColor }}
         >
           <div className="flex-shrink-0">
@@ -392,36 +510,21 @@ export default function UserTalentProfilePage() {
             ) : (
               <div
                 className="w-32 h-32 rounded-full flex items-center justify-center border-4 shadow-md"
-                style={{
-                  backgroundColor: colors.primary,
-                  borderColor: colors.accentColor,
-                }}
+                style={{ backgroundColor: colors.primary, borderColor: colors.accentColor }}
               >
-                <Briefcase
-                  className="h-16 w-16"
-                  style={{ color: colors.white }}
-                />
+                <Briefcase className="h-16 w-16" style={{ color: colors.white }} />
               </div>
             )}
           </div>
           <div className="text-center md:text-left">
-            <h1
-              className="text-3xl sm:text-4xl font-bold flex items-center"
-              style={{ color: colors.activeTextColor }}
-            >
+            <h1 className="text-3xl sm:text-4xl font-bold flex items-center" style={{ color: colors.activeTextColor }}>
               {talent.userName}
               {talent.isVerified && (
-                <Verified
-                  className="h-6 w-6 ml-2"
-                  style={{ color: colors.accentColor }}
-                />
+                <Verified className="h-6 w-6 ml-2" style={{ color: colors.accentColor }} />
               )}
             </h1>
             {talent.category && (
-              <p
-                className="text-lg mt-2 font-medium"
-                style={{ color: colors.neutralTextColor }}
-              >
+              <p className="text-lg mt-2 font-medium" style={{ color: colors.neutralTextColor }}>
                 {getCategoryLabel(talent.category)}
               </p>
             )}
@@ -430,10 +533,7 @@ export default function UserTalentProfilePage() {
                 className="text-md mt-2 flex items-center justify-center md:justify-start"
                 style={{ color: colors.neutralTextColor }}
               >
-                <MapPin
-                  className="h-5 w-5 mr-2"
-                  style={{ color: colors.accentColor }}
-                />
+                <MapPin className="h-5 w-5 mr-2" style={{ color: colors.accentColor }} />
                 {talent.location}
               </p>
             )}
@@ -442,28 +542,19 @@ export default function UserTalentProfilePage() {
       </div>
 
       {/* Main Content: Two Columns */}
-      <div className="relative z-10 flex flex-col lg:flex-row gap-8" >
+      <div className="relative z-10 flex flex-col lg:flex-row gap-8">
         {/* Left Section: Bio, About This Gig, Skills, Portfolio, Social Links */}
-        <div className="w-full lg:w-3/5 space-y-6" >
+        <div className="w-full lg:w-3/5 space-y-6">
           {talent.bio && (
             <div
               className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
-              style={{ borderColor: colors.inputBorderColor ,backgroundColor: "rgba(163,209,198, 0.2)"}}
+              style={{ borderColor: colors.inputBorderColor, backgroundColor: "rgba(163,209,198, 0.2)" }}
             >
-              <h3
-                className="text-xl font-bold mb-3 flex items-center"
-                style={{ color: colors.activeTextColor }}
-              >
-                <Info
-                  className="h-5 w-5 mr-2"
-                  style={{ color: colors.accentColor }}
-                />
+              <h3 className="text-xl font-bold mb-3 flex items-center" style={{ color: colors.activeTextColor }}>
+                <Info className="h-5 w-5 mr-2" style={{ color: colors.accentColor }} />
                 Bio
               </h3>
-              <p
-                className="text-base"
-                style={{ color: colors.neutralTextColor }}
-              >
+              <p className="text-base" style={{ color: colors.neutralTextColor }}>
                 {talent.bio}
               </p>
             </div>
@@ -472,22 +563,13 @@ export default function UserTalentProfilePage() {
           {talent.aboutThisGig && (
             <div
               className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
-              style={{ borderColor: colors.inputBorderColor,backgroundColor: "rgba(163,209,198, 0.2)" }}
+              style={{ borderColor: colors.inputBorderColor, backgroundColor: "rgba(163,209,198, 0.2)" }}
             >
-              <h3
-                className="text-xl font-bold mb-3 flex items-center"
-                style={{ color: colors.activeTextColor }}
-              >
-                <Info
-                  className="h-5 w-5 mr-2"
-                  style={{ color: colors.accentColor }}
-                />
+              <h3 className="text-xl font-bold mb-3 flex items-center" style={{ color: colors.activeTextColor }}>
+                <Info className="h-5 w-5 mr-2" style={{ color: colors.accentColor }} />
                 About This Gig
               </h3>
-              <p
-                className="text-base"
-                style={{ color: colors.neutralTextColor }}
-              >
+              <p className="text-base" style={{ color: colors.neutralTextColor }}>
                 {talent.aboutThisGig}
               </p>
             </div>
@@ -496,16 +578,10 @@ export default function UserTalentProfilePage() {
           {talent.skills && talent.skills.length > 0 && (
             <div
               className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
-              style={{ borderColor: colors.inputBorderColor ,backgroundColor: "rgba(163,209,198, 0.2)"}}
+              style={{ borderColor: colors.inputBorderColor, backgroundColor: "rgba(163,209,198, 0.2)" }}
             >
-              <h3
-                className="text-xl font-bold mb-3 flex items-center"
-                style={{ color: colors.activeTextColor }}
-              >
-                <Star
-                  className="h-5 w-5 mr-2"
-                  style={{ color: colors.accentColor }}
-                />
+              <h3 className="text-xl font-bold mb-3 flex items-center" style={{ color: colors.activeTextColor }}>
+                <Star className="h-5 w-5 mr-2" style={{ color: colors.accentColor }} />
                 Skills
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -513,17 +589,9 @@ export default function UserTalentProfilePage() {
                   <Badge
                     key={index}
                     className="px-3 py-1 rounded-full text-sm font-medium shadow-sm"
-                    style={{
-                      backgroundColor: colors.primary,
-                      color: colors.activeTextColor,
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.backgroundColor =
-                        colors.accentColor)
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.backgroundColor = colors.primary)
-                    }
+                    style={{ backgroundColor: colors.primary, color: colors.activeTextColor }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.accentColor)}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.primary)}
                   >
                     {skill}
                   </Badge>
@@ -535,16 +603,10 @@ export default function UserTalentProfilePage() {
           {talent.portfolio && talent.portfolio.length > 0 && (
             <div
               className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
-              style={{ borderColor: colors.inputBorderColor ,backgroundColor: "rgba(163,209,198, 0.2)"}}
+              style={{ borderColor: colors.inputBorderColor, backgroundColor: "rgba(163,209,198, 0.2)" }}
             >
-              <h3
-                className="text-xl font-bold mb-4 flex items-center"
-                style={{ color: colors.activeTextColor }}
-              >
-                <Package
-                  className="h-5 w-5 mr-2"
-                  style={{ color: colors.accentColor }}
-                />
+              <h3 className="text-xl font-bold mb-4 flex items-center" style={{ color: colors.activeTextColor }}>
+                <Package className="h-5 w-5 mr-2" style={{ color: colors.accentColor }} />
                 Portfolio
               </h3>
               <Carousel
@@ -556,10 +618,7 @@ export default function UserTalentProfilePage() {
               >
                 <CarouselContent className="-ml-4">
                   {talent.portfolio.map((project, index) => (
-                    <CarouselItem
-                      key={index}
-                      className="pl-4 basis-full sm:basis-1/2"
-                    >
+                    <CarouselItem key={index} className="pl-4 basis-full sm:basis-1/2">
                       <div
                         className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 h-full flex flex-col"
                         style={{ borderColor: colors.inputBorderColor }}
@@ -575,16 +634,10 @@ export default function UserTalentProfilePage() {
                           </div>
                         )}
                         <div className="p-4 flex flex-col flex-grow">
-                          <h4
-                            className="text-lg font-semibold mb-2"
-                            style={{ color: colors.activeTextColor }}
-                          >
+                          <h4 className="text-lg font-semibold mb-2" style={{ color: colors.activeTextColor }}>
                             {project.title}
                           </h4>
-                          <p
-                            className="text-sm mb-3 flex-grow"
-                            style={{ color: colors.neutralTextColor }}
-                          >
+                          <p className="text-sm mb-3 flex-grow" style={{ color: colors.neutralTextColor }}>
                             {project.description}
                           </p>
                           {project.projectUrl && (
@@ -594,14 +647,8 @@ export default function UserTalentProfilePage() {
                               rel="noopener noreferrer"
                               className="inline-flex items-center text-sm font-medium mt-auto"
                               style={{ color: colors.accentColor }}
-                              onMouseEnter={(e) =>
-                                (e.currentTarget.style.color =
-                                  colors.neutralTextColor)
-                              }
-                              onMouseLeave={(e) =>
-                                (e.currentTarget.style.color =
-                                  colors.accentColor)
-                              }
+                              onMouseEnter={(e) => (e.currentTarget.style.color = colors.neutralTextColor)}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = colors.accentColor)}
                             >
                               View Project <Link2 className="h-4 w-4 ml-1" />
                             </a>
@@ -613,17 +660,11 @@ export default function UserTalentProfilePage() {
                 </CarouselContent>
                 <CarouselPrevious
                   className="hidden sm:flex"
-                  style={{
-                    backgroundColor: colors.accentColor,
-                    color: colors.white,
-                  }}
+                  style={{ backgroundColor: colors.accentColor, color: colors.white }}
                 />
                 <CarouselNext
                   className="hidden sm:flex"
-                  style={{
-                    backgroundColor: colors.accentColor,
-                    color: colors.white,
-                  }}
+                  style={{ backgroundColor: colors.accentColor, color: colors.white }}
                 />
               </Carousel>
             </div>
@@ -632,16 +673,10 @@ export default function UserTalentProfilePage() {
           {talent.socialLinks && talent.socialLinks.length > 0 && (
             <div
               className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border"
-              style={{ borderColor: colors.inputBorderColor ,backgroundColor: "rgba(163,209,198, 0.2)"}}
+              style={{ borderColor: colors.inputBorderColor, backgroundColor: "rgba(163,209,198, 0.2)" }}
             >
-              <h3
-                className="text-xl font-bold mb-3 flex items-center"
-                style={{ color: colors.activeTextColor }}
-              >
-                <Link2
-                  className="h-5 w-5 mr-2"
-                  style={{ color: colors.accentColor }}
-                />
+              <h3 className="text-xl font-bold mb-3 flex items-center" style={{ color: colors.activeTextColor }}>
+                <Link2 className="h-5 w-5 mr-2" style={{ color: colors.accentColor }} />
                 Social Links
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -652,18 +687,9 @@ export default function UserTalentProfilePage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium shadow-sm"
-                    style={{
-                      backgroundColor: colors.accentColor,
-                      color: colors.white,
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.backgroundColor =
-                        colors.neutralTextColor)
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.backgroundColor =
-                        colors.accentColor)
-                    }
+                    style={{ backgroundColor: colors.accentColor, color: colors.white }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.neutralTextColor)}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.accentColor)}
                   >
                     {link.platform}
                   </a>
@@ -680,14 +706,8 @@ export default function UserTalentProfilePage() {
               className="bg-transparent rounded-lg shadow-sm shadow-[#6A9C89] p-6 border sticky top-6"
               style={{ borderColor: colors.inputBorderColor }}
             >
-              <h3
-                className="text-xl font-bold mb-4 flex items-center"
-                style={{ color: colors.activeTextColor }}
-              >
-                <DollarSign
-                  className="h-5 w-5 mr-2"
-                  style={{ color: colors.accentColor }}
-                />
+              <h3 className="text-xl font-bold mb-4 flex items-center" style={{ color: colors.activeTextColor }}>
+                <DollarSign className="h-5 w-5 mr-2" style={{ color: colors.accentColor }} />
                 Rate Plans
               </h3>
               <Tabs defaultValue={talent.ratePlans[0]?.type} className="w-full">
@@ -711,61 +731,33 @@ export default function UserTalentProfilePage() {
                   ))}
                 </TabsList>
                 {talent.ratePlans.map((plan) => (
-                  <TabsContent
-                    key={plan.type}
-                    value={plan.type}
-                    className="mt-4"
-                  >
+                  <TabsContent key={plan.type} value={plan.type} className="mt-4">
                     <div
                       className="border rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow duration-200"
-                      style={{
-                        borderColor: colors.accentColor,
-                        
-                      }}
+                      style={{ borderColor: colors.accentColor }}
                     >
-                      <h4
-                        className="text-lg font-bold mb-2"
-                        style={{ color: colors.accentColor }}
-                      >
+                      <h4 className="text-lg font-bold mb-2" style={{ color: colors.accentColor }}>
                         {plan.type}
                       </h4>
-                      <p
-                        className="text-2xl font-extrabold mb-2"
-                        style={{ color: colors.activeTextColor }}
-                      >
+                      <p className="text-2xl font-extrabold mb-2" style={{ color: colors.activeTextColor }}>
                         ${plan.price}
                       </p>
-                      <p
-                        className="text-sm mb-3"
-                        style={{ color: colors.neutralTextColor }}
-                      >
+                      <p className="text-sm mb-3" style={{ color: colors.neutralTextColor }}>
                         {plan.description}
                       </p>
-                      <ul
-                        className="text-sm space-y-1 mb-3"
-                        style={{ color: colors.activeTextColor }}
-                      >
+                      <ul className="text-sm space-y-1 mb-3" style={{ color: colors.activeTextColor }}>
                         {plan.whatsIncluded.map((item, i) => (
                           <li key={i} className="flex items-center">
-                            <Check
-                              className="h-4 w-4 mr-2 flex-shrink-0"
-                              style={{ color: colors.accentColor }}
-                            />
+                            <Check className="h-4 w-4 mr-2 flex-shrink-0" style={{ color: colors.accentColor }} />
                             <span>{item}</span>
                           </li>
                         ))}
                       </ul>
                       <div
                         className="pt-3 border-t flex items-center text-sm"
-                        style={{
-                          borderColor: colors.inputBorderColor,
-                          color: colors.activeTextColor,
-                        }}
+                        style={{ borderColor: colors.inputBorderColor, color: colors.activeTextColor }}
                       >
-                        <CalendarDays
-                          className="h-4 w-4 mr-2"
-                          style={{ color: colors.accentColor }}
-                        />
+                        <CalendarDays className="h-4 w-4 mr-2" style={{ color: colors.accentColor }} />
                         <span>Delivery in {plan.deliveryDays} days</span>
                       </div>
                       <TooltipProvider>
@@ -783,21 +775,13 @@ export default function UserTalentProfilePage() {
                                 onClick={() => handleOpenOrderDialog(plan)}
                                 disabled={pendingOrders.has(plan.type)}
                               >
-                                {pendingOrders.has(plan.type)
-                                  ? "Pending Order"
-                                  : "Request Order"}
+                                {pendingOrders.has(plan.type) ? "Pending Order" : "Request Order"}
                               </Button>
                             </span>
                           </TooltipTrigger>
                           {pendingOrders.has(plan.type) && (
-                            <TooltipContent
-                              style={{
-                                backgroundColor: colors.errorRed,
-                                color: colors.white,
-                              }}
-                            >
-                              You already have a pending order for the{" "}
-                              {plan.type} plan.
+                            <TooltipContent style={{ backgroundColor: colors.errorRed, color: colors.white }}>
+                              You already have a pending order for the {plan.type} plan.
                             </TooltipContent>
                           )}
                         </Tooltip>

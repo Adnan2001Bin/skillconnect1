@@ -5,6 +5,7 @@ import UserModel from "./src/models/user.model";
 import OrderModel from "./src/models/order.model";
 import ProjectModel from "./src/models/projects.model";
 import ProposalModel from "./src/models/proposal.model";
+import MessageModel from "./src/models/message.model";
 import connectDB from "./src/lib/connectDB";
 
 dotenv.config();
@@ -31,8 +32,8 @@ io.use(async (socket: Socket & { userId?: string }, next) => {
     }
 
     const user = await UserModel.findById(userId);
-    if (!user || !user.isVerified || user.role !== "admin") {
-      throw new Error("User not found, not verified, or not an admin");
+    if (!user || !user.isVerified) {
+      throw new Error("User not found or not verified");
     }
 
     socket.userId = user._id.toString();
@@ -62,6 +63,16 @@ interface LeanOrder {
   updatedAt: Date;
   talentId: { userName: string };
   clientId: { userName: string };
+}
+
+interface LeanMessage {
+  _id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  conversationId: string;
+  createdAt: Date;
+  isRead: boolean;
 }
 
 interface DashboardData {
@@ -215,8 +226,16 @@ const getDashboardData = async (timeRange: string): Promise<DashboardData> => {
   };
 };
 
+// Generate a unique conversation ID (sorted user IDs for consistency)
+const getConversationId = (userId1: string, userId2: string): string => {
+  return [userId1, userId2].sort().join("_");
+};
+
 io.on("connection", (socket: Socket & { userId?: string }) => {
-  console.log(`Admin connected: ${socket.userId}`);
+  console.log(`User connected: ${socket.userId}`);
+
+  // Join a room for the user's ID to receive direct messages
+  socket.join(socket.userId!);
 
   socket.on("getDashboardData", async ({ timeRange }) => {
     try {
@@ -229,7 +248,7 @@ io.on("connection", (socket: Socket & { userId?: string }) => {
   });
 
   socket.on("orderCreated", async () => {
-    const data = await getDashboardData("30"); 
+    const data = await getDashboardData("30");
     socket.emit("dashboardUpdate", data);
   });
 
@@ -238,8 +257,63 @@ io.on("connection", (socket: Socket & { userId?: string }) => {
     socket.emit("dashboardUpdate", data);
   });
 
+  socket.on("sendMessage", async ({ receiverId, content }) => {
+    try {
+      if (!socket.userId) throw new Error("User not authenticated");
+      if (!receiverId || !content) throw new Error("Invalid message data");
+
+      const sender = await UserModel.findById(socket.userId);
+      const receiver = await UserModel.findById(receiverId);
+      if (!sender || !receiver) throw new Error("Sender or receiver not found");
+
+      // Ensure client can only message talent, and talent can only message client
+      if (
+        (sender.role === "user" && receiver.role !== "talent") ||
+        (sender.role === "talent" && receiver.role !== "user")
+      ) {
+        throw new Error("Invalid role combination for messaging");
+      }
+
+      const conversationId = getConversationId(socket.userId, receiverId);
+      const message = await MessageModel.create({
+        senderId: socket.userId,
+        receiverId,
+        content,
+        conversationId,
+      });
+
+      // Emit to both sender and receiver
+      const populatedMessage = await MessageModel.findById(message._id)
+        .populate<{ senderId: { userName: string } }>({ path: "senderId", select: "userName" })
+        .lean<LeanMessage>();
+      io.to(socket.userId).emit("newMessage", populatedMessage);
+      io.to(receiverId).emit("newMessage", populatedMessage);
+    } catch (error) {
+      console.error("Error sending message:", error);
+      socket.emit("error", { message: "Failed to send message" });
+    }
+  });
+
+  socket.on("getMessages", async ({ otherUserId }) => {
+    try {
+      if (!socket.userId) throw new Error("User not authenticated");
+      if (!otherUserId) throw new Error("Other user ID required");
+
+      const conversationId = getConversationId(socket.userId, otherUserId);
+      const messages = await MessageModel.find({ conversationId })
+        .populate<{ senderId: { userName: string } }>({ path: "senderId", select: "userName" })
+        .sort({ createdAt: 1 })
+        .lean<LeanMessage[]>();
+
+      socket.emit("messages", messages);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      socket.emit("error", { message: "Failed to fetch messages" });
+    }
+  });
+
   socket.on("disconnect", () => {
-    console.log(`Admin disconnected: ${socket.userId}`);
+    console.log(`User disconnected: ${socket.userId}`);
   });
 });
 
@@ -247,6 +321,7 @@ connectDB().then(async () => {
   const projectChangeStream = ProjectModel.watch();
   const proposalChangeStream = ProposalModel.watch();
   const orderChangeStream = OrderModel.watch();
+  const messageChangeStream = MessageModel.watch();
 
   projectChangeStream.on("change", async () => {
     const data = await getDashboardData("30");
@@ -265,6 +340,18 @@ connectDB().then(async () => {
       io.emit("orderCreated");
     } else if (change.operationType === "update" && change.updateDescription.updatedFields?.status) {
       io.emit("orderStatusUpdated");
+    }
+  });
+
+  messageChangeStream.on("change", async (change) => {
+    if (change.operationType === "insert") {
+      const message = await MessageModel.findById(change.documentKey._id)
+        .populate<{ senderId: { userName: string } }>({ path: "senderId", select: "userName" })
+        .lean<LeanMessage>();
+      if (message) {
+        io.to(message.senderId.toString()).emit("newMessage", message);
+        io.to(message.receiverId.toString()).emit("newMessage", message);
+      }
     }
   });
 
