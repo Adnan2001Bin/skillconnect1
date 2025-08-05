@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -45,6 +46,8 @@ import {
   Verified,
   Loader2,
   MessageSquare,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { Images } from "@/lib/images";
@@ -83,6 +86,7 @@ interface Message {
   conversationId: string;
   createdAt: string;
   isRead: boolean;
+  updatedAt?: string;
 }
 
 interface Talent extends TalentProfileInput {
@@ -101,6 +105,7 @@ export default function UserTalentProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
   const [isChatDialogOpen, setIsChatDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedRatePlan, setSelectedRatePlan] = useState<RatePlan | null>(null);
   const [projectTitle, setProjectTitle] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -108,6 +113,8 @@ export default function UserTalentProfilePage() {
   const [pendingOrders, setPendingOrders] = useState<Set<string>>(new Set());
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [editedContent, setEditedContent] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -142,7 +149,6 @@ export default function UserTalentProfilePage() {
 
       socketInstance.on("newMessage", (message: Message) => {
         setMessages((prev) => {
-          // Prevent duplicates by filtering out messages with the same _id
           if (prev.some((m) => m._id === message._id)) {
             console.warn("Duplicate message received:", message._id);
             return prev;
@@ -152,11 +158,20 @@ export default function UserTalentProfilePage() {
       });
 
       socketInstance.on("messages", (fetchedMessages: Message[]) => {
-        // Deduplicate messages by _id
         const uniqueMessages = Array.from(
           new Map(fetchedMessages.map((m) => [m._id, m])).values()
         );
         setMessages(uniqueMessages);
+      });
+
+      socketInstance.on("messageUpdated", (updatedMessage: Message) => {
+        setMessages((prev) =>
+          prev.map((m) => (m._id === updatedMessage._id ? updatedMessage : m))
+        );
+      });
+
+      socketInstance.on("messageDeleted", ({ messageId }: { messageId: string }) => {
+        setMessages((prev) => prev.filter((m) => m._id !== messageId));
       });
 
       socketInstance.on("error", ({ message }) => {
@@ -190,7 +205,6 @@ export default function UserTalentProfilePage() {
                 setPendingOrders(pendingTypes);
               }
 
-              // Fetch messages
               socketInstance.emit("getMessages", { otherUserId: params.id });
             }
           } else {
@@ -310,6 +324,31 @@ export default function UserTalentProfilePage() {
     setNewMessage("");
   };
 
+  // Handle opening the edit message dialog
+  const handleOpenEditDialog = (message: Message) => {
+    setEditingMessage(message);
+    setEditedContent(message.content);
+    setIsEditDialogOpen(true);
+  };
+
+  // Handle editing a message
+  const handleEditMessage = () => {
+    if (!editingMessage || !editedContent.trim() || !socket) return;
+    socket.emit("editMessage", {
+      messageId: editingMessage._id,
+      content: editedContent,
+    });
+    setIsEditDialogOpen(false);
+    setEditingMessage(null);
+    setEditedContent("");
+  };
+
+  // Handle deleting a message
+  const handleDeleteMessage = (messageId: string) => {
+    if (!socket) return;
+    socket.emit("deleteMessage", { messageId });
+  };
+
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
@@ -402,6 +441,43 @@ export default function UserTalentProfilePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Message Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]" style={{ borderColor: colors.inputBorderColor }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: colors.activeTextColor }}>
+              Edit Message
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Input
+              value={editedContent}
+              onChange={(e) => setEditedContent(e.target.value)}
+              placeholder="Edit your message"
+              style={{ borderColor: colors.inputBorderColor, color: colors.activeTextColor }}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              style={{ borderColor: colors.accentColor, color: colors.accentColor }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleEditMessage}
+              disabled={!editedContent.trim()}
+              style={{ backgroundColor: colors.accentColor, color: colors.white }}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Chat Dialog */}
       {session?.user?.role === "user" && (
         <Dialog open={isChatDialogOpen} onOpenChange={setIsChatDialogOpen}>
@@ -412,7 +488,7 @@ export default function UserTalentProfilePage() {
               </DialogTitle>
             </DialogHeader>
             <div
-              className="max-h-96 overflow-y-auto p-4 "
+              className="max-h-96 overflow-y-auto p-4"
               style={{ backgroundColor: "rgba(163,209,198, 0.6)", borderColor: colors.inputBorderColor }}
               ref={chatContainerRef}
             >
@@ -435,12 +511,35 @@ export default function UserTalentProfilePage() {
                           message.senderId.userName === session.user.userName ? colors.accentColor : colors.primary,
                       }}
                     >
-                      <p className="text-sm font-semibold">
-                        {message.senderId.userName === session.user.userName ? "You" : message.senderId.userName}
-                      </p>
+                      <div className="flex justify-between items-center">
+                        <p className="text-sm font-semibold">
+                          {message.senderId.userName === session.user.userName ? "You" : message.senderId.userName}
+                        </p>
+                        {message.senderId.userName === session.user.userName && (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleOpenEditDialog(message)}
+                              style={{ color: colors.white }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteMessage(message._id)}
+                              style={{ color: colors.errorRed }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                       <p className="text-sm">{message.content}</p>
                       <p className="text-xs text-gray-300 mt-1">
-                        {new Date(message.createdAt).toLocaleTimeString()}
+                        {new Date(message.updatedAt || message.createdAt).toLocaleTimeString()}
+                        {message.updatedAt && message.updatedAt !== message.createdAt && " (Edited)"}
                       </p>
                     </div>
                   </div>
