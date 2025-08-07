@@ -7,6 +7,7 @@ const messageSchema = new Schema({
   conversationId: { type: String, required: true }, // Unique ID for conversation (e.g., sorted user IDs)
   createdAt: { type: Date, default: Date.now },
   isRead: { type: Boolean, default: false },
+  deletedAt: { type: Date },
 });
 
 export default mongoose.models.Message || mongoose.model("Message", messageSchema);

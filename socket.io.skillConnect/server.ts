@@ -32,7 +32,6 @@ io.use(authMiddleware);
 io.on("connection", (socket) => {
   console.log(`User connected: ${socket.userId}`);
 
-  // Join a room for the user's ID to receive direct messages
   socket.join(socket.userId!);
 
   socket.on("getDashboardData", async ({ timeRange }) => {
@@ -105,9 +104,14 @@ connectDB().then(async () => {
         io.to(message.senderId.toString()).emit("messageUpdated", message);
         io.to(message.receiverId.toString()).emit("messageUpdated", message);
       }
-    } else if (change.operationType === "delete") {
-      const messageId = change.documentKey._id.toString();
-      io.emit("messageDeleted", { messageId });
+    } else if (change.operationType === "update" && change.updateDescription.updatedFields?.deletedAt) {
+      const message = await MessageModel.findById(change.documentKey._id)
+        .populate<{ senderId: { userName: string } }>({ path: "senderId", select: "userName" })
+        .lean<LeanMessage>();
+      if (message) {
+        io.to(message.senderId.toString()).emit("messageDeleted", { messageId: message._id });
+        io.to(message.receiverId.toString()).emit("messageDeleted", { messageId: message._id });
+      }
     }
   });
 

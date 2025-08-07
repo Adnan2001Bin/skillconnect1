@@ -30,9 +30,8 @@ export const setupMessagingHandlers = (io: Server, socket: AuthenticatedSocket) 
         conversationId,
       });
 
-      // Emit to both sender and receiver
       const populatedMessage = await messageModel.findById(message._id)
-        .populate<{ senderId: { userName: string } }>({ path: "senderId", select: "userName" })
+        .populate<{ senderId: { userName: string | null } }>({ path: "senderId", select: "userName" })
         .lean<LeanMessage>();
       io.to(socket.userId).emit("newMessage", populatedMessage);
       io.to(receiverId).emit("newMessage", populatedMessage);
@@ -56,7 +55,7 @@ export const setupMessagingHandlers = (io: Server, socket: AuthenticatedSocket) 
       await message.save();
 
       const populatedMessage = await messageModel.findById(message._id)
-        .populate<{ senderId: { userName: string } }>({ path: "senderId", select: "userName" })
+        .populate<{ senderId: { userName: string | null } }>({ path: "senderId", select: "userName" })
         .lean<LeanMessage>();
       io.to(message.senderId.toString()).emit("messageUpdated", populatedMessage);
       io.to(message.receiverId.toString()).emit("messageUpdated", populatedMessage);
@@ -75,7 +74,9 @@ export const setupMessagingHandlers = (io: Server, socket: AuthenticatedSocket) 
       if (!message) throw new Error("Message not found");
       if (message.senderId.toString() !== socket.userId) throw new Error("Unauthorized to delete this message");
 
-      await messageModel.deleteOne({ _id: messageId });
+      message.deletedAt = new Date();
+      await message.save();
+
       io.to(message.senderId.toString()).emit("messageDeleted", { messageId });
       io.to(message.receiverId.toString()).emit("messageDeleted", { messageId });
     } catch (error) {
@@ -90,8 +91,8 @@ export const setupMessagingHandlers = (io: Server, socket: AuthenticatedSocket) 
       if (!otherUserId) throw new Error("Other user ID required");
 
       const conversationId = getConversationId(socket.userId, otherUserId);
-      const messages = await messageModel.find({ conversationId })
-        .populate<{ senderId: { userName: string } }>({ path: "senderId", select: "userName" })
+      const messages = await messageModel.find({ conversationId, deletedAt: null })
+        .populate<{ senderId: { userName: string | null } }>({ path: "senderId", select: "userName" })
         .sort({ createdAt: 1 })
         .lean<LeanMessage[]>();
 
@@ -99,6 +100,76 @@ export const setupMessagingHandlers = (io: Server, socket: AuthenticatedSocket) 
     } catch (error) {
       console.error("Error fetching messages:", error);
       socket.emit("error", { message: "Failed to fetch messages" });
+    }
+  });
+
+  socket.on("getAllMessagesForAdmin", async ({ conversationId }) => {
+    try {
+      if (!socket.userId) throw new Error("User not authenticated");
+      if (!conversationId) throw new Error("Conversation ID required");
+
+      const user = await UserModel.findById(socket.userId);
+      if (!user || user.role !== "admin") throw new Error("Unauthorized: Admin access required");
+
+      const messages = await messageModel.find({ conversationId })
+        .populate<{ senderId: { userName: string | null } }>({ path: "senderId", select: "userName" })
+        .sort({ createdAt: 1 })
+        .lean<LeanMessage[]>();
+
+      socket.emit("allMessages", messages);
+    } catch (error) {
+      console.error("Error fetching all messages for admin:", error);
+      socket.emit("error", { message: "Failed to fetch messages for admin" });
+    }
+  });
+
+  socket.on("getConversationsForAdmin", async () => {
+    try {
+      if (!socket.userId) throw new Error("User not authenticated");
+
+      const user = await UserModel.findById(socket.userId);
+      if (!user || user.role !== "admin") throw new Error("Unauthorized: Admin access required");
+
+      // Get unique conversation IDs
+      const conversations = await messageModel.aggregate([
+        { $group: { _id: "$conversationId", senderId: { $first: "$senderId" }, receiverId: { $first: "$receiverId" } } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "senderId",
+            foreignField: "_id",
+            as: "sender",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "receiverId",
+            foreignField: "_id",
+            as: "receiver",
+          },
+        },
+        {
+          $project: {
+            conversationId: "$_id",
+            participants: [
+              { $arrayElemAt: ["$sender.userName", 0] },
+              { $arrayElemAt: ["$receiver.userName", 0] },
+            ],
+          },
+        },
+      ]);
+
+      // Map to clean up participant names and handle null values
+      const formattedConversations = conversations.map((conv) => ({
+        conversationId: conv.conversationId,
+        participants: conv.participants.map((name: string | null) => name || "Unknown User"),
+      }));
+
+      socket.emit("conversations", formattedConversations);
+    } catch (error) {
+      console.error("Error fetching conversations for admin:", error);
+      socket.emit("error", { message: "Failed to fetch conversations for admin" });
     }
   });
 };

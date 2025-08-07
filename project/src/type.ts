@@ -21,13 +21,13 @@ export interface LeanOrder {
 
 export interface LeanMessage {
   _id: string;
-  senderId: string;
-  receiverId: string;
+  senderId: string | { userName: string | null }; // Allow userName to be null
+  receiverId: string | { userName: string | null }; // Allow userName to be null
   content: string;
   conversationId: string;
   createdAt: Date;
   updatedAt?: Date;
-  deletedAt?: Date; 
+  deletedAt?: Date;
   isRead: boolean;
 }
 
