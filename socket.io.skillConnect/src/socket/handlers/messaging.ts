@@ -130,7 +130,6 @@ export const setupMessagingHandlers = (io: Server, socket: AuthenticatedSocket) 
       const user = await UserModel.findById(socket.userId);
       if (!user || user.role !== "admin") throw new Error("Unauthorized: Admin access required");
 
-      // Get unique conversation IDs
       const conversations = await messageModel.aggregate([
         { $group: { _id: "$conversationId", senderId: { $first: "$senderId" }, receiverId: { $first: "$receiverId" } } },
         {
@@ -160,7 +159,6 @@ export const setupMessagingHandlers = (io: Server, socket: AuthenticatedSocket) 
         },
       ]);
 
-      // Map to clean up participant names and handle null values
       const formattedConversations = conversations.map((conv) => ({
         conversationId: conv.conversationId,
         participants: conv.participants.map((name: string | null) => name || "Unknown User"),
@@ -170,6 +168,71 @@ export const setupMessagingHandlers = (io: Server, socket: AuthenticatedSocket) 
     } catch (error) {
       console.error("Error fetching conversations for admin:", error);
       socket.emit("error", { message: "Failed to fetch conversations for admin" });
+    }
+  });
+
+  socket.on("getConversations", async () => {
+    try {
+      if (!socket.userId) throw new Error("User not authenticated");
+
+      const user = await UserModel.findById(socket.userId);
+      if (!user || !["user", "talent"].includes(user.role)) {
+        throw new Error("Unauthorized: User or talent access required");
+      }
+
+      const conversations = await messageModel.aggregate([
+        {
+          $match: {
+            $or: [
+              { senderId: user._id },
+              { receiverId: user._id },
+            ],
+            deletedAt: null,
+          },
+        },
+        {
+          $group: {
+            _id: "$conversationId",
+            senderId: { $first: "$senderId" },
+            receiverId: { $first: "$receiverId" },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "senderId",
+            foreignField: "_id",
+            as: "sender",
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "receiverId",
+            foreignField: "_id",
+            as: "receiver",
+          },
+        },
+        {
+          $project: {
+            conversationId: "$_id",
+            participants: [
+              { $arrayElemAt: ["$sender.userName", 0] },
+              { $arrayElemAt: ["$receiver.userName", 0] },
+            ],
+          },
+        },
+      ]);
+
+      const formattedConversations = conversations.map((conv) => ({
+        conversationId: conv.conversationId,
+        participants: conv.participants.map((name: string | null) => name || "Unknown User"),
+      }));
+
+      socket.emit("conversations", formattedConversations);
+    } catch (error) {
+      console.error("Error fetching conversations:", error);
+      socket.emit("error", { message: "Failed to fetch conversations" });
     }
   });
 };
