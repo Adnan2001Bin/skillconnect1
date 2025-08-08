@@ -570,7 +570,7 @@ export default function UserTalentProfilePage() {
       <div className="relative z-10 mb-8" style={{ backgroundColor: "rgba(163,209,198, 0.2)" }}>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <Button
-            onClick={() => router.push("/user/talents")}
+            onClick={() => router.push("/talentList")}
             className="font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
             style={{ backgroundColor: colors.accentColor, color: colors.white }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.neutralTextColor)}

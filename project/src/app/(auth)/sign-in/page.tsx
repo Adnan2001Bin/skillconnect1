@@ -178,7 +178,7 @@ export default function SignInPage() {
               : "/talent/complete/profile"
           );
         } else {
-          router.replace("/");
+          router.replace("/home");
         }
       }, 2000);
     } catch (error) {
@@ -243,7 +243,7 @@ export default function SignInPage() {
           session?.user?.role === "admin"
             ? "/admin/dashboard"
             : isProfileComplete
-            ? "/dashboard"
+            ? "/home"
             : session?.user?.role === "user"
             ? "/profile/complete"
             : "/talent/complete/profile"

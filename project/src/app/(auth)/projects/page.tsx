@@ -1,16 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; // Import useRef
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { Loader2, Filter, Search } from "lucide-react";
+import { Loader2, Filter, Search, Briefcase, CalendarDays } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
-import ProjectCard from "@/components/userView/ProjectCard";
 import { IProject } from "@/models/projects.model";
 import { MultiSelect } from "@/components/userView/MultiSelect";
 import Image from "next/image";
 import { Images } from "@/lib/images";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input"; // Assuming you want to use the Shadcn Input component for consistency
+import { Label } from "@/components/ui/label"; // Assuming you want to use the Shadcn Label component for consistency
+
 
 // Helper function to get category label from value
 const getCategoryLabel = (categoryValue: string | undefined) => {
@@ -28,7 +39,7 @@ const statusOptions = [
 ];
 
 // Hero Section component
-const HeroSection = ({ onSearch }: { onSearch: (query: string) => void }) => {
+const HeroSection = ({ onSearch, onScrollToResults }: { onSearch: (query: string) => void, onScrollToResults: () => void }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,10 +49,11 @@ const HeroSection = ({ onSearch }: { onSearch: (query: string) => void }) => {
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSearch(searchQuery);
+    onScrollToResults(); 
   };
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-between bg-white p-8 rounded-lg shadow-md mb-8">
+    <div className="flex flex-col md:flex-row items-center justify-between bg-white p-8 rounded-t-lg shadow-md mb-">
       <div className="md:w-1/2 mb-6 md:mb-0">
         <h2 className="text-3xl font-bold text-[#16423C] mb-4">
           Discover Amazing Talent & Projects
@@ -94,11 +106,14 @@ export default function ProjectListingPage() {
   const [minPrice, setMinPrice] = useState<string>("");
   const [maxPrice, setMaxPrice] = useState<string>("");
 
-  const colors = {
-    accentColor: "#17B169",
-    activeTextColor: "#16423C",
-    neutralTextColor: "#6A9C89",
-    primary: "#D3F1DF",
+  // Create a ref for the projects table section
+  const projectsTableRef = useRef<HTMLDivElement>(null);
+
+  // Function to scroll to the projects table
+  const scrollToProjectsTable = () => {
+    if (projectsTableRef.current) {
+      projectsTableRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   // Fetch projects from the backend
@@ -151,6 +166,7 @@ export default function ProjectListingPage() {
       setMaxPrice(value);
     }
   };
+
   // Handle search query changes from the HeroSection
   const handleSearch = (query: string) => {
     setSearchQuery(query.toLowerCase());
@@ -179,7 +195,7 @@ export default function ProjectListingPage() {
   // Handle loading and authentication states
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F6F5]">
         <Loader2 className="animate-spin h-10 w-10 text-[#17B169] mr-3" />
         <p className="text-[#16423C] text-xl font-semibold">
           Loading projects...
@@ -190,8 +206,8 @@ export default function ProjectListingPage() {
 
   if (status !== "authenticated") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FFF3E0]">
-        <p className="text-[#F44336] text-lg font-semibold">
+      <div className="min-h-screen flex items-center justify-center bg-[#F5F6F5]">
+        <p className="text-red-600 text-lg font-semibold">
           Access denied. Please sign in to view projects.
         </p>
       </div>
@@ -199,17 +215,17 @@ export default function ProjectListingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6F5] py-12 px-4 sm:px-6 lg:px-8 font-sans">
+    <div className="min-h-screen bg-[#F5F6F5] py-8 px-4 sm:px-6 lg:px-8 font-sans">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl sm:text-4xl font-bold text-[#16423C] mb-8 text-center">
           Explore Projects
         </h1>
 
-        {/* Hero Section */}
-        <HeroSection onSearch={handleSearch} />
+        {/* Hero Section - Pass the scroll function */}
+        <HeroSection onSearch={handleSearch} onScrollToResults={scrollToProjectsTable} />
 
         <div
-          className="min-h-screen relative max-w-[94rem] mx-auto rounded-lg overflow-hidden py-10 px-3"
+          className="relative max-w-[94rem] mx-auto rounded-b-lg overflow-hidden py-10 px-3"
           style={{
             backgroundImage: `url(${
               Images.userViewbackground ? Images.userViewbackground.src : ""
@@ -247,11 +263,11 @@ export default function ProjectListingPage() {
               />
             </div>
             <div className="sm:w-1/3">
-              <label className="block text-sm font-semibold text-white mb-2">
+              <Label className="block text-sm font-semibold text-white mb-2">
                 Filter by Price Range
-              </label>
+              </Label>
               <div className="flex gap-2">
-                <input
+                <Input
                   type="number"
                   placeholder="Min"
                   value={minPrice}
@@ -259,7 +275,7 @@ export default function ProjectListingPage() {
                   min="0"
                   className="w-1/2 pl-4 pr-2 py-3 rounded-full border border-gray-100 focus:outline-none focus:ring-1 focus:ring-[#16423C] text-white"
                 />
-                <input
+                <Input
                   type="number"
                   placeholder="Max"
                   value={maxPrice}
@@ -274,22 +290,74 @@ export default function ProjectListingPage() {
           {/* Error Message */}
           {error && <p className="text-red-600 text-center mb-6">{error}</p>}
 
-          {/* Projects Grid */}
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <Loader2 className="animate-spin h-10 w-10 text-[#17B169]" />
-            </div>
-          ) : filteredProjects.length === 0 ? (
-            <p className="text-center text-[#6A9C89] text-lg">
-              No projects found for the selected criteria.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProjects.map((project) => (
-                <ProjectCard key={project._id} project={project} />
-              ))}
-            </div>
-          )}
+          {/* Projects Table - Add the ref here */}
+          <div ref={projectsTableRef} className="rounded-md border bg-white p-4">
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <Loader2 className="animate-spin h-10 w-10 text-[#17B169]" />
+              </div>
+            ) : filteredProjects.length === 0 ? (
+              <p className="text-center text-[#6A9C89] text-lg">
+                No projects found for the selected criteria.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[30%]">Project Title</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Budget</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Posted Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredProjects.map((project) => (
+                    <TableRow key={project._id}>
+                      <TableCell className="font-medium">
+                        {project.title}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Briefcase className="h-4 w-4 mr-2 text-[#17B169]" />
+                          {getCategoryLabel(project.category)}
+                        </div>
+                      </TableCell>
+                      <TableCell>${project.budget.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold
+                          ${project.status === 'open' ? 'bg-green-100 text-green-800' :
+                            project.status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
+                            project.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'}`}>
+                          {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <CalendarDays className="h-4 w-4 mr-2 text-[#17B169]" />
+                          {new Date(project.createdAt).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          onClick={() => router.push(`/projects/${project._id}`)}
+                          className="bg-[#17B169] hover:bg-[#16423C]"
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </div>
       </div>
     </div>

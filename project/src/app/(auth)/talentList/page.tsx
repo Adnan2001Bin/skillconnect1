@@ -82,8 +82,6 @@ export default function UserTalentView() {
   useEffect(() => {
     if (status === "authenticated") {
       fetchTalents();
-    } else if (status === "unauthenticated") {
-      router.replace("/sign-in");
     }
   }, [status, router]);
 
