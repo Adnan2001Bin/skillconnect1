@@ -243,7 +243,9 @@ export default function SignInPage() {
           session?.user?.role === "admin"
             ? "/admin/dashboard"
             : isProfileComplete
-            ? "/home"
+            ? session?.user?.role === "user"
+              ? "/home"
+              : "/talent/profile"
             : session?.user?.role === "user"
             ? "/profile/complete"
             : "/talent/complete/profile"

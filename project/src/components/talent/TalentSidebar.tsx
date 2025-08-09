@@ -58,7 +58,7 @@ export default function TalentSidebar({
         { name: "Content Management", href: "/talent/content" },
       ],
     },
-    { name: "Chat", icon: MessageSquareMore, href: "/talent/chat" },
+    { name: "Messages", icon: MessageSquareMore, href: "/talent/messages" },
   ];
 
   if (status !== "authenticated" || session?.user?.role !== "talent") {

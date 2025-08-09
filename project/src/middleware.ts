@@ -11,7 +11,7 @@ export const config = {
     "/verify/:path*",
     "/talentList",
     "/projects",
-    "/messages"
+    "/messages",
   ],
 };
 
@@ -25,15 +25,24 @@ export async function middleware(request: NextRequest) {
       url.pathname.startsWith("/sign-up") ||
       url.pathname.startsWith("/verify"))
   ) {
-    return NextResponse.redirect(new URL("/home", request.url));
+    if(token?.role === "user") {
+      return NextResponse.redirect(new URL("/home", request.url));
+      
+    } else if (token?.role === "talent" && url.pathname.startsWith("/home")) {
+      return NextResponse.redirect(new URL("/talent/profile", request.url));
+    } else {
+      return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+
+    }
   }
+  
 
   if (
     !token &&
     (url.pathname.startsWith("/dashboard") ||
       url.pathname.startsWith("/talentList") ||
       url.pathname.startsWith("/projects") ||
-    url.pathname.startsWith("/messages"))
+      url.pathname.startsWith("/messages"))
   ) {
     return NextResponse.redirect(new URL("/sign-in", request.url));
   }
