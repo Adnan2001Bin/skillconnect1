@@ -79,6 +79,7 @@ export default function CreateProjectPage() {
     handleSubmit,
     watch,
     trigger,
+    setValue,
     formState: { errors, isSubmitting },
   } = formMethods;
 
@@ -141,6 +142,31 @@ export default function CreateProjectPage() {
     },
   ];
 
+  const handleFileUploadComplete = (res: { url: string }[]) => {
+    if (res) {
+      const newFiles = res.map((file) => file.url);
+      setFiles((prevFiles) => {
+        const updatedFiles = [...prevFiles, ...newFiles];
+        setValue("files", updatedFiles, { shouldValidate: true });
+        return updatedFiles;
+      });
+      toast.success("File Uploaded", {
+        description: "Files have been successfully uploaded!",
+        className: "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+        duration: 4000,
+      });
+    }
+    setIsUploading(false);
+  };
+
+  const handleFileRemove = (index: number) => {
+    setFiles((prevFiles) => {
+      const updatedFiles = prevFiles.filter((_, i) => i !== index);
+      setValue("files", updatedFiles, { shouldValidate: true });
+      return updatedFiles;
+    });
+  };
+
   const handleNextStep = async () => {
     const currentStepFields = steps[currentStep].fields;
     const isValid = await trigger(
@@ -177,7 +203,7 @@ export default function CreateProjectPage() {
     try {
       const response = await axios.post("/api/projects", {
         ...data,
-        files,
+        files: files.length > 0 ? files : undefined,
         clientId: session.user._id,
       });
       if (response.data.success) {
@@ -202,7 +228,7 @@ export default function CreateProjectPage() {
     }
   };
 
-  // Color scheme consistent with User role
+  // Color scheme consistent with User role for non-UploadDropzone elements
   const colors = {
     labelIconColor: "text-[#4CAF50]",
     inputBgBorderFocus:
@@ -212,7 +238,10 @@ export default function CreateProjectPage() {
     buttonBgHover: "bg-[#2E7D32] hover:bg-[#4CAF50] text-white",
     progressBar: "bg-[#4CAF50]",
     progressBarBg: "bg-[#E8F5E9]",
-    dragDropBorder: "border-dashed border-[#4CAF50] hover:border-[#2E7D32]",
+    // UploadDropzone-specific colors to match ProposalForm
+    uploadButton: "bg-[#8DBCC7] hover:bg-[#90D1CA] text-white",
+    uploadBorder: "border-dashed border-[#8DBCC7] hover:border-[#90D1CA]",
+    uploadBg: "bg-[#90D1CA]/10",
   };
 
   if (status === "loading") {
@@ -443,26 +472,13 @@ export default function CreateProjectPage() {
                 <div>
                   <FormLabel className="text-[#212121] font-semibold text-base flex items-center mb-2">
                     <FileUp
-                      className={`mr-3 h-5 w-5 ${colors.labelIconColor}`}
+                      className={`mr-3 h-5 w-5 text-[#8DBCC7]`}
                     />
                     Attach Files (Optional)
                   </FormLabel>
                   <UploadDropzone<OurFileRouter, "projectFileUploader">
                     endpoint="projectFileUploader"
-                    onClientUploadComplete={(res) => {
-                      if (res) {
-                        const newFiles = res.map((file) => file.url);
-                        setFiles((prevFiles) => [...prevFiles, ...newFiles]);
-                        formMethods.setValue("files", [...files, ...newFiles]);
-                        toast.success("File Uploaded", {
-                          description: "Files have been successfully uploaded!",
-                          className:
-                            "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
-                          duration: 4000,
-                        });
-                      }
-                      setIsUploading(false);
-                    }}
+                    onClientUploadComplete={handleFileUploadComplete}
                     onUploadError={(error: Error) => {
                       setIsUploading(false);
                       console.error("UploadThing Error:", error);
@@ -477,8 +493,8 @@ export default function CreateProjectPage() {
                     onUploadBegin={() => {
                       setIsUploading(true);
                     }}
-                    className={`ut-button:bg-[#4CAF50] ut-button:hover:bg-[#2E7D32] ut-button:text-white ut-label:text-[#212121] ut-allowed-content:text-[#6A9C89] ut-upload-icon:text-[#4CAF50] border-dashed border-[#4CAF50] hover:border-[#2E7D32] rounded-lg p-6 ${
-                      isUploading ? "bg-gray-100" : "bg-[#A5D6A7]/10"
+                    className={`ut-button:${colors.uploadButton} ut-label:text-[#212121] ut-allowed-content:text-[#757575] ut-upload-icon:text-[#8DBCC7] ${colors.uploadBorder} rounded-lg p-6 ${
+                      isUploading ? "opacity-50 cursor-not-allowed" : colors.uploadBg
                     }`}
                     content={{
                       button({ ready }) {
@@ -490,6 +506,7 @@ export default function CreateProjectPage() {
                           : "Images (4MB) or PDFs (8MB), up to 5 files";
                       },
                     }}
+                    config={{ mode: "auto" }}
                   />
                   {files.length > 0 && (
                     <div className="mt-4 flex flex-wrap gap-3 items-center">
@@ -499,19 +516,14 @@ export default function CreateProjectPage() {
                       {files.map((file, index) => (
                         <Badge
                           key={index}
-                          className={`text-white px-3 py-1 rounded-full text-sm flex items-center ${colors.buttonBgHover}`}
+                          className={`text-white px-3 py-1 rounded-full text-sm flex items-center cursor-pointer`}
+                          style={{ backgroundColor: "#8DBCC7" }}
                         >
                           File {index + 1}
                           <button
                             type="button"
-                            onClick={() => {
-                              const updatedFiles = files.filter(
-                                (_, i) => i !== index
-                              );
-                              setFiles(updatedFiles);
-                              formMethods.setValue("files", updatedFiles);
-                            }}
-                            className="ml-2 rounded-full p-0.5 hover:bg-[#1B5E20]"
+                            onClick={() => handleFileRemove(index)}
+                            className="ml-2 rounded-full p-0.5 hover:bg-[#757575]/50"
                           >
                             <XCircle className="h-4 w-4" />
                           </button>

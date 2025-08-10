@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -23,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader, ArrowLeft, User } from "lucide-react";
+import { Loader, ArrowLeft, User, Package } from "lucide-react";
 import { Images } from "@/lib/images";
 
 interface RatePlan {
@@ -43,7 +42,7 @@ interface Order {
     title: string;
     description: string;
   };
-  status: "pending" | "accepted" | "rejected" | "completed" | "cancelled";
+  status: "pending" | "in-progress" | "rejected" | "completed" | "cancelled";
   createdAt: string;
   clientUserName?: string;
 }
@@ -155,9 +154,9 @@ export default function TalentOrdersPage() {
   const getAvailableStatuses = (currentStatus: string): string[] => {
     switch (currentStatus) {
       case "pending":
-        return ["accepted", "rejected"];
-      case "accepted":
-        return ["completed", "cancelled"];
+        return ["in-progress", "rejected"];
+      case "in-progress":
+        return [ "cancelled"];
       default:
         return [];
     }
@@ -167,7 +166,7 @@ export default function TalentOrdersPage() {
     switch (status) {
       case "pending":
         return { backgroundColor: colors.grayTextColor, color: "#FFFFFF" };
-      case "accepted":
+      case "in-progress":
         return { backgroundColor: colors.accentColor, color: colors.darkTextColor };
       case "completed":
         return { backgroundColor: colors.primaryColor, color: colors.darkTextColor };
@@ -221,15 +220,15 @@ export default function TalentOrdersPage() {
     <div
       className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-8 max-w-[94rem] mx-auto"
       style={{
-              backgroundImage: `url(${
-                Images.talentProfileBackground
-                  ? Images.talentProfileBackground.src
-                  : ""
-              })`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-            }}
+        backgroundImage: `url(${
+          Images.talentProfileBackground
+            ? Images.talentProfileBackground.src
+            : ""
+        })`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
     >
       <div className="relative z-10 mb-8">
         <Button
@@ -279,7 +278,7 @@ export default function TalentOrdersPage() {
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="accepted">Accepted</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
               <SelectItem value="completed">Completed</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -344,7 +343,9 @@ export default function TalentOrdersPage() {
                         style={getStatusBadgeColor(order.status)}
                         className="px-3 py-1 rounded-full text-sm font-medium"
                       >
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        {order.status === "in-progress" 
+                          ? "In Progress" 
+                          : order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                       </Badge>
                     </TableCell>
                     <TableCell style={{ color: colors.grayTextColor }}>
@@ -367,7 +368,9 @@ export default function TalentOrdersPage() {
                           <SelectContent>
                             {getAvailableStatuses(order.status).map((status) => (
                               <SelectItem key={status} value={status}>
-                                {status.charAt(0).toUpperCase() + status.slice(1)}
+                                {status === "in-progress" 
+                                  ? "In Progress" 
+                                  : status.charAt(0).toUpperCase() + status.slice(1)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -391,6 +394,26 @@ export default function TalentOrdersPage() {
                         <User className="h-4 w-4 mr-2" />
                         View Client
                       </Button>
+                      {order.status === "in-progress" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/talent/orders/${order._id}/deliver`)}
+                          style={{
+                            borderColor: colors.accentColor,
+                            color: colors.accentColor,
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.backgroundColor = colors.lightAccentColor)
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.backgroundColor = "transparent")
+                          }
+                        >
+                          <Package className="h-4 w-4 mr-2" />
+                          Deliver Project
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

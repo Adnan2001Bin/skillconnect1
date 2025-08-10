@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -22,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, User } from "lucide-react";
+import { ArrowLeft, User, Package } from "lucide-react";
 import Loader from "@/components/Loader";
 import { Images } from "@/lib/images";
 
@@ -185,7 +186,7 @@ export default function ClientOrdersPage() {
 
   return (
     <div
-      className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-8 max-w-[94rem] mx-auto "
+      className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-8 max-w-[94rem] mx-auto"
       style={{
         backgroundImage: `url(${
           Images.userViewbackground ? Images.userViewbackground.src : ""
@@ -309,7 +310,7 @@ export default function ClientOrdersPage() {
                     <TableCell style={{ color: colors.neutralTextColor }}>
                       {new Date(order.createdAt).toLocaleDateString()}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="flex gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -332,6 +333,30 @@ export default function ClientOrdersPage() {
                         <User className="h-4 w-4 mr-2" />
                         View Talent
                       </Button>
+                      {order.status === "completed" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            router.push(`/orders/${order._id}/deliverables`)
+                          }
+                          style={{
+                            borderColor: colors.accentColor,
+                            color: colors.accentColor,
+                          }}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.backgroundColor =
+                              colors.primary)
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.backgroundColor =
+                              "transparent")
+                          }
+                        >
+                          <Package className="h-4 w-4 mr-2" />
+                          View Deliverables
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

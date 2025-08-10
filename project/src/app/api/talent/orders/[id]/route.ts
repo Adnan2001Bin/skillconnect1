@@ -6,10 +6,10 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-
 const updateOrderStatusSchema = z.object({
-  status: z.enum(["pending", "accepted", "rejected", "completed", "cancelled"]),
+  status: z.enum(["pending", "in-progress", "rejected", "completed", "cancelled"]),
 });
+
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -49,8 +49,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     const validTransitions: { [key: string]: string[] } = {
-      pending: ["accepted", "rejected"],
-      accepted: ["completed", "cancelled"],
+      pending: ["in-progress", "rejected"],
+      "in-progress": ["cancelled"],
     };
 
     if (

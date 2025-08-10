@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-interface IOrder extends Document {
+export interface IOrder extends Document {
+  _id: mongoose.Types.ObjectId;
   talentId: string;
   clientId: string;
   ratePlan: {
@@ -14,7 +15,12 @@ interface IOrder extends Document {
     title: string;
     description: string;
   };
-  status: "pending" | "accepted" | "rejected" | "completed" | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "completed" | "cancelled";
+  deliverables?: {
+    files: string[];
+    note?: string;
+    submittedAt: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,11 +45,19 @@ const OrderSchema: Schema = new Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected", "completed", "cancelled"],
+      enum: ["pending", "in-progress", "accepted", "rejected", "completed", "cancelled"],
       default: "pending",
+    },
+    deliverables: {
+      files: { type: [String], default: [] },
+      note: { type: String, maxlength: 1000, default: null },
+      submittedAt: { type: Date, default: null },
     },
   },
   { timestamps: true }
 );
 
-export default mongoose.models.Order || mongoose.model<IOrder>("Order", OrderSchema);
+// Prevent model redefinition
+const OrderModel = mongoose.models.Order || mongoose.model<IOrder>("Order", OrderSchema);
+
+export default OrderModel;
