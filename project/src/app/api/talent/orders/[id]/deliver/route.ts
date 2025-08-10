@@ -3,8 +3,11 @@ import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
+import UserModel from "@/models/user.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import mongoose from "mongoose";
+import { sendDeliverablesSubmittedEmail } from "@/emails/DeliverablesSubmittedEmail";
+import { io } from "socket.io-client";
 
 export const deliverProjectSchema = z.object({
   files: z.array(z.string().url()).optional().default([]),
@@ -59,7 +62,7 @@ export async function POST(
     }
 
     // Check if order is in a valid state
-    if ( order.status !== "in-progress") {
+    if (order.status !== "in-progress") {
       return NextResponse.json(
         {
           success: false,
@@ -78,11 +81,68 @@ export async function POST(
     order.status = "completed";
     await order.save();
 
+    // Fetch client details for email
+    const client = await UserModel.findById(order.clientId).select("email userName");
+    if (!client) {
+      return NextResponse.json(
+        { success: false, message: "Client not found" },
+        { status: 404 }
+      );
+    }
+
+    // Send email to client
+    const emailResponse = await sendDeliverablesSubmittedEmail({
+      email: client.email,
+      userName: client.userName,
+      projectTitle: order.projectDetails.title,
+      orderId: order._id.toString(),
+      note: validatedData.note,
+      fileCount: validatedData.files?.length || 0,
+    });
+
+    if (!emailResponse.success) {
+      console.error("Failed to send deliverables email:", emailResponse.message);
+      // Continue despite email failure to ensure notification is sent
+    }
+
+    // Emit Socket.IO event
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+      auth: { userId: session.user._id },
+    });
+    socket.emit("deliverablesSubmitted", {
+      orderId: order._id.toString(),
+      message: `Deliverables submitted for order: ${order.projectDetails.title}`,
+      clientId: order.clientId,
+    });
+    socket.disconnect();
+
     return NextResponse.json(
       {
         success: true,
         message: "Deliverables submitted successfully",
-        data: order,
+        data: {
+          _id: order._id.toString(),
+          talentId: order.talentId,
+          clientId: order.clientId,
+          ratePlan: {
+            type: order.ratePlan.type,
+            price: order.ratePlan.price,
+            description: order.ratePlan.description,
+            whatsIncluded: order.ratePlan.whatsIncluded,
+            deliveryDays: order.ratePlan.deliveryDays,
+          },
+          projectDetails: {
+            title: order.projectDetails.title,
+            description: order.projectDetails.description,
+          },
+          status: order.status,
+          createdAt: order.createdAt.toISOString(),
+          deliverables: {
+            files: order.deliverables.files || [],
+            note: order.deliverables.note || null,
+            submittedAt: order.deliverables.submittedAt?.toISOString() || null,
+          },
+        },
       },
       { status: 200 }
     );
@@ -104,4 +164,3 @@ export async function POST(
     );
   }
 }
-
