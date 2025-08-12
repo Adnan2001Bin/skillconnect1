@@ -9,6 +9,7 @@ import ProjectModel from "./src/models/projects.model";
 import ProposalModel from "./src/models/proposal.model";
 import OrderModel, { IOrder } from "./src/models/order.model";
 import MessageModel from "./src/models/message.model";
+import NotificationModel from "./src/models/notification.model";
 import { LeanMessage } from "./src/type";
 
 dotenv.config();
@@ -54,6 +55,13 @@ io.on("connection", (socket) => {
     socket.emit("dashboardUpdate", data);
   });
 
+  socket.on("deliverablesSubmitted", (data: { orderId: string; message: string; clientId: string }) => {
+    io.to(data.clientId).emit("deliverablesSubmitted", {
+      orderId: data.orderId,
+      message: data.message,
+    });
+  });
+
   setupMessagingHandlers(io, socket);
 
   socket.on("disconnect", () => {
@@ -77,22 +85,28 @@ connectDB().then(async () => {
     io.emit("dashboardUpdate", data);
   });
 
- orderChangeStream.on("change", async (change) => {
+  orderChangeStream.on("change", async (change) => {
     const data = await getDashboardData("30");
     io.emit("dashboardUpdate", data);
     if (change.operationType === "insert") {
       io.emit("orderCreated");
     } else if (change.operationType === "update" && change.updateDescription.updatedFields?.status) {
       io.emit("orderStatusUpdated");
-      // Notify client of deliverables submission
       if (
         change.updateDescription.updatedFields?.status === "completed" &&
         change.updateDescription.updatedFields?.deliverables
       ) {
         const order = await OrderModel.findById(change.documentKey._id).lean<IOrder | null>();
         if (order && order.clientId && order.projectDetails) {
-          io.to(order.clientId.toString()).emit("deliverablesSubmitted", {
+          const notification = new NotificationModel({
+            userId: order.clientId,
             orderId: order._id,
+            message: `Deliverables submitted for order: ${order.projectDetails.title}`,
+            read: false,
+          });
+          await notification.save();
+          io.to(order.clientId.toString()).emit("deliverablesSubmitted", {
+            orderId: order._id.toString(),
             message: `Deliverables submitted for order: ${order.projectDetails.title}`,
           });
         }

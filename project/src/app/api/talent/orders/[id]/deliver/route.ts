@@ -4,9 +4,9 @@ import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
 import UserModel from "@/models/user.model";
+import NotificationModel from "@/models/notification.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import mongoose from "mongoose";
-import { sendDeliverablesSubmittedEmail } from "@/emails/DeliverablesSubmittedEmail";
 import { io } from "socket.io-client";
 
 export const deliverProjectSchema = z.object({
@@ -19,7 +19,6 @@ export async function POST(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Authenticate user session
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "talent") {
       return NextResponse.json(
@@ -28,7 +27,6 @@ export async function POST(
       );
     }
 
-    // Validate order ID
     const { id } = await context.params;
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
@@ -37,14 +35,11 @@ export async function POST(
       );
     }
 
-    // Parse and validate request body
     const body = await req.json();
     const validatedData = deliverProjectSchema.parse(body);
 
-    // Connect to the database
     await connectDB();
 
-    // Find the order
     const order = await OrderModel.findById(id);
     if (!order) {
       return NextResponse.json(
@@ -53,7 +48,6 @@ export async function POST(
       );
     }
 
-    // Check if the talent is assigned to the order
     if (order.talentId !== session.user._id) {
       return NextResponse.json(
         { success: false, message: "Unauthorized. You can only submit deliverables for your own orders." },
@@ -61,7 +55,6 @@ export async function POST(
       );
     }
 
-    // Check if order is in a valid state
     if (order.status !== "in-progress") {
       return NextResponse.json(
         {
@@ -72,7 +65,6 @@ export async function POST(
       );
     }
 
-    // Update order with deliverables and status
     order.deliverables = {
       files: validatedData.files || [],
       note: validatedData.note || null,
@@ -81,8 +73,7 @@ export async function POST(
     order.status = "completed";
     await order.save();
 
-    // Fetch client details for email
-    const client = await UserModel.findById(order.clientId).select("email userName");
+    const client = await UserModel.findById(order.clientId).select("_id");
     if (!client) {
       return NextResponse.json(
         { success: false, message: "Client not found" },
@@ -90,29 +81,21 @@ export async function POST(
       );
     }
 
-    // Send email to client
-    const emailResponse = await sendDeliverablesSubmittedEmail({
-      email: client.email,
-      userName: client.userName,
-      projectTitle: order.projectDetails.title,
-      orderId: order._id.toString(),
-      note: validatedData.note,
-      fileCount: validatedData.files?.length || 0,
+    const notification = new NotificationModel({
+      userId: client._id,
+      orderId: order._id,
+      message: `Deliverables submitted for order: ${order.projectDetails.title}`,
+      read: false,
     });
+    await notification.save();
 
-    if (!emailResponse.success) {
-      console.error("Failed to send deliverables email:", emailResponse.message);
-      // Continue despite email failure to ensure notification is sent
-    }
-
-    // Emit Socket.IO event
     const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
       auth: { userId: session.user._id },
     });
     socket.emit("deliverablesSubmitted", {
       orderId: order._id.toString(),
       message: `Deliverables submitted for order: ${order.projectDetails.title}`,
-      clientId: order.clientId,
+      clientId: order.clientId.toString(),
     });
     socket.disconnect();
 
