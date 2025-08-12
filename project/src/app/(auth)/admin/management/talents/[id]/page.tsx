@@ -22,6 +22,16 @@ interface Talent extends TalentProfileInput {
   isVerified: boolean;
 }
 
+// Define RatePlan type to match talentProfileSchema
+interface RatePlan {
+  type: "Basic" | "Standard" | "Premium";
+  description: string;
+  price: number;
+  whatsIncluded: string[];
+  deliveryDays: number;
+  revisions: number; // Added revisions field
+}
+
 // Define color scheme consistent with AdminSidebar and AdminLayout
 const primaryDarkGray = "#2D3748";
 const secondaryDarkGray = "#4B5B69";
@@ -343,7 +353,7 @@ export default function TalentDetailsPage() {
                 </div>
               ))}
             </div>
-          </div>
+        </div>
         )}
 
         {/* Rate Plans Section */}
@@ -357,7 +367,9 @@ export default function TalentDetailsPage() {
               {talent.ratePlans.map((plan, index) => (
                 <div key={index} className="border rounded-lg p-4" style={{ borderColor: accentColor + "50" }}>
                   <p className="font-semibold" style={{ color: activeTextColor }}>{plan.type}</p>
-                  <p style={{ color: neutralTextColor }}>${plan.price} ({plan.deliveryDays} Days)</p>
+                  <p style={{ color: neutralTextColor }}>${plan.price}</p>
+                  <p style={{ color: neutralTextColor }}>{plan.deliveryDays} Days</p>
+                  <p style={{ color: neutralTextColor }}>{plan.revisions} Revisions</p>
                   <p className="text-sm mt-2" style={{ color: neutralTextColor }}>{plan.description}</p>
                   <ul className="list-disc list-inside text-sm mt-2" style={{ color: neutralTextColor }}>
                     {plan.whatsIncluded.map((item, idx) => (

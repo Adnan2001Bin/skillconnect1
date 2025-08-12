@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -62,6 +61,7 @@ interface RatePlan {
   price: number;
   whatsIncluded: string[];
   deliveryDays: number;
+  revisions: number; // Added revisions field
 }
 
 // Define Order type for orders fetched from API
@@ -858,6 +858,13 @@ export default function UserTalentProfilePage() {
                       >
                         <CalendarDays className="h-4 w-4 mr-2" style={{ color: colors.accentColor }} />
                         <span>Delivery in {plan.deliveryDays} days</span>
+                      </div>
+                      <div
+                        className="pt-3 border-t flex items-center text-sm"
+                        style={{ borderColor: colors.inputBorderColor, color: colors.activeTextColor }}
+                      >
+                        <Star className="h-4 w-4 mr-2" style={{ color: colors.accentColor }} />
+                        <span>{plan.revisions} Revisions</span>
                       </div>
                       <TooltipProvider>
                         <Tooltip>
