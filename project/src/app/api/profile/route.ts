@@ -18,15 +18,15 @@ interface ProfileResponse {
     preferences?: string[];
     skills?: string[];
     portfolio?: { title: string; description: string; imageUrl?: string | null; projectUrl?: string | null }[];
-    ratePlans?: { type: string; price: number; description: string; whatsIncluded: string[]; deliveryDays: number }[];
+    ratePlans?: { type: string; price: number; description: string; whatsIncluded: string[]; deliveryDays: number; revisions: number }[];
     aboutThisGig?: string | null;
     whatIOffer?: string[];
     socialLinks?: { platform: string; url: string }[];
     languageProficiency?: string[];
     category?: string;
     services?: string[];
-    isVerified: boolean; // Added field
-    rejectionReason?: string | null; // Added field
+    isVerified: boolean;
+    rejectionReason?: string | null;
   };
 }
 
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest): Promise<NextResponse<ProfileRes
           preferences: user.preferences,
           skills: user.skills,
           portfolio: user.portfolio,
-          ratePlans: user.ratePlans,
+          ratePlans: user.ratePlans, // Includes revisions field as defined in IRatePlan
           aboutThisGig: user.aboutThisGig,
           whatIOffer: user.whatIOffer,
           socialLinks: user.socialLinks,
@@ -147,7 +147,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse<ProfileR
       const talentData = parsedData as z.infer<typeof talentProfileSchema>;
       if (talentData.skills !== undefined) updateData.skills = talentData.skills;
       if (talentData.portfolio !== undefined) updateData.portfolio = talentData.portfolio;
-      if (talentData.ratePlans !== undefined) updateData.ratePlans = talentData.ratePlans;
+      if (talentData.ratePlans !== undefined) updateData.ratePlans = talentData.ratePlans; // Includes revisions field as validated by talentProfileSchema
       if (talentData.aboutThisGig !== undefined) updateData.aboutThisGig = talentData.aboutThisGig;
       if (talentData.whatIOffer !== undefined) updateData.whatIOffer = talentData.whatIOffer;
       if (talentData.socialLinks !== undefined) updateData.socialLinks = talentData.socialLinks;

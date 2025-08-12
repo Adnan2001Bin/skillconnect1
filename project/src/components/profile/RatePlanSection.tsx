@@ -16,6 +16,7 @@ interface RatePlan {
   description: string;
   whatsIncluded: string[];
   deliveryDays: number;
+  revisions: number; // Added revisions field
 }
 
 interface RatePlanSectionProps {
@@ -31,6 +32,7 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
     description: "",
     whatsIncluded: [""],
     deliveryDays: 1,
+    revisions: 0, 
   });
 
   // Define the new color themes directly
@@ -53,6 +55,7 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
         description: "",
         whatsIncluded: [""],
         deliveryDays: 1,
+        revisions: 0, // Reset revisions
       });
     } else {
       toast.error("Error", {
@@ -132,6 +135,15 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
           }
           className={`${inputSelectBgBorderFocus} rounded-lg p-2.5 w-full`}
         />
+        <Input
+          type="number"
+          placeholder="Revisions (e.g., 2)"
+          value={newRatePlan.revisions || ""}
+          onChange={(e) =>
+            setNewRatePlan({ ...newRatePlan, revisions: parseInt(e.target.value) || 0 })
+          }
+          className={`${inputSelectBgBorderFocus} rounded-lg p-2.5 w-full`}
+        />
         <Button
           type="button"
           onClick={addRatePlan}
@@ -148,7 +160,7 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
               className={`text-white px-3 py-1 rounded-full text-sm flex items-center justify-between w-full ${badgeBgHover}`}
             >
               <span>
-                {plan.type}: ${plan.price} ({plan.deliveryDays} Days)
+                {plan.type}: ${plan.price} ({plan.deliveryDays} Days, {plan.revisions} Revisions)
               </span>
               <button
                 type="button"

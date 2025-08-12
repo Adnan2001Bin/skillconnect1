@@ -6,6 +6,7 @@ export interface IRatePlan {
   description: string;
   whatsIncluded: string[];
   deliveryDays: number;
+  revisions: number; // Added revisions field
 }
 
 export interface IPortfolioItem {
@@ -40,7 +41,7 @@ export interface IUser extends Document {
   isVerified: boolean;
   isAdminApproved: boolean;
   isEmailVerified: boolean;
-  rejectionReason?:string | null
+  rejectionReason?: string | null;
   resetPasswordToken?: string | null;
   resetPasswordExpires?: Date | null;
   createdAt: Date;
@@ -139,6 +140,7 @@ const UserSchema: Schema<IUser> = new Schema(
           description: { type: String, required: true },
           whatsIncluded: { type: [String], required: true },
           deliveryDays: { type: Number, required: true, min: 1 },
+          revisions: { type: Number, required: true, min: 0 }, // Added revisions field
         },
       ],
       default: [],

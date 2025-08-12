@@ -4,11 +4,29 @@ import UserModel from "@/models/user.model";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
-// GET handler to fetch a single talent by ID
+interface TalentResponse {
+  success: boolean;
+  message?: string;
+  data?: {
+    _id: string;
+    userName: string;
+    email: string;
+    profilePicture?: string | null;
+    category?: string | null;
+    location?: string | null;
+    bio?: string | null;
+    aboutThisGig?: string | null;
+    skills?: string[];
+    portfolio?: { title: string; description: string; imageUrl?: string | null; projectUrl?: string | null }[];
+    ratePlans?: { type: string; price: number; description: string; whatsIncluded: string[]; deliveryDays: number; revisions: number }[];
+    socialLinks?: { platform: string; url: string }[];
+  };
+}
+
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
-)  {
+): Promise<NextResponse<TalentResponse>> {
   try {
     // Check for admin authentication
     const session = await getServerSession(authOptions);
@@ -47,7 +65,7 @@ export async function GET(
         aboutThisGig: talent.aboutThisGig || null,
         skills: talent.skills || [],
         portfolio: talent.portfolio || [],
-        ratePlans: talent.ratePlans || [],
+        ratePlans: talent.ratePlans || [], 
         socialLinks: talent.socialLinks || [],
       },
     });

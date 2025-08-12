@@ -61,6 +61,7 @@ interface TalentProfileInput {
     description: string;
     whatsIncluded: string[];
     deliveryDays: number;
+    revisions: number; // Added revisions field
   }[];
   aboutThisGig?: string | null;
   whatIOffer?: string[];
@@ -660,6 +661,19 @@ export default function TalentProfilePage() {
                           style={{ color: accentColor }}
                         />
                         <span>Delivery in {plan.deliveryDays} days</span>
+                      </div>
+                      <div
+                        className="pt-3 border-t flex items-center text-sm"
+                        style={{
+                          borderColor: primaryColor,
+                          color: grayTextColor,
+                        }}
+                      >
+                        <Star
+                          className="h-4 w-4 mr-2"
+                          style={{ color: accentColor }}
+                        />
+                        <span>{plan.revisions} Revisions</span>
                       </div>
                     </div>
                   </TabsContent>

@@ -24,7 +24,6 @@ import { ProfilePictureField } from "@/components/profile/ProfilePictureField";
 import { ArrayField } from "@/components/profile/ArrayField";
 import Image from "next/image";
 
-//for talent view
 export default function TalentProfileEditPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -34,7 +33,7 @@ export default function TalentProfileEditPage() {
     { title: string; description: string; imageUrl?: string | null; projectUrl?: string | null }[]
   >([]);
   const [ratePlans, setRatePlans] = useState<
-    { type: "Basic" | "Standard" | "Premium"; price: number; description: string; whatsIncluded: string[]; deliveryDays: number }[]
+    { type: "Basic" | "Standard" | "Premium"; price: number; description: string; whatsIncluded: string[]; deliveryDays: number; revisions: number }[]
   >([]);
   const [socialLinks, setSocialLinks] = useState<{ platform: string; url: string }[]>([]);
   const [completionPercentage, setCompletionPercentage] = useState(0);

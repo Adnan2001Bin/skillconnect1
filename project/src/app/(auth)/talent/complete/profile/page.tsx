@@ -48,6 +48,7 @@ export default function TalentProfileCompletionPage() {
       description: string;
       whatsIncluded: string[];
       deliveryDays: number;
+      revisions: number; // Added revisions field
     }[]
   >([]);
   const [socialLinks, setSocialLinks] = useState<{ platform: string; url: string }[]>([]);
@@ -421,12 +422,11 @@ export default function TalentProfileCompletionPage() {
                   </Button>
                 )}
                 <Button
-                  type="button" // Changed to type="button" to control submission manually
+                  type="button"
                   onClick={async () => {
                     if (currentStep < steps.length - 1) {
                       await handleNextStep();
                     } else {
-                      // If it's the last step, trigger form submission through React Hook Form's handleSubmit
                       await form.handleSubmit(onSubmit)();
                     }
                   }}
