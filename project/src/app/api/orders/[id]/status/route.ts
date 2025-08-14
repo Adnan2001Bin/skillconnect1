@@ -1,6 +1,6 @@
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import connectDB from "@/lib/connectDB";
-import orderModel from "@/models/order.model";
+import OrderModel from "@/models/order.model";
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -9,6 +9,8 @@ import { z } from "zod";
 const updateOrderStatusSchema = z.object({
   status: z.enum(["pending", "in-progress", "rejected", "delivered", "cancelled"]).optional(),
   revisionStatus: z.enum(["none", "requested", "submitted"]).optional(),
+  revisionFiles: z.array(z.string().url()).optional().default([]),
+  revisionNote: z.string().max(1000).optional(),
 });
 
 export async function PATCH(
@@ -37,7 +39,7 @@ export async function PATCH(
 
     await connectDB();
 
-    const order = await orderModel.findById(orderId);
+    const order = await OrderModel.findById(orderId);
     if (!order) {
       return NextResponse.json(
         { success: false, message: "Order not found" },
@@ -87,6 +89,11 @@ export async function PATCH(
       if (validatedData.revisionStatus === "requested") {
         order.revisionStatus = "requested";
         order.revisionCount += 1;
+        order.revisionRequest = {
+          files: validatedData.revisionFiles || [],
+          note: validatedData.revisionNote || null,
+          requestedAt: new Date(),
+        };
       }
     } else if (validatedData.status) {
       if (session.user.role !== "talent") {
@@ -122,7 +129,31 @@ export async function PATCH(
       {
         success: true,
         message: `Order updated successfully`,
-        data: order,
+        data: {
+          _id: order._id.toString(),
+          talentId: order.talentId,
+          clientId: order.clientId,
+          ratePlan: order.ratePlan,
+          projectDetails: order.projectDetails,
+          status: order.status,
+          revisionStatus: order.revisionStatus,
+          revisionCount: order.revisionCount,
+          createdAt: order.createdAt.toISOString(),
+          deliverables: order.deliverables
+            ? {
+                files: order.deliverables.files,
+                note: order.deliverables.note,
+                submittedAt: order.deliverables.submittedAt?.toISOString(),
+              }
+            : undefined,
+          revisionRequest: order.revisionRequest
+            ? {
+                files: order.revisionRequest.files,
+                note: order.revisionRequest.note,
+                requestedAt: order.revisionRequest.requestedAt?.toISOString(),
+              }
+            : undefined,
+        },
       },
       { status: 200 }
     );

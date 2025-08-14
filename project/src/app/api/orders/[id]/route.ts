@@ -66,12 +66,15 @@ export async function GET(
             description: order.ratePlan.description,
             whatsIncluded: order.ratePlan.whatsIncluded,
             deliveryDays: order.ratePlan.deliveryDays,
+            revisions: order.ratePlan.revisions,
           },
           projectDetails: {
             title: order.projectDetails.title,
             description: order.projectDetails.description,
           },
           status: order.status,
+          revisionStatus: order.revisionStatus,
+          revisionCount: order.revisionCount,
           createdAt: order.createdAt.toISOString(),
           deliverables: order.deliverables
             ? {

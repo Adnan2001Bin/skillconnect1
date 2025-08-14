@@ -10,16 +10,24 @@ export interface IOrder extends Document {
     description: string;
     whatsIncluded: string[];
     deliveryDays: number;
+    revisions: number;
   };
   projectDetails: {
     title: string;
     description: string;
   };
-  status: "pending" | "in-progress" | "accepted" | "rejected" | "completed" | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
   deliverables?: {
     files: string[];
     note?: string;
     submittedAt: Date;
+  };
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: Date;
   };
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +46,7 @@ const OrderSchema: Schema = new Schema(
       description: { type: String, required: true },
       whatsIncluded: [{ type: String }],
       deliveryDays: { type: Number, required: true },
+      revisions: { type: Number, required: true, min: 0 },
     },
     projectDetails: {
       title: { type: String, required: true },
@@ -45,13 +54,28 @@ const OrderSchema: Schema = new Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "in-progress", "accepted", "rejected", "completed", "cancelled"],
+      enum: ["pending", "in-progress", "accepted", "rejected", "delivered", "cancelled"],
       default: "pending",
+    },
+    revisionStatus: {
+      type: String,
+      enum: ["none", "requested", "submitted"],
+      default: "none",
+    },
+    revisionCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     deliverables: {
       files: { type: [String], default: [] },
       note: { type: String, maxlength: 1000, default: null },
       submittedAt: { type: Date, default: null },
+    },
+    revisionRequest: {
+      files: { type: [String], default: [] },
+      note: { type: String, maxlength: 1000, default: null },
+      requestedAt: { type: Date, default: null },
     },
   },
   { timestamps: true }

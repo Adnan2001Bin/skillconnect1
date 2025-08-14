@@ -8,6 +8,7 @@ import NotificationModel from "@/models/notification.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import mongoose from "mongoose";
 import { io } from "socket.io-client";
+import { sendDeliverablesSubmittedEmail } from "@/emails/DeliverablesSubmittedEmail";
 
 export const deliverProjectSchema = z.object({
   files: z.array(z.string().url()).optional().default([]),
@@ -55,11 +56,11 @@ export async function POST(
       );
     }
 
-    if (order.status !== "in-progress") {
+    if (order.status !== "in-progress" && order.revisionStatus !== "requested") {
       return NextResponse.json(
         {
           success: false,
-          message: `Cannot submit deliverables for an order in ${order.status} status`,
+          message: `Cannot submit deliverables for an order in ${order.status} status with revision status ${order.revisionStatus}`,
         },
         { status: 400 }
       );
@@ -70,10 +71,12 @@ export async function POST(
       note: validatedData.note || null,
       submittedAt: new Date(),
     };
-    order.status = "completed";
+    order.status = "delivered"; // Changed from "completed" to "delivered"
+    order.revisionStatus = order.revisionStatus === "requested" ? "submitted" : "none";
+
     await order.save();
 
-    const client = await UserModel.findById(order.clientId).select("_id");
+    const client = await UserModel.findById(order.clientId).select("_id email userName");
     if (!client) {
       return NextResponse.json(
         { success: false, message: "Client not found" },
@@ -81,10 +84,28 @@ export async function POST(
       );
     }
 
+     const emailResponse = await sendDeliverablesSubmittedEmail({
+      email: client.email,
+      userName: client.userName,
+      projectTitle: order.projectDetails.title,
+      orderId: order._id.toString(),
+      note: validatedData.note,
+      fileCount: validatedData.files?.length || 0,
+    });
+
+    if (!emailResponse.success) {
+      console.error("Failed to send deliverables email:", emailResponse.message);
+      // Continue despite email failure to ensure notification is sent
+    }
+
+    const notificationMessage =
+      order.revisionStatus === "submitted"
+        ? `Revised deliverables submitted for order: ${order.projectDetails.title}`
+        : `Deliverables submitted for order: ${order.projectDetails.title}`;
     const notification = new NotificationModel({
       userId: client._id,
       orderId: order._id,
-      message: `Deliverables submitted for order: ${order.projectDetails.title}`,
+      message: notificationMessage,
       read: false,
     });
     await notification.save();
@@ -94,7 +115,7 @@ export async function POST(
     });
     socket.emit("deliverablesSubmitted", {
       orderId: order._id.toString(),
-      message: `Deliverables submitted for order: ${order.projectDetails.title}`,
+      message: notificationMessage,
       clientId: order.clientId.toString(),
     });
     socket.disconnect();
@@ -102,7 +123,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: true,
-        message: "Deliverables submitted successfully",
+        message: notificationMessage,
         data: {
           _id: order._id.toString(),
           talentId: order.talentId,
@@ -113,12 +134,15 @@ export async function POST(
             description: order.ratePlan.description,
             whatsIncluded: order.ratePlan.whatsIncluded,
             deliveryDays: order.ratePlan.deliveryDays,
+            revisions: order.ratePlan.revisions,
           },
           projectDetails: {
             title: order.projectDetails.title,
             description: order.projectDetails.description,
           },
           status: order.status,
+          revisionStatus: order.revisionStatus,
+          revisionCount: order.revisionCount,
           createdAt: order.createdAt.toISOString(),
           deliverables: {
             files: order.deliverables.files || [],

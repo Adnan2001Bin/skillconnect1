@@ -7,7 +7,35 @@ import { authOptions } from "../auth/[...nextauth]/options";
 import { createOrderSchema } from "@/schemas/createOrderSchema";
 import { z } from "zod";
 
-export async function GET(req: NextRequest) {
+// Define response type for GET
+interface OrderResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    _id: string;
+    talentId: string;
+    clientId: string;
+    talentUserName: string;
+    clientUserName: string;
+    ratePlan: {
+      type: "Basic" | "Standard" | "Premium";
+      description: string;
+      price: number;
+      whatsIncluded: string[];
+      deliveryDays: number;
+      revisions: number; // Added revisions field
+    };
+    projectDetails: {
+      title: string;
+      description: string;
+    };
+    status: string;
+    createdAt: string;
+  }[];
+  error?: string;
+}
+
+export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>> {
   try {
     // Authenticate user session
     const session = await getServerSession(authOptions);

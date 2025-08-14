@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,8 +6,29 @@ import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
-import { Loader2, ChevronLeft, File, Paperclip } from "lucide-react";
+import { Loader2, ChevronLeft, File, Paperclip, RefreshCcw, XCircle } from "lucide-react";
 import { Images } from "@/lib/images";
+import { UploadDropzone } from "@uploadthing/react";
+import type { OurFileRouter } from "@/app/api/uploadthing/core/route";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+const revisionRequestSchema = z.object({
+  revisionNote: z.string().max(1000).optional(),
+  revisionFiles: z.array(z.string().url()).optional()
+});
+
+type RevisionRequestFormData = z.infer<typeof revisionRequestSchema>;
 
 interface Deliverables {
   files: string[];
@@ -19,9 +39,21 @@ interface Deliverables {
 interface Order {
   _id: string;
   clientId: string;
+  ratePlan: {
+    type: "Basic" | "Standard" | "Premium";
+    price: number;
+    description: string;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
   projectDetails: {
     title: string;
+    description: string;
   };
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
   deliverables?: Deliverables;
 }
 
@@ -32,6 +64,10 @@ export default function ViewDeliverablesPage() {
   const id = params.id as string;
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [revisionFiles, setRevisionFiles] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
 
   const colors = {
     primary: "#D3F1DF",
@@ -43,6 +79,14 @@ export default function ViewDeliverablesPage() {
     inputBorderColor: "#FFFFFF",
     errorRed: "#EF4444",
   };
+
+  const form = useForm<RevisionRequestFormData>({
+    resolver: zodResolver(revisionRequestSchema),
+    defaultValues: {
+      revisionNote: "",
+      revisionFiles: [],
+    },
+  });
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "user") {
@@ -80,8 +124,74 @@ export default function ViewDeliverablesPage() {
       fetchOrder();
     }
   }, [status, session, id, router]);
-  console.log(order?.projectDetails);
-  
+
+  const handleFileUploadComplete = (res: { url: string }[]) => {
+    if (res) {
+      const newFiles = res.map((file) => file.url);
+      setRevisionFiles((prevFiles) => {
+        const updatedFiles = [...prevFiles, ...newFiles];
+        form.setValue("revisionFiles", updatedFiles, { shouldValidate: true });
+        return updatedFiles;
+      });
+      toast.success("File Uploaded", {
+        description: "Revision files have been successfully uploaded!",
+        className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+        duration: 4000,
+      });
+    }
+    setIsUploading(false);
+  };
+
+  const handleFileRemove = (index: number) => {
+    setRevisionFiles((prevFiles) => {
+      const updatedFiles = prevFiles.filter((_, i) => i !== index);
+      form.setValue("revisionFiles", updatedFiles, { shouldValidate: true });
+      return updatedFiles;
+    });
+  };
+
+  const handleRequestRevision = async (data: RevisionRequestFormData) => {
+    if (!order || order.revisionCount >= order.ratePlan.revisions) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await axios.patch(`/api/orders/${id}/status`, {
+        revisionStatus: "requested",
+        revisionFiles: revisionFiles.length > 0 ? revisionFiles : undefined,
+        revisionNote: data.revisionNote || undefined,
+      });
+      if (response.data.success) {
+        setOrder((prev) =>
+          prev
+            ? {
+                ...prev,
+                revisionStatus: "requested",
+                revisionCount: prev.revisionCount + 1,
+              }
+            : null
+        );
+        toast.success("Success", {
+          description: "Revision requested successfully.",
+          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+          duration: 4000,
+        });
+        setOpen(false);
+        setRevisionFiles([]);
+        form.reset();
+      } else {
+        throw new Error(response.data.message || "Failed to request revision.");
+      }
+    } catch (error) {
+      console.error("Error requesting revision:", error);
+      toast.error("Error", {
+        description: "Failed to request revision. Please try again.",
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+        duration: 4000,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (status === "loading" || isLoading) {
     return (
@@ -191,6 +301,155 @@ export default function ViewDeliverablesPage() {
         </div>
 
         <div className="space-y-6">
+          <div>
+            <h2
+              className="text-lg font-semibold flex items-center"
+              style={{ color: colors.activeTextColor }}
+            >
+              <RefreshCcw
+                className="h-5 w-5 mr-2"
+                style={{ color: colors.accentColor }}
+              />
+              Revisions
+            </h2>
+            <p
+              className="mt-2 text-sm"
+              style={{ color: colors.neutralTextColor }}
+            >
+              Revisions used: {order.revisionCount} / {order.ratePlan.revisions}
+            </p>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  disabled={
+                    isSubmitting ||
+                    order.status !== "delivered" ||
+                    order.revisionCount >= order.ratePlan.revisions ||
+                    order.revisionStatus === "requested"
+                  }
+                  className="mt-3 px-4 py-2 rounded-lg font-semibold shadow-md transition-all duration-300"
+                  style={{
+                    backgroundColor:
+                      order.status !== "delivered" ||
+                      order.revisionCount >= order.ratePlan.revisions ||
+                      order.revisionStatus === "requested"
+                        ? colors.neutralTextColor
+                        : colors.accentColor,
+                    color: colors.white,
+                  }}
+                  onMouseEnter={(e) =>
+                    order.status === "delivered" &&
+                    order.revisionCount < order.ratePlan.revisions &&
+                    order.revisionStatus !== "requested" &&
+                    (e.currentTarget.style.backgroundColor = colors.neutralTextColor)
+                  }
+                  onMouseLeave={(e) =>
+                    order.status === "delivered" &&
+                    order.revisionCount < order.ratePlan.revisions &&
+                    order.revisionStatus !== "requested" &&
+                    (e.currentTarget.style.backgroundColor = colors.accentColor)
+                  }
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                  ) : (
+                    <RefreshCcw className="h-5 w-5 mr-2" />
+                  )}
+                  Request Revision
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Request Revision</DialogTitle>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleRequestRevision)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="revisionNote"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Revision Note (Optional)</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              {...field}
+                              placeholder="Describe the changes needed for this revision."
+                              className="rounded-lg p-3 w-full border"
+                              style={{ borderColor: colors.inputBorderColor, color: colors.activeTextColor }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div>
+                      <FormLabel>Attach Files (Optional)</FormLabel>
+                      <UploadDropzone<OurFileRouter, "projectFileUploader">
+                        endpoint="projectFileUploader"
+                        onClientUploadComplete={handleFileUploadComplete}
+                        onUploadError={(error: Error) => {
+                          setIsUploading(false);
+                          toast.error("Upload Failed", {
+                            description: "Failed to upload revision files. Please try again.",
+                            className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+                            duration: 4000,
+                          });
+                        }}
+                        onUploadBegin={() => {
+                          setIsUploading(true);
+                        }}
+                        className="ut-button:bg-[#17B169] ut-button:hover:bg-[#D3ECCD] ut-button:text-white ut-label:text-[#212121] ut-allowed-content:text-[#757575] ut-upload-icon:text-[#17B169] border-dashed border-[#17B169] hover:border-[#D3ECCD] rounded-lg p-6"
+                        content={{
+                          button({ ready }) {
+                            return ready ? "Upload Files" : "Uploading...";
+                          },
+                          allowedContent({ isUploading }) {
+                            return isUploading
+                              ? "Uploading files..."
+                              : "Images (4MB) or PDFs (8MB), up to 5 files";
+                          },
+                        }}
+                        config={{ mode: "auto" }}
+                      />
+                      {revisionFiles.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          {revisionFiles.map((file, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#17B169] text-white"
+                            >
+                              File {index + 1}
+                              <button
+                                type="button"
+                                className="ml-2"
+                                onClick={() => handleFileRemove(index)}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || isUploading}
+                      className="w-full"
+                      style={{ backgroundColor: colors.accentColor, color: colors.white }}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                      ) : (
+                        <RefreshCcw className="h-5 w-5 mr-2" />
+                      )}
+                      Submit Revision Request
+                    </Button>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+
           {order.deliverables.note && (
             <div>
               <h2
