@@ -29,7 +29,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader, ArrowLeft, User, Package, File, Paperclip, Eye } from "lucide-react";
+import { Loader, ArrowLeft, User, Package, File, Paperclip, Eye, Clock } from "lucide-react";
 import { Images } from "@/lib/images";
 
 interface RatePlan {
@@ -39,6 +39,12 @@ interface RatePlan {
   whatsIncluded: string[];
   deliveryDays: number;
   revisions: number;
+}
+
+interface RevisionRequest {
+  files: string[];
+  note?: string;
+  requestedAt: string;
 }
 
 interface Order {
@@ -54,12 +60,9 @@ interface Order {
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   createdAt: string;
+  updatedAt: string;
   clientUserName?: string;
-  revisionRequest?: {
-    files: string[];
-    note?: string;
-    requestedAt: string;
-  };
+  revisionRequest?: RevisionRequest;
 }
 
 export default function TalentOrdersPage() {
@@ -69,6 +72,7 @@ export default function TalentOrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [openDialogId, setOpenDialogId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   const colors = {
     primaryColor: "#8DBCC7",
@@ -78,6 +82,14 @@ export default function TalentOrdersPage() {
     darkTextColor: "#212121",
     grayTextColor: "#757575",
   };
+
+  // Update current time every second for countdown timers
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "talent") {
@@ -124,7 +136,13 @@ export default function TalentOrdersPage() {
       if (response.data.success) {
         setOrders((prev) =>
           prev.map((order) =>
-            order._id === orderId ? { ...order, status: newStatus as Order["status"] } : order
+            order._id === orderId
+              ? {
+                  ...order,
+                  status: newStatus as Order["status"],
+                  updatedAt: new Date().toISOString(), // Update locally for immediate timer display
+                }
+              : order
           )
         );
         toast.success("Success", {
@@ -144,7 +162,7 @@ export default function TalentOrdersPage() {
         className:
           "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
-      });
+    })
     }
   };
 
@@ -188,6 +206,20 @@ export default function TalentOrdersPage() {
       default:
         return { backgroundColor: colors.grayTextColor, color: "#FFFFFF" };
     }
+  };
+
+  const getRemainingTime = (order: Order): string => {
+    if (order.status !== "in-progress") return "N/A";
+    const updatedAt = new Date(order.updatedAt).getTime();
+    const deliveryHours = order.ratePlan.deliveryDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+    const deadline = updatedAt + deliveryHours;
+    const now = currentTime;
+    const remainingMs = deadline - now;
+    if (remainingMs <= 0) {
+      return "Overdue";
+    }
+    const remainingHours = Math.ceil(remainingMs / (1000 * 60 * 60)); // Convert to hours, round up
+    return `Delivery in ${remainingHours} hour${remainingHours !== 1 ? "s" : ""}`;
   };
 
   if (status === "loading" || isLoading) {
@@ -330,6 +362,9 @@ export default function TalentOrdersPage() {
                     Revision Status
                   </TableHead>
                   <TableHead style={{ color: colors.darkTextColor }}>
+                    Delivery Deadline
+                  </TableHead>
+                  <TableHead style={{ color: colors.darkTextColor }}>
                     Revision Details
                   </TableHead>
                   <TableHead style={{ color: colors.darkTextColor }}>
@@ -373,6 +408,14 @@ export default function TalentOrdersPage() {
                       >
                         {order.revisionStatus.charAt(0).toUpperCase() + order.revisionStatus.slice(1)}
                       </Badge>
+                    </TableCell>
+                    <TableCell style={{ color: order.status === "in-progress" && getRemainingTime(order) === "Overdue" ? "#EF4444" : colors.grayTextColor }}>
+                      <div className="flex items-center">
+                        {order.status === "in-progress" && (
+                          <Clock className="h-4 w-4 mr-2" style={{ color: getRemainingTime(order) === "Overdue" ? "#EF4444" : colors.accentColor }} />
+                        )}
+                        {getRemainingTime(order)}
+                      </div>
                     </TableCell>
                     <TableCell style={{ color: colors.grayTextColor }}>
                       {order.revisionStatus === "requested" && order.revisionRequest ? (

@@ -30,6 +30,7 @@ interface OrderResponse {
     revisionStatus: "none" | "requested" | "submitted";
     revisionCount: number;
     createdAt: string;
+    updatedAt: string;
     revisionRequest?: {
       files: string[];
       note?: string;
@@ -85,6 +86,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
           revisionStatus: order.revisionStatus || "none",
           revisionCount: order.revisionCount || 0,
           createdAt: order.createdAt.toISOString(),
+          updatedAt: order.updatedAt.toISOString(),
           revisionRequest: order.revisionRequest
             ? {
                 files: order.revisionRequest.files || [],
