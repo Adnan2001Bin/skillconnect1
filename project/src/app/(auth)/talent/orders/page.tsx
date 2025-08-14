@@ -50,7 +50,7 @@ interface Order {
     title: string;
     description: string;
   };
-  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   createdAt: string;
@@ -172,6 +172,8 @@ export default function TalentOrdersPage() {
       case "rejected":
       case "cancelled":
         return { backgroundColor: "#EF4444", color: "#FFFFFF" };
+      case "completed":
+        return { backgroundColor: "#17B169", color: "#FFFFFF" };
       default:
         return { backgroundColor: colors.grayTextColor, color: "#FFFFFF" };
     }
@@ -287,6 +289,7 @@ export default function TalentOrdersPage() {
               <SelectItem value="delivered">Delivered</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
               <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -358,6 +361,8 @@ export default function TalentOrdersPage() {
                           ? "In Progress"
                           : order.status === "delivered"
                           ? "Delivered"
+                          : order.status === "completed"
+                          ? "Completed"
                           : order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                       </Badge>
                     </TableCell>

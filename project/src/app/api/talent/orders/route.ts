@@ -26,7 +26,7 @@ interface OrderResponse {
       title: string;
       description: string;
     };
-    status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled";
+    status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
     revisionStatus: "none" | "requested" | "submitted";
     revisionCount: number;
     createdAt: string;

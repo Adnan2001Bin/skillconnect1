@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const updateOrderStatusSchema = z.object({
-  status: z.enum(["pending", "in-progress", "rejected", "delivered", "cancelled"]).optional(),
+  status: z.enum(["pending", "in-progress", "rejected", "delivered", "cancelled", "completed"]).optional(),
   revisionStatus: z.enum(["none", "requested", "submitted"]).optional(),
   revisionFiles: z.array(z.string().url()).optional().default([]),
   revisionNote: z.string().max(1000).optional(),
@@ -56,7 +56,7 @@ export async function PATCH(
 
     if (session.user.role === "user" && order.clientId !== session.user._id) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. You can only request revisions for your own orders." },
+        { success: false, message: "Unauthorized. You can only request revisions or approve your own orders." },
         { status: 403 }
       );
     }
@@ -96,16 +96,10 @@ export async function PATCH(
         };
       }
     } else if (validatedData.status) {
-      if (session.user.role !== "talent") {
-        return NextResponse.json(
-          { success: false, message: "Only talents can update order status." },
-          { status: 403 }
-        );
-      }
       const validTransitions: { [key: string]: string[] } = {
         pending: ["in-progress", "rejected"],
         "in-progress": ["cancelled"],
-        delivered: ["cancelled"],
+        delivered: ["cancelled", "completed"],
       };
 
       if (
@@ -120,6 +114,14 @@ export async function PATCH(
           { status: 400 }
         );
       }
+
+      if (validatedData.status === "completed" && session.user.role !== "user") {
+        return NextResponse.json(
+          { success: false, message: "Only clients can approve projects." },
+          { status: 403 }
+        );
+      }
+
       order.status = validatedData.status;
     }
 

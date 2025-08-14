@@ -6,7 +6,7 @@ import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
-import { Loader2, ChevronLeft, File, Paperclip, RefreshCcw, XCircle } from "lucide-react";
+import { Loader2, ChevronLeft, File, Paperclip, RefreshCcw, XCircle, CheckCircle } from "lucide-react";
 import { Images } from "@/lib/images";
 import { UploadDropzone } from "@uploadthing/react";
 import type { OurFileRouter } from "@/app/api/uploadthing/core/route";
@@ -25,7 +25,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 const revisionRequestSchema = z.object({
   revisionNote: z.string().max(1000).optional(),
-  revisionFiles: z.array(z.string().url()).optional()
+  revisionFiles: z.array(z.string().url()).optional(),
 });
 
 type RevisionRequestFormData = z.infer<typeof revisionRequestSchema>;
@@ -51,7 +51,7 @@ interface Order {
     title: string;
     description: string;
   };
-  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   deliverables?: Deliverables;
@@ -66,8 +66,10 @@ export default function ViewDeliverablesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
   const [revisionFiles, setRevisionFiles] = useState<string[]>([]);
-  const [open, setOpen] = useState(false);
+  const [openRevisionDialog, setOpenRevisionDialog] = useState(false);
+  const [openApproveDialog, setOpenApproveDialog] = useState(false);
 
   const colors = {
     primary: "#D3F1DF",
@@ -175,7 +177,7 @@ export default function ViewDeliverablesPage() {
           className: "bg-green-600 text-white border-green-700 bg-opacity-80",
           duration: 4000,
         });
-        setOpen(false);
+        setOpenRevisionDialog(false);
         setRevisionFiles([]);
         form.reset();
       } else {
@@ -190,6 +192,39 @@ export default function ViewDeliverablesPage() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleApproveProject = async () => {
+    if (!order) return;
+
+    setIsApproving(true);
+    try {
+      const response = await axios.patch(`/api/orders/${id}/status`, {
+        status: "completed",
+      });
+      if (response.data.success) {
+        setOrder((prev) =>
+          prev ? { ...prev, status: "completed" } : null
+        );
+        toast.success("Success", {
+          description: "Project approved successfully.",
+          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+          duration: 4000,
+        });
+        setOpenApproveDialog(false);
+      } else {
+        throw new Error(response.data.message || "Failed to approve project.");
+      }
+    } catch (error) {
+      console.error("Error approving project:", error);
+      toast.error("Error", {
+        description: "Failed to approve project. Please try again.",
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+        duration: 4000,
+      });
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -306,6 +341,101 @@ export default function ViewDeliverablesPage() {
               className="text-lg font-semibold flex items-center"
               style={{ color: colors.activeTextColor }}
             >
+              <CheckCircle
+                className="h-5 w-5 mr-2"
+                style={{ color: colors.accentColor }}
+              />
+              Project Approval
+            </h2>
+            <p
+              className="mt-2 text-sm"
+              style={{ color: colors.neutralTextColor }}
+            >
+              {order.status === "completed"
+                ? "This project has been approved."
+                : "Approve the project if you are satisfied with the deliverables."}
+            </p>
+            <Dialog open={openApproveDialog} onOpenChange={setOpenApproveDialog}>
+              <DialogTrigger asChild>
+                <Button
+                  disabled={
+                    isApproving ||
+                    order.status !== "delivered" ||
+                    order.revisionStatus === "requested"
+                  }
+                  className="mt-3 px-4 py-2 rounded-lg font-semibold shadow-md transition-all duration-300"
+                  style={{
+                    backgroundColor:
+                      order.status !== "delivered" ||
+                      order.revisionStatus === "requested"
+                        ? colors.neutralTextColor
+                        : colors.accentColor,
+                    color: colors.white,
+                  }}
+                  onMouseEnter={(e) =>
+                    order.status === "delivered" &&
+                    order.revisionStatus !== "requested" &&
+                    (e.currentTarget.style.backgroundColor = colors.neutralTextColor)
+                  }
+                  onMouseLeave={(e) =>
+                    order.status === "delivered" &&
+                    order.revisionStatus !== "requested" &&
+                    (e.currentTarget.style.backgroundColor = colors.accentColor)
+                  }
+                >
+                  {isApproving ? (
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                  ) : (
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                  )}
+                  Approve Project
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Confirm Project Approval</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p style={{ color: colors.neutralTextColor }}>
+                    Are you sure you want to approve this project? This action will mark the project as completed and cannot be undone.
+                  </p>
+                  <div className="flex justify-end gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setOpenApproveDialog(false)}
+                      style={{
+                        borderColor: colors.inputBorderColor,
+                        color: colors.activeTextColor,
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleApproveProject}
+                      disabled={isApproving}
+                      style={{
+                        backgroundColor: colors.accentColor,
+                        color: colors.white,
+                      }}
+                    >
+                      {isApproving ? (
+                        <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                      ) : (
+                        <CheckCircle className="h-5 w-5 mr-2" />
+                      )}
+                      Confirm Approval
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div>
+            <h2
+              className="text-lg font-semibold flex items-center"
+              style={{ color: colors.activeTextColor }}
+            >
               <RefreshCcw
                 className="h-5 w-5 mr-2"
                 style={{ color: colors.accentColor }}
@@ -318,7 +448,7 @@ export default function ViewDeliverablesPage() {
             >
               Revisions used: {order.revisionCount} / {order.ratePlan.revisions}
             </p>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={openRevisionDialog} onOpenChange={setOpenRevisionDialog}>
               <DialogTrigger asChild>
                 <Button
                   disabled={
@@ -374,8 +504,8 @@ export default function ViewDeliverablesPage() {
                             <Textarea
                               {...field}
                               placeholder="Describe the changes needed for this revision."
-                              className="rounded-lg p-3 w-full border"
-                              style={{ borderColor: colors.inputBorderColor, color: colors.activeTextColor }}
+                              className="rounded-lg p-3 w-full border text-neutral-900"
+                              style={{ borderColor: colors.inputBorderColor }}
                             />
                           </FormControl>
                           <FormMessage />

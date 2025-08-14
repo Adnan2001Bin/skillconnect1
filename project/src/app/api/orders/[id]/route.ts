@@ -12,9 +12,9 @@ export async function GET(
   try {
     // Authenticate user session
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "user") {
+    if (!session) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Only clients can view order details." },
+        { success: false, message: "Unauthorized. Please sign in." },
         { status: 401 }
       );
     }
@@ -40,8 +40,12 @@ export async function GET(
       );
     }
 
-    // Check if the client is authorized to view this order
-    if (order.clientId !== session.user._id) {
+    // Check if the user is authorized to view this order
+    if (
+      session.user.role !== "admin" &&
+      order.clientId !== session.user._id &&
+      order.talentId !== session.user._id
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -81,6 +85,13 @@ export async function GET(
                 files: order.deliverables.files || [],
                 note: order.deliverables.note || null,
                 submittedAt: order.deliverables.submittedAt?.toISOString() || null,
+              }
+            : undefined,
+          revisionRequest: order.revisionRequest
+            ? {
+                files: order.revisionRequest.files || [],
+                note: order.revisionRequest.note || null,
+                requestedAt: order.revisionRequest.requestedAt?.toISOString() || null,
               }
             : undefined,
         },

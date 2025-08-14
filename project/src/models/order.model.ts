@@ -16,7 +16,7 @@ export interface IOrder extends Document {
     title: string;
     description: string;
   };
-  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   deliverables?: {
@@ -54,7 +54,7 @@ const OrderSchema: Schema = new Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "in-progress", "accepted", "rejected", "delivered", "cancelled"],
+      enum: ["pending", "in-progress", "accepted", "rejected", "delivered", "cancelled", "completed"],
       default: "pending",
     },
     revisionStatus: {
