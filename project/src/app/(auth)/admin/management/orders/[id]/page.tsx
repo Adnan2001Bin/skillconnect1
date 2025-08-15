@@ -16,6 +16,7 @@ interface RatePlan {
   description: string;
   whatsIncluded: string[];
   deliveryDays: number;
+  revisions: number;
 }
 
 interface Order {
@@ -24,7 +25,14 @@ interface Order {
   clientId: string;
   ratePlan: RatePlan;
   projectDetails: { title: string; description: string };
-  status: "pending" | "accepted" | "rejected" | "completed" | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "completed" | "cancelled";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: string;
+  };
   createdAt: string;
   updatedAt: string;
   talentUserName?: string;
@@ -50,6 +58,8 @@ export default function OrderDetailsPage() {
   const successColor = "#34D399";
   const warningColor = "#FBBF24";
   const infoColor = "#60A5FA";
+  const inProgressColor = "#EC4899"; // Pink for in-progress
+  const deliveredColor = "#10B981"; // Emerald for delivered
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "admin") {
@@ -88,13 +98,30 @@ export default function OrderDetailsPage() {
     switch (status) {
       case "pending":
         return { backgroundColor: warningColor, color: primaryDarkGray };
+      case "in-progress":
+        return { backgroundColor: inProgressColor, color: white };
       case "accepted":
         return { backgroundColor: successColor, color: white };
+      case "delivered":
+        return { backgroundColor: deliveredColor, color: white };
       case "completed":
         return { backgroundColor: infoColor, color: white };
       case "rejected":
       case "cancelled":
         return { backgroundColor: errorColor, color: white };
+      default:
+        return { backgroundColor: neutralTextColor, color: white };
+    }
+  };
+
+  const getRevisionStatusBadgeColor = (revisionStatus: string) => {
+    switch (revisionStatus) {
+      case "none":
+        return { backgroundColor: "#6B7280", color: white }; // Gray
+      case "requested":
+        return { backgroundColor: "#F59E0B", color: white }; // Amber
+      case "submitted":
+        return { backgroundColor: "#3B82F6", color: white }; // Blue
       default:
         return { backgroundColor: neutralTextColor, color: white };
     }
@@ -225,6 +252,9 @@ export default function OrderDetailsPage() {
                 <strong>Delivery Days:</strong> {order.ratePlan.deliveryDays}
               </p>
               <p className="mb-2" style={{ color: neutralTextColor }}>
+                <strong>Revisions Allowed:</strong> {order.ratePlan.revisions}
+              </p>
+              <p className="mb-2" style={{ color: neutralTextColor }}>
                 <strong>What’s Included:</strong>{" "}
                 {order.ratePlan.whatsIncluded.join(", ")}
               </p>
@@ -239,6 +269,52 @@ export default function OrderDetailsPage() {
               <p className="mb-2" style={{ color: neutralTextColor }}>
                 <strong>Client:</strong> {order.clientUserName || "Unknown"} (ID: {order.clientId})
               </p>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold mb-4" style={{ color: activeTextColor }}>
+                Revision Information
+              </h2>
+              <p className="mb-2" style={{ color: neutralTextColor }}>
+                <strong>Revision Status:</strong>{" "}
+                <Badge
+                  style={getRevisionStatusBadgeColor(order.revisionStatus || "none")}
+                  className="px-3 py-1 rounded-full text-sm font-medium"
+                >
+                  {(order.revisionStatus || "none").charAt(0).toUpperCase() + (order.revisionStatus || "none").slice(1)}
+                </Badge>
+              </p>
+              <p className="mb-2" style={{ color: neutralTextColor }}>
+                <strong>Revision Count:</strong> {order.revisionCount}
+              </p>
+              {order.revisionRequest && (
+                <>
+                  <p className="mb-2" style={{ color: neutralTextColor }}>
+                    <strong>Revision Request Note:</strong>{" "}
+                    {order.revisionRequest.note || "No note provided"}
+                  </p>
+                  <p className="mb-2" style={{ color: neutralTextColor }}>
+                    <strong>Revision Requested At:</strong>{" "}
+                    {new Date(order.revisionRequest.requestedAt).toLocaleString()}
+                  </p>
+                  <p className="mb-2" style={{ color: neutralTextColor }}>
+                    <strong>Revision Request Files:</strong>{" "}
+                    {order.revisionRequest.files.length > 0
+                      ? order.revisionRequest.files.map((file, index) => (
+                          <a
+                            key={index}
+                            href={file}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline block"
+                            style={{ color: infoColor }}
+                          >
+                            File {index + 1}
+                          </a>
+                        ))
+                      : "No files uploaded"}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>

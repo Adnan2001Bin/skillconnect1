@@ -18,9 +18,17 @@ interface PopulatedOrder {
     description: string;
     whatsIncluded: string[];
     deliveryDays: number;
+    revisions: number;
   };
   projectDetails: { title: string; description: string };
-  status: "pending" | "accepted" | "rejected" | "completed" | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "completed" | "cancelled";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
   __v?: number;
@@ -33,9 +41,17 @@ interface Response {
   error?: string;
 }
 
-
 const updateOrderSchema = z.object({
-  status: z.enum(["pending", "accepted", "rejected", "completed", "cancelled"]).optional(),
+  status: z.enum(["pending", "in-progress", "accepted", "rejected", "delivered", "completed", "cancelled"]).optional(),
+  revisionStatus: z.enum(["none", "requested", "submitted"]).optional(),
+  revisionCount: z.number().nonnegative().optional(),
+  revisionRequest: z
+    .object({
+      note: z.string().optional(),
+      files: z.array(z.string()).optional(),
+      requestedAt: z.string().datetime().optional(),
+    })
+    .optional(),
   ratePlan: z
     .object({
       type: z.enum(["Basic", "Standard", "Premium"]),
@@ -43,6 +59,7 @@ const updateOrderSchema = z.object({
       description: z.string(),
       whatsIncluded: z.array(z.string()),
       deliveryDays: z.number().positive(),
+      revisions: z.number().nonnegative(),
     })
     .optional(),
   projectDetails: z
@@ -52,7 +69,6 @@ const updateOrderSchema = z.object({
     })
     .optional(),
 });
-
 
 export async function GET(
   request: NextRequest,
@@ -109,9 +125,25 @@ export async function GET(
       _id: order._id.toString(),
       talentId: order.talentId._id.toString(),
       clientId: order.clientId._id.toString(),
-      ratePlan: order.ratePlan,
+      ratePlan: {
+        type: order.ratePlan.type,
+        price: order.ratePlan.price,
+        description: order.ratePlan.description,
+        whatsIncluded: order.ratePlan.whatsIncluded,
+        deliveryDays: order.ratePlan.deliveryDays,
+        revisions: order.ratePlan.revisions || 0,
+      },
       projectDetails: order.projectDetails,
       status: order.status,
+      revisionStatus: order.revisionStatus || "none",
+      revisionCount: order.revisionCount || 0,
+      revisionRequest: order.revisionRequest
+        ? {
+            files: order.revisionRequest.files || [],
+            note: order.revisionRequest.note || undefined,
+            requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
+          }
+        : undefined,
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       talentUserName: order.talentId.userName,
@@ -182,6 +214,21 @@ export async function PATCH(
     if (validatedData.status) {
       order.status = validatedData.status;
     }
+    if (validatedData.revisionStatus) {
+      order.revisionStatus = validatedData.revisionStatus;
+    }
+    if (validatedData.revisionCount !== undefined) {
+      order.revisionCount = validatedData.revisionCount;
+    }
+    if (validatedData.revisionRequest) {
+      order.revisionRequest = {
+        ...validatedData.revisionRequest,
+        files: validatedData.revisionRequest.files || order.revisionRequest?.files || [],
+        requestedAt: validatedData.revisionRequest.requestedAt
+          ? new Date(validatedData.revisionRequest.requestedAt)
+          : order.revisionRequest?.requestedAt || new Date(),
+      };
+    }
     if (validatedData.ratePlan) {
       order.ratePlan = validatedData.ratePlan;
     }
@@ -218,9 +265,25 @@ export async function PATCH(
       _id: updatedOrder._id.toString(),
       talentId: updatedOrder.talentId._id.toString(),
       clientId: updatedOrder.clientId._id.toString(),
-      ratePlan: updatedOrder.ratePlan,
+      ratePlan: {
+        type: updatedOrder.ratePlan.type,
+        price: updatedOrder.ratePlan.price,
+        description: updatedOrder.ratePlan.description,
+        whatsIncluded: updatedOrder.ratePlan.whatsIncluded,
+        deliveryDays: updatedOrder.ratePlan.deliveryDays,
+        revisions: updatedOrder.ratePlan.revisions || 0,
+      },
       projectDetails: updatedOrder.projectDetails,
       status: updatedOrder.status,
+      revisionStatus: updatedOrder.revisionStatus || "none",
+      revisionCount: updatedOrder.revisionCount || 0,
+      revisionRequest: updatedOrder.revisionRequest
+        ? {
+            files: updatedOrder.revisionRequest.files || [],
+            note: updatedOrder.revisionRequest.note || undefined,
+            requestedAt: updatedOrder.revisionRequest.requestedAt?.toISOString() || "",
+          }
+        : undefined,
       createdAt: updatedOrder.createdAt.toISOString(),
       updatedAt: updatedOrder.updatedAt.toISOString(),
       talentUserName: updatedOrder.talentId.userName,
@@ -253,4 +316,3 @@ export async function PATCH(
     );
   }
 }
-

@@ -32,6 +32,7 @@ interface RatePlan {
   description: string;
   whatsIncluded: string[];
   deliveryDays: number;
+  revisions: number;
 }
 
 interface Order {
@@ -40,7 +41,14 @@ interface Order {
   clientId: string;
   ratePlan: RatePlan;
   projectDetails: { title: string; description: string };
-  status: "pending" | "accepted" | "rejected" | "completed" | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "completed" | "cancelled";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: string;
+  };
   createdAt: string;
   updatedAt: string;
   talentUserName?: string;
@@ -53,6 +61,7 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [revisionStatusFilter, setRevisionStatusFilter] = useState<string>("all");
   const [timeRange, setTimeRange] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
@@ -68,6 +77,8 @@ export default function AdminOrdersPage() {
   const successColor = "#34D399";
   const warningColor = "#FBBF24";
   const infoColor = "#60A5FA";
+  const deliveredColor = "#10B981"; // New color for delivered status
+  const inProgressColor = "#3B82F6"; // New color for in-progress status
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "admin") {
@@ -75,13 +86,14 @@ export default function AdminOrdersPage() {
     } else if (status === "unauthenticated") {
       router.replace("/sign-in");
     }
-  }, [status, session, router, statusFilter, timeRange, searchQuery]);
+  }, [status, session, router, statusFilter, revisionStatusFilter, timeRange, searchQuery]);
 
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
       const params: any = {};
       if (statusFilter !== "all") params.status = statusFilter;
+      if (revisionStatusFilter !== "all") params.revisionStatus = revisionStatusFilter;
       if (timeRange !== "all") params.timeRange = timeRange;
       if (searchQuery) params.search = searchQuery;
 
@@ -136,8 +148,12 @@ export default function AdminOrdersPage() {
     switch (status) {
       case "pending":
         return { backgroundColor: warningColor, color: primaryDarkGray };
+      case "in-progress":
+        return { backgroundColor: inProgressColor, color: white };
       case "accepted":
         return { backgroundColor: successColor, color: white };
+      case "delivered":
+        return { backgroundColor: deliveredColor, color: white };
       case "completed":
         return { backgroundColor: infoColor, color: white };
       case "rejected":
@@ -148,10 +164,24 @@ export default function AdminOrdersPage() {
     }
   };
 
+  const getRevisionStatusBadgeColor = (revisionStatus: string) => {
+    switch (revisionStatus) {
+      case "none":
+        return { backgroundColor: neutralTextColor, color: white };
+      case "requested":
+        return { backgroundColor: warningColor, color: primaryDarkGray };
+      case "submitted":
+        return { backgroundColor: successColor, color: white };
+      default:
+        return { backgroundColor: neutralTextColor, color: white };
+    }
+  };
+
   const filteredOrders = orders.filter((order) =>
     searchQuery
       ? order.projectDetails.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.projectDetails.description.toLowerCase().includes(searchQuery.toLowerCase())
+        order.projectDetails.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.revisionStatus.toLowerCase().includes(searchQuery.toLowerCase())
       : true
   );
 
@@ -229,10 +259,36 @@ export default function AdminOrdersPage() {
               <SelectContent style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
                 <SelectItem value="accepted">Accepted</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
                 <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-4">
+            <label
+              htmlFor="revision-status-filter"
+              className="text-sm font-medium"
+              style={{ color: activeTextColor }}
+            >
+              Filter by Revision Status:
+            </label>
+            <Select value={revisionStatusFilter} onValueChange={(value) => setRevisionStatusFilter(value)}>
+              <SelectTrigger
+                id="revision-status-filter"
+                className="w-[180px] border-2 focus:ring-2 focus:ring-offset-2"
+                style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+              >
+                <SelectValue placeholder="Select revision status" />
+              </SelectTrigger>
+              <SelectContent style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="requested">Requested</SelectItem>
+                <SelectItem value="submitted">Submitted</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -270,7 +326,7 @@ export default function AdminOrdersPage() {
             </label>
             <Input
               id="search"
-              placeholder="Search by project title or description"
+              placeholder="Search by project title, description, or revision status"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && fetchOrders()}
@@ -303,6 +359,7 @@ export default function AdminOrdersPage() {
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Project Title</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Rate Plan</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Revision Status</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Created At</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Updated At</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</TableHead>
@@ -332,6 +389,14 @@ export default function AdminOrdersPage() {
                         className="px-3 py-1 rounded-full text-sm font-medium"
                       >
                         {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                      <Badge
+                        style={getRevisionStatusBadgeColor(order.revisionStatus)}
+                        className="px-3 py-1 rounded-full text-sm font-medium"
+                      >
+                        {order.revisionStatus.charAt(0).toUpperCase() + order.revisionStatus.slice(1)}
                       </Badge>
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">

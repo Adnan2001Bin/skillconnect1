@@ -24,6 +24,7 @@ interface RatePlan {
   description: string;
   whatsIncluded: string[];
   deliveryDays: number;
+  revisions: number;
 }
 
 interface Order {
@@ -32,7 +33,14 @@ interface Order {
   clientId: string;
   ratePlan: RatePlan;
   projectDetails: { title: string; description: string };
-  status: "pending" | "accepted" | "rejected" | "completed" | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "completed" | "cancelled";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: string;
+  };
   createdAt: string;
   updatedAt: string;
   talentUserName?: string;
@@ -46,15 +54,26 @@ export default function EditOrderPage() {
   const id = params.id as string;
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [formData, setFormData] = useState({
-    status: "" as Order["status"],
+  const [formData, setFormData] = useState<{
+    status: Order["status"];
+    revisionStatus: Order["revisionStatus"];
+    revisionCount: number;
+    revisionRequest?: Order["revisionRequest"];
+    projectDetails: Order["projectDetails"];
+    ratePlan: RatePlan;
+  }>({
+    status: "pending",
+    revisionStatus: "none",
+    revisionCount: 0,
+    revisionRequest: undefined,
     projectDetails: { title: "", description: "" },
     ratePlan: {
-      type: "" as RatePlan["type"],
+      type: "Basic",
       price: 0,
       description: "",
-      whatsIncluded: [] as string[],
+      whatsIncluded: [],
       deliveryDays: 0,
+      revisions: 0,
     },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,6 +105,15 @@ export default function EditOrderPage() {
         setOrder(fetchedOrder);
         setFormData({
           status: fetchedOrder.status,
+          revisionStatus: fetchedOrder.revisionStatus || "none",
+          revisionCount: fetchedOrder.revisionCount || 0,
+          revisionRequest: fetchedOrder.revisionRequest
+            ? {
+                files: fetchedOrder.revisionRequest.files || [],
+                note: fetchedOrder.revisionRequest.note || "",
+                requestedAt: fetchedOrder.revisionRequest.requestedAt || new Date().toISOString(),
+              }
+            : undefined,
           projectDetails: fetchedOrder.projectDetails,
           ratePlan: fetchedOrder.ratePlan,
         });
@@ -137,7 +165,7 @@ export default function EditOrderPage() {
 
   const handleInputChange = (
     field: keyof typeof formData,
-    value: string | { title: string; description: string } | RatePlan
+    value: string | number | Order["projectDetails"] | RatePlan | Order["revisionRequest"]
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -153,6 +181,21 @@ export default function EditOrderPage() {
     setFormData((prev) => ({
       ...prev,
       projectDetails: { ...prev.projectDetails, [key]: value },
+    }));
+  };
+
+  const handleRevisionRequestChange = (
+    key: keyof NonNullable<Order["revisionRequest"]>,
+    value: string
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      revisionRequest: {
+        ...prev.revisionRequest,
+        [key]: value,
+        files: prev.revisionRequest?.files || [],
+        requestedAt: prev.revisionRequest?.requestedAt || new Date().toISOString(),
+      },
     }));
   };
 
@@ -204,7 +247,7 @@ export default function EditOrderPage() {
 
   return (
     <div
-      className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-15 max-w-7xl mx-auto  mt-17"
+      className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-15 max-w-7xl mx-auto mt-17"
       style={{
         backgroundImage: `url(${Images.adminViewbackground ? Images.adminViewbackground.src : ""})`,
         backgroundSize: "cover",
@@ -265,12 +308,61 @@ export default function EditOrderPage() {
                   </SelectTrigger>
                   <SelectContent style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}>
                     <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
                     <SelectItem value="accepted">Accepted</SelectItem>
                     <SelectItem value="rejected">Rejected</SelectItem>
+                    <SelectItem value="delivered">Delivered</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="mb-4">
+                <label
+                  htmlFor="revisionStatus"
+                  className="block text-sm font-medium mb-1"
+                  style={{ color: activeTextColor }}
+                >
+                  Revision Status
+                </label>
+                <Select
+                  value={formData.revisionStatus}
+                  onValueChange={(value) =>
+                    handleInputChange("revisionStatus", value as Order["revisionStatus"])
+                  }
+                >
+                  <SelectTrigger
+                    id="revisionStatus"
+                    className="border-2 focus:ring-2 focus:ring-offset-2"
+                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  >
+                    <SelectValue placeholder="Select revision status" />
+                  </SelectTrigger>
+                  <SelectContent style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="requested">Requested</SelectItem>
+                    <SelectItem value="submitted">Submitted</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="mb-4">
+                <label
+                  htmlFor="revisionCount"
+                  className="block text-sm font-medium mb-1"
+                  style={{ color: activeTextColor }}
+                >
+                  Revision Count
+                </label>
+                <Input
+                  id="revisionCount"
+                  type="number"
+                  min="0"
+                  value={formData.revisionCount}
+                  onChange={(e) => handleInputChange("revisionCount", Number(e.target.value))}
+                  className="border-2 focus:ring-2 focus:ring-offset-2"
+                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  placeholder="Enter revision count"
+                />
               </div>
             </div>
             <div>
@@ -405,6 +497,25 @@ export default function EditOrderPage() {
               </div>
               <div className="mb-4">
                 <label
+                  htmlFor="revisions"
+                  className="block text-sm font-medium mb-1"
+                  style={{ color: activeTextColor }}
+                >
+                  Revisions Allowed
+                </label>
+                <Input
+                  id="revisions"
+                  type="number"
+                  min="0"
+                  value={formData.ratePlan.revisions}
+                  onChange={(e) => handleRatePlanChange("revisions", Number(e.target.value))}
+                  className="border-2 focus:ring-2 focus:ring-offset-2"
+                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  placeholder="Enter number of revisions"
+                />
+              </div>
+              <div className="mb-4">
+                <label
                   htmlFor="whatsIncluded"
                   className="block text-sm font-medium mb-1"
                   style={{ color: activeTextColor }}
@@ -420,6 +531,71 @@ export default function EditOrderPage() {
                   placeholder="Enter included items, separated by commas"
                 />
               </div>
+            </div>
+            <div>
+              <h2
+                className="text-xl font-semibold mb-4"
+                style={{ color: activeTextColor }}
+              >
+                Revision Information
+              </h2>
+              <div className="mb-4">
+                <label
+                  htmlFor="revisionNote"
+                  className="block text-sm font-medium mb-1"
+                  style={{ color: activeTextColor }}
+                >
+                  Revision Request Note
+                </label>
+                <Textarea
+                  id="revisionNote"
+                  value={formData.revisionRequest?.note || ""}
+                  onChange={(e) => handleRevisionRequestChange("note", e.target.value)}
+                  className="border-2 focus:ring-2 focus:ring-offset-2"
+                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  placeholder="Enter revision request note"
+                />
+              </div>
+              {order.revisionRequest?.files && order.revisionRequest.files.length > 0 && (
+                <div className="mb-4">
+                  <label
+                    className="block text-sm font-medium mb-1"
+                    style={{ color: activeTextColor }}
+                  >
+                    Revision Request Files
+                  </label>
+                  <div>
+                    {order.revisionRequest.files.map((file, index) => (
+                      <a
+                        key={index}
+                        href={file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline block"
+                        style={{ color: "#60A5FA" }}
+                      >
+                        File {index + 1}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {order.revisionRequest?.requestedAt && (
+                <div className="mb-4">
+                  <label
+                    className="block text-sm font-medium mb-1"
+                    style={{ color: activeTextColor }}
+                  >
+                    Revision Requested At
+                  </label>
+                  <Input
+                    value={new Date(order.revisionRequest.requestedAt).toLocaleString()}
+                    disabled
+                    className="border-2"
+                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <Button
