@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -27,16 +26,15 @@ import { ArrowLeft, User, Package } from "lucide-react";
 import Loader from "@/components/Loader";
 import { Images } from "@/lib/images";
 
-// Define RatePlan type to match talentProfileSchema
 interface RatePlan {
   type: "Basic" | "Standard" | "Premium";
   description: string;
   price: number;
   whatsIncluded: string[];
   deliveryDays: number;
+  revisions: number;
 }
 
-// Define Order type for orders fetched from API
 interface Order {
   _id: string;
   talentId: string;
@@ -46,9 +44,17 @@ interface Order {
     title: string;
     description: string;
   };
-  status: string;
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "completed" | "cancelled";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: string;
+  };
   createdAt: string;
-  talentUserName?: string; // Added to store fetched talent username
+  updatedAt: string;
+  talentUserName?: string;
 }
 
 export default function ClientOrdersPage() {
@@ -57,6 +63,7 @@ export default function ClientOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [revisionStatusFilter, setRevisionStatusFilter] = useState<string>("all");
 
   const colors = {
     primary: "#D3F1DF",
@@ -67,6 +74,11 @@ export default function ClientOrdersPage() {
     white: "#FFFFFF",
     inputBorderColor: "#FFFFFF",
     errorRed: "#EF4444",
+    successColor: "#34D399",
+    warningColor: "#FBBF24",
+    infoColor: "#60A5FA",
+    deliveredColor: "#10B981",
+    inProgressColor: "#3B82F6",
   };
 
   useEffect(() => {
@@ -74,38 +86,16 @@ export default function ClientOrdersPage() {
       const fetchOrders = async () => {
         setIsLoading(true);
         try {
-          // Fetch orders for the client
           const ordersResponse = await axios.get("/api/orders", {
-            params: { clientId: session.user._id },
+            params: { 
+              clientId: session.user._id,
+              status: statusFilter !== "all" ? statusFilter : undefined,
+              revisionStatus: revisionStatusFilter !== "all" ? revisionStatusFilter : undefined,
+            },
           });
           if (ordersResponse.data.success) {
             const fetchedOrders: Order[] = ordersResponse.data.data;
-
-            // Fetch talent usernames for each order
-            const ordersWithUserNames = await Promise.all(
-              fetchedOrders.map(async (order) => {
-                try {
-                  const profileResponse = await axios.get(
-                    `/api/profile/${order.talentId}`
-                  );
-                  if (profileResponse.data.success) {
-                    return {
-                      ...order,
-                      talentUserName: profileResponse.data.data.userName,
-                    };
-                  }
-                  return { ...order, talentUserName: "Unknown" };
-                } catch (error) {
-                  console.error(
-                    `Error fetching talent profile for talentId ${order.talentId}:`,
-                    error
-                  );
-                  return { ...order, talentUserName: "Unknown" };
-                }
-              })
-            );
-
-            setOrders(ordersWithUserNames);
+            setOrders(fetchedOrders);
           } else {
             toast.error("Error", {
               description:
@@ -131,30 +121,38 @@ export default function ClientOrdersPage() {
     } else if (status === "unauthenticated") {
       router.replace("/sign-in");
     }
-  }, [status, session, router]);
+  }, [status, session, router, statusFilter, revisionStatusFilter]);
 
-  // Filter orders based on status
-  const filteredOrders =
-    statusFilter === "all"
-      ? orders
-      : orders.filter((order) => order.status === statusFilter);
-
-  // Status badge color mapping
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
       case "pending":
-        return {
-          color: colors.white,
-        };
+        return { backgroundColor: colors.warningColor, color: colors.white };
+      case "in-progress":
+        return { backgroundColor: colors.inProgressColor, color: colors.white };
       case "accepted":
-        return { backgroundColor: colors.accentColor, color: colors.white };
+        return { backgroundColor: colors.successColor, color: colors.white };
+      case "delivered":
+        return { backgroundColor: colors.deliveredColor, color: colors.white };
       case "completed":
-        return {
-          backgroundColor: colors.primary,
-          color: colors.activeTextColor,
-        };
-      default:
+        return { backgroundColor: colors.infoColor, color: colors.white };
+      case "rejected":
+      case "cancelled":
         return { backgroundColor: colors.errorRed, color: colors.white };
+      default:
+        return { backgroundColor: colors.neutralTextColor, color: colors.white };
+    }
+  };
+
+  const getRevisionStatusBadgeColor = (revisionStatus: string) => {
+    switch (revisionStatus) {
+      case "none":
+        return { backgroundColor: colors.neutralTextColor, color: colors.white };
+      case "requested":
+        return { backgroundColor: colors.warningColor, color: colors.white };
+      case "submitted":
+        return { backgroundColor: colors.successColor, color: colors.white };
+      default:
+        return { backgroundColor: colors.neutralTextColor, color: colors.white };
     }
   };
 
@@ -194,6 +192,7 @@ export default function ClientOrdersPage() {
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
+        
       }}
     >
       <div className="relative z-10 mb-8 mt-20 p-5 rounded-2xl" style={{ backgroundColor: "rgba(163,209,198, 0.2)" }}>
@@ -219,43 +218,76 @@ export default function ClientOrdersPage() {
           Your Orders
         </h1>
 
-        {/* Status Filter */}
-        <div className="mb-6 flex items-center gap-4">
-          <label
-            htmlFor="status-filter"
-            className="text-sm font-medium"
-            style={{ color: colors.activeTextColor }}
-          >
-            Filter by Status:
-          </label>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger
-              id="status-filter"
-              className="w-[180px]"
-              style={{
-                borderColor: colors.inputBorderColor,
-                color: colors.activeTextColor,
-              }}
+        {/* Filters */}
+        <div className="mb-6 flex flex-col sm:flex-row gap-4">
+          <div className="flex items-center gap-4">
+            <label
+              htmlFor="status-filter"
+              className="text-sm font-medium"
+              style={{ color: colors.neutralTextColor }}
             >
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="accepted">Accepted</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
+              Filter by Status:
+            </label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger
+                id="status-filter"
+                className="w-[180px]"
+                style={{
+                  borderColor: colors.inputBorderColor, 
+                  color: colors.neutralTextColor, 
+                }}
+              >
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent style={{ backgroundColor: colors.white, color: colors.accentColor /* Changed text color for dropdown */ }}>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in-progress">In Progress</SelectItem>
+                <SelectItem value="accepted">Accepted</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="delivered">Delivered</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-4">
+            <label
+              htmlFor="revision-status-filter"
+              className="text-sm font-medium"
+              style={{ color: colors.neutralTextColor /* Changed for better contrast */ }}
+            >
+              Filter by Revision Status:
+            </label>
+            <Select value={revisionStatusFilter} onValueChange={setRevisionStatusFilter}>
+              <SelectTrigger
+                id="revision-status-filter"
+                className="w-[180px]"
+                style={{
+                  borderColor: colors.inputBorderColor,
+                  color: colors.neutralTextColor, 
+                }}
+              >
+                <SelectValue placeholder="Select revision status" />
+              </SelectTrigger>
+              <SelectContent style={{ backgroundColor: colors.white, color: colors.accentColor /* Changed text color for dropdown */ }}>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="requested">Requested</SelectItem>
+                <SelectItem value="submitted">Submitted</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Orders Table */}
-        {filteredOrders.length === 0 ? (
+        {orders.length === 0 ? (
           <div
             className="bg-transparent rounded-lg shadow-md shadow-[#16423C] p-6 border text-center"
             style={{ borderColor: colors.inputBorderColor }}
           >
             <p className="text-lg" style={{ color: colors.neutralTextColor }}>
-              No {statusFilter === "all" ? "" : statusFilter} orders found.
+              No {statusFilter === "all" && revisionStatusFilter === "all" ? "" : "matching"} orders found.
             </p>
           </div>
         ) : (
@@ -279,6 +311,9 @@ export default function ClientOrdersPage() {
                     Status
                   </TableHead>
                   <TableHead style={{ color: colors.activeTextColor }}>
+                    Revision Status
+                  </TableHead>
+                  <TableHead style={{ color: colors.activeTextColor }}>
                     Created At
                   </TableHead>
                   <TableHead style={{ color: colors.activeTextColor }}>
@@ -287,7 +322,7 @@ export default function ClientOrdersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrders.map((order) => (
+                {orders.map((order) => (
                   <TableRow key={order._id}>
                     <TableCell style={{ color: colors.neutralTextColor }}>
                       {order.talentUserName || "Unknown"}
@@ -307,6 +342,15 @@ export default function ClientOrdersPage() {
                           order.status.slice(1)}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      <Badge
+                        style={getRevisionStatusBadgeColor(order.revisionStatus)}
+                        className="px-3 py-1 rounded-full text-sm font-medium"
+                      >
+                        {order.revisionStatus.charAt(0).toUpperCase() +
+                          order.revisionStatus.slice(1)}
+                      </Badge>
+                    </TableCell>
                     <TableCell style={{ color: colors.neutralTextColor }}>
                       {new Date(order.createdAt).toLocaleDateString()}
                     </TableCell>
@@ -321,14 +365,14 @@ export default function ClientOrdersPage() {
                           borderColor: colors.accentColor,
                           color: colors.accentColor,
                         }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor =
-                            colors.primary)
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor =
-                            "transparent")
-                        }
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = colors.primary;
+                          e.currentTarget.style.color = colors.white; // Ensure text is readable on hover
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                          e.currentTarget.style.color = colors.accentColor;
+                        }}
                       >
                         <User className="h-4 w-4 mr-2" />
                         View Talent
@@ -344,14 +388,14 @@ export default function ClientOrdersPage() {
                             borderColor: colors.accentColor,
                             color: colors.accentColor,
                           }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                              colors.primary)
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor =
-                              "transparent")
-                          }
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = colors.primary;
+                            e.currentTarget.style.color = colors.white; // Ensure text is readable on hover
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = "transparent";
+                            e.currentTarget.style.color = colors.accentColor;
+                          }}
                         >
                           <Package className="h-4 w-4 mr-2" />
                           View Deliverables

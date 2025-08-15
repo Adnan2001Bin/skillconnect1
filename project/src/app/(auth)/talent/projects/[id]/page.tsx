@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,6 +13,7 @@ import {
   FileText,
   Tag,
   AlertCircle,
+  Package,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { IProject } from "@/models/projects.model";
@@ -73,7 +73,7 @@ const getProposalStatusBadgeColor = (status?: string) => {
 };
 
 export default function TalentProjectDetailsPage() {
-    const { status, data: session } = useSession();
+  const { status, data: session } = useSession();
   const router = useRouter();
   const { id } = useParams();
   const [project, setProject] = useState<IProject | null>(null);
@@ -83,6 +83,7 @@ export default function TalentProjectDetailsPage() {
   const [proposalStatus, setProposalStatus] = useState<ProposalStatus>({
     hasApplied: false,
   });
+
   const colors = {
     accentColor: "#8DBCC7",
     activeTextColor: "#212121",
@@ -175,18 +176,19 @@ export default function TalentProjectDetailsPage() {
   if (status === "loading") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
-        <Loader text="Loading project..." color="#000000" bgColor="#90D1CA" size='large'/>
+        <Loader text="Loading project..." color="#000000" bgColor="#90D1CA" size="large" />
       </div>
     );
   }
 
   if (loading) {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
-      <Loader text="Loading project..." color="#000000" bgColor="#90D1CA" size='large'/>
-    </div>
-  );
-}
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
+        <Loader text="Loading project..." color="#000000" bgColor="#90D1CA" size="large" />
+      </div>
+    );
+  }
+
   if (error || !project) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#e4e0ff] px-4">
@@ -473,6 +475,19 @@ export default function TalentProjectDetailsPage() {
                   style={{ backgroundColor: colors.accentColor }}
                 >
                   Apply Now
+                </Button>
+              )}
+            {isTalent &&
+              project.status === "in-progress" &&
+              proposalStatus.hasApplied &&
+              proposalStatus.status === "accepted" && (
+                <Button
+                  onClick={() => router.push(`/talent/orders/${id}/deliver`)}
+                  className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
+                  style={{ backgroundColor: colors.accentColor }}
+                >
+                  <Package className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Deliver Project
                 </Button>
               )}
             <Button

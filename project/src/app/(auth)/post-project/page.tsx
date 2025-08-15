@@ -213,7 +213,7 @@ export default function CreateProjectPage() {
             "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
-        router.push("/dashboard/client/projects");
+        router.push("/projects");
       } else {
         throw new Error(response.data.message || "Failed to post project");
       }
