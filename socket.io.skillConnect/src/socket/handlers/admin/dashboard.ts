@@ -1,12 +1,8 @@
-import projectsModel from "@/src/models/projects.model";
-import orderModel from "@/src/models/order.model";
-import proposalModel from "@/src/models/proposal.model";
+import OrderModel from "@/src/models/order.model";
 import UserModel from "@/src/models/user.model";
-import { DashboardData, LeanProject, LeanOrder } from "../../../type";
+import { DashboardData } from "../../../type";
 
-export const getDashboardData = async (
-  timeRange: string
-): Promise<DashboardData> => {
+export const getDashboardData = async (timeRange: string): Promise<DashboardData> => {
   const now = new Date();
   let startDate: Date | undefined;
 
@@ -29,160 +25,73 @@ export const getDashboardData = async (
 
   const query = startDate ? { createdAt: { $gte: startDate } } : {};
 
-  // Project metrics
-  const totalProjects = await projectsModel.countDocuments(query);
-  const projectsByStatus = {
-    open: await projectsModel.countDocuments({ ...query, status: "open" }),
-    inProgress: await projectsModel.countDocuments({
-      ...query,
-      status: "in-progress",
-    }),
-    completed: await projectsModel.countDocuments({
-      ...query,
-      status: "completed",
-    }),
-    cancelled: await projectsModel.countDocuments({
-      ...query,
-      status: "cancelled",
-    }),
-  };
-
   // Order metrics
-  const totalOrders = await orderModel.countDocuments(query);
+  const totalOrders = await OrderModel.countDocuments(query);
   const ordersByStatus = {
-    pending: await orderModel.countDocuments({ ...query, status: "pending" }),
-    accepted: await orderModel.countDocuments({ ...query, status: "accepted" }),
-    rejected: await orderModel.countDocuments({ ...query, status: "rejected" }),
-    completed: await orderModel.countDocuments({
-      ...query,
-      status: "completed",
-    }),
-    cancelled: await orderModel.countDocuments({
-      ...query,
-      status: "cancelled",
-    }),
+    pending: await OrderModel.countDocuments({ ...query, status: "pending" }),
+    inProgress: await OrderModel.countDocuments({ ...query, status: "in-progress" }),
+    accepted: await OrderModel.countDocuments({ ...query, status: "accepted" }),
+    rejected: await OrderModel.countDocuments({ ...query, status: "rejected" }),
+    delivered: await OrderModel.countDocuments({ ...query, status: "delivered" }),
+    completed: await OrderModel.countDocuments({ ...query, status: "completed" }),
+    cancelled: await OrderModel.countDocuments({ ...query, status: "cancelled" }),
   };
 
-  // Other metrics
-  const activeProposals = await proposalModel.countDocuments({
-    ...query,
-    proposalStatus: "pending",
-  });
-  const disputes = await proposalModel.countDocuments({
-    ...query,
-    status: "disputed",
-  });
+  // Revision status counts
+  const revisionStatusCounts = {
+    none: await OrderModel.countDocuments({ ...query, revisionStatus: "none" }),
+    requested: await OrderModel.countDocuments({ ...query, revisionStatus: "requested" }),
+    submitted: await OrderModel.countDocuments({ ...query, revisionStatus: "submitted" }),
+  };
 
-  // Recent activity (projects and orders)
-  const recentProjects = await proposalModel
-    .find(query)
-    .select("title status createdAt _id")
+  // Recent orders (up to 5)
+  const recentOrders = await OrderModel.find(query)
     .sort({ createdAt: -1 })
     .limit(5)
-    .lean<LeanProject[]>()
-    .then((projects) =>
-      projects.map((p) => ({
-        id: p._id.toString(),
-        title: p.title,
-        type: `Project ${p.status}`,
-        timestamp: p.createdAt,
-      }))
-    );
+    .lean();
 
-  const recentOrders = await orderModel
-    .find(query)
-    .select("projectDetails.title status createdAt _id talentId clientId")
-    .populate<{ talentId: { userName: string } }>({
-      path: "talentId",
-      model: UserModel,
-      select: "userName",
-    })
-    .populate<{ clientId: { userName: string } }>({
-      path: "clientId",
-      model: UserModel,
-      select: "userName",
-    })
-    .sort({ createdAt: -1 })
-    .limit(5)
-    .lean<LeanOrder[]>()
-    .then((orders) =>
-      orders.map((o) => ({
-        id: o._id.toString(),
-        title: o.projectDetails.title,
-        type: `Order ${o.status} by ${o.talentId.userName || "Unknown"}`,
-        timestamp: o.createdAt,
-      }))
-    );
-
-  const recentActivity = [...recentProjects, ...recentOrders]
-    .sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    )
-    .slice(0, 5);
-
-  // High-priority issues (projects and orders)
-  const highPriorityProjects = await projectsModel
-    .find({
-      $or: [
-        {
-          status: "open",
-          proposalCount: 0,
-          createdAt: { $lte: new Date(now.setDate(now.getDate() - 7)) },
+  const recentOrdersWithUserNames = await Promise.all(
+    recentOrders.map(async (order: any) => {
+      const client = await UserModel.findById(order.clientId).select("userName").lean();
+      const talent = await UserModel.findById(order.talentId).select("userName").lean();
+      return {
+        _id: order._id.toString(),
+        talentId: order.talentId,
+        clientId: order.clientId,
+        clientUserName: client?.userName || "Unknown",
+        talentUserName: talent?.userName || "Unknown", // Added talentUserName
+        ratePlan: {
+          type: order.ratePlan.type,
+          price: order.ratePlan.price,
+          description: order.ratePlan.description,
+          whatsIncluded: order.ratePlan.whatsIncluded,
+          deliveryDays: order.ratePlan.deliveryDays,
+          revisions: order.ratePlan.revisions,
         },
-        { status: "cancelled", updatedAt: { $gte: startDate || new Date(0) } },
-      ],
-    })
-    .select("title status _id")
-    .limit(5)
-    .lean<LeanProject[]>()
-    .then((projects) =>
-      projects.map((p) => ({
-        id: p._id.toString(),
-        title: p.title,
-        issue:
-          p.status === "open" ? "No proposals received" : "Recently cancelled",
-        type: "project" as const,
-      }))
-    );
-
-  const highPriorityOrders = await orderModel
-    .find({
-      $or: [
-        {
-          status: "pending",
-          createdAt: { $lte: new Date(now.setDate(now.getDate() - 7)) },
+        projectDetails: {
+          title: order.projectDetails.title,
+          description: order.projectDetails.description,
         },
-        { status: "cancelled", updatedAt: { $gte: startDate || new Date(0) } },
-      ],
+        status: order.status,
+        revisionStatus: order.revisionStatus || "none",
+        revisionCount: order.revisionCount || 0,
+        createdAt: order.createdAt.toISOString(),
+        updatedAt: order.updatedAt.toISOString(),
+        revisionRequest: order.revisionRequest
+          ? {
+              files: order.revisionRequest.files || [],
+              note: order.revisionRequest.note || undefined,
+              requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
+            }
+          : undefined,
+      };
     })
-    .select("projectDetails.title status _id")
-    .limit(5)
-    .lean<LeanOrder[]>()
-    .then((orders) =>
-      orders.map((o) => ({
-        id: o._id.toString(),
-        title: o.projectDetails.title,
-        issue:
-          o.status === "pending"
-            ? "Pending for over 7 days"
-            : "Recently cancelled",
-        type: "order" as const,
-      }))
-    );
-
-  const highPriorityIssues = [...highPriorityProjects, ...highPriorityOrders]
-    .sort((a, b) => new Date(b.id).getTime() - new Date(a.id).getTime())
-    .slice(0, 5);
+  );
 
   return {
-    totalProjects,
-    projectsByStatus,
     totalOrders,
     ordersByStatus,
-    activeProposals,
-    disputes,
-    recentActivity,
-    highPriorityIssues,
+    revisionStatusCounts,
+    recentOrders: recentOrdersWithUserNames,
   };
 };
