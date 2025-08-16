@@ -3,15 +3,15 @@ import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import ProposalModel from "@/models/proposal.model";
-import { authOptions } from "../auth/[...nextauth]/options";
+import ProjectModel from "@/models/projects.model";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
-// Define the schema for proposal validation, matching the frontend form
-const proposalSchema = z.object({
+const createProposalSchema = z.object({
   projectId: z.string().nonempty({ message: "Project ID is required" }),
   talentId: z.string().nonempty({ message: "Talent ID is required" }),
-  bid: z.number().min(10, { message: "Bid must be at least $10" }).max(100000, { message: "Bid must not exceed $100,000" }),
-  coverLetter: z.string().min(50, { message: "Cover letter must be at least 50 characters" }).max(1000, { message: "Cover letter must not exceed 1000 characters" }),
-  files: z.array(z.string().url()).optional(),
+  bid: z.number().min(10, { message: "Bid must be at least 10" }),
+  coverLetter: z.string().min(10, { message: "Cover letter must be at least 10 characters" }).max(1000),
+  files: z.array(z.string()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -25,30 +25,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Connect to the database
-    await connectDB();
+    // 2. Parse and validate request body
     const body = await req.json();
+    const validatedData = createProposalSchema.parse(body);
 
-    // 3. Validate the request body with Zod
-    const validatedData = proposalSchema.parse({
-      ...body,
-      talentId: session.user._id, // Ensure talentId comes from the session for security
-    });
+    // 3. Connect to the database
+    await connectDB();
 
-    // 4. Check if the talent has already submitted a proposal for this project
-    const existingProposal = await ProposalModel.findOne({
-      projectId: validatedData.projectId,
-      talentId: validatedData.talentId,
-    });
-
-    if (existingProposal) {
+    // 4. Verify project exists and is open
+    const project = await ProjectModel.findById(validatedData.projectId);
+    if (!project) {
       return NextResponse.json(
-        { success: false, message: "You have already submitted a proposal for this project." },
-        { status: 409 }
+        { success: false, message: "Project not found" },
+        { status: 404 }
+      );
+    }
+    if (project.status !== "open") {
+      return NextResponse.json(
+        { success: false, message: "Project is not open for proposals" },
+        { status: 400 }
       );
     }
 
-    // 5. Create a new proposal document
+    // 5. Check for existing active proposal
+    const existingProposal = await ProposalModel.findOne({
+      projectId: validatedData.projectId,
+      talentId: validatedData.talentId,
+      proposalStatus: { $in: ["pending", "accepted"] },
+    });
+    if (existingProposal) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `You have already submitted a ${existingProposal.proposalStatus} proposal for this project.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 6. Create new proposal
     const newProposal = new ProposalModel({
       projectId: validatedData.projectId,
       talentId: validatedData.talentId,
@@ -60,24 +75,24 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date(),
     });
 
-    // 6. Save the new proposal to the database
     await newProposal.save();
 
-    // 7. Return success response
     return NextResponse.json(
-      { success: true, message: "Proposal submitted successfully!", data: newProposal },
+      {
+        success: true,
+        message: "Proposal submitted successfully",
+        data: newProposal,
+      },
       { status: 201 }
     );
-
   } catch (error) {
     if (error instanceof z.ZodError) {
-      // Handle validation errors from Zod
       return NextResponse.json(
         { success: false, message: "Validation error", errors: error.errors },
         { status: 400 }
       );
     }
-    console.error("Error submitting proposal:", error);
+    console.error("Error creating proposal:", error);
     return NextResponse.json(
       {
         success: false,
@@ -88,4 +103,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

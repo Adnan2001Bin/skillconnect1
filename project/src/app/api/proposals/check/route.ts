@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
@@ -33,21 +32,35 @@ export async function GET(req: NextRequest) {
     // 4. Connect to the database
     await connectDB();
 
-    // 5. Check for existing proposal
+    // 5. Check for the latest proposal
     const existingProposal = await ProposalModel.findOne({
       projectId: validatedData.projectId,
       talentId: validatedData.talentId,
-    });
+    })
+      .sort({ updatedAt: -1 }) // Get the most recent proposal
+      .exec();
 
     // 6. Return response
+    if (!existingProposal || existingProposal.proposalStatus === "rejected") {
+      return NextResponse.json(
+        {
+          success: true,
+          hasApplied: false,
+          status: existingProposal ? existingProposal.proposalStatus : undefined,
+          message: existingProposal
+            ? "Previous proposal was rejected. You can submit a new proposal."
+            : "No proposal found for this project.",
+        },
+        { status: 200 }
+      );
+    }
+
     return NextResponse.json(
       {
         success: true,
-        hasApplied: !!existingProposal,
-        status: existingProposal ? existingProposal.proposalStatus : undefined,
-        message: existingProposal
-          ? "Proposal found for this project."
-          : "No proposal found for this project.",
+        hasApplied: true,
+        status: existingProposal.proposalStatus,
+        message: "Proposal found for this project.",
       },
       { status: 200 }
     );

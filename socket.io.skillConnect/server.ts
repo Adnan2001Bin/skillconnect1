@@ -5,7 +5,7 @@ import connectDB from "./src/lib/connectDB";
 import { authMiddleware } from "./src/socket/middleware/auth";
 import { getDashboardData } from "./src/socket/handlers/admin/dashboard";
 import { setupMessagingHandlers } from "./src/socket/handlers/messaging";
-import ProjectModel,{ IProject } from "./src/models/projects.model";
+import ProjectModel from "./src/models/projects.model";
 import ProposalModel from "./src/models/proposal.model";
 import OrderModel, { IOrder } from "./src/models/order.model";
 import MessageModel from "./src/models/message.model";
@@ -145,33 +145,11 @@ io.on("connection", (socket: Socket & { userId?: string; role?: string }) => {
 });
 
 connectDB().then(async () => {
+  const projectChangeStream = ProjectModel.watch();
   const proposalChangeStream = ProposalModel.watch();
   const orderChangeStream = OrderModel.watch();
   const messageChangeStream = MessageModel.watch();
-  const projectChangeStream = ProjectModel.watch();
 
-  projectChangeStream.on("change", async (change) => {
-    if (
-      change.operationType === "update" &&
-      change.updateDescription.updatedFields?.status === "delivered" &&
-      change.updateDescription.updatedFields?.deliverables
-    ) {
-      const project = await ProjectModel.findById(change.documentKey._id).lean<IProject | null>();
-      if (project && project.clientId && project.title) {
-        const notification = new NotificationModel({
-          userId: project.clientId,
-          orderId: project._id, // Using project ID as orderId for consistency
-          message: `Deliverables submitted for project: ${project.title}`,
-          read: false,
-        });
-        await notification.save();
-        io.to(project.clientId.toString()).emit("deliverablesSubmitted", {
-          orderId: project._id.toString(),
-          message: `Deliverables submitted for project: ${project.title}`,
-        });
-      }
-    }
-  });
   projectChangeStream.on("change", async () => {
     const data = await getDashboardData("30");
     io.emit("dashboardUpdate", data);
