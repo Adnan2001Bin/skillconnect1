@@ -5,8 +5,8 @@ import connectDB from "./src/lib/connectDB";
 import { authMiddleware } from "./src/socket/middleware/auth";
 import { getDashboardData } from "./src/socket/handlers/admin/dashboard";
 import { setupMessagingHandlers } from "./src/socket/handlers/messaging";
-import ProjectModel from "./src/models/projects.model";
-import ProposalModel from "./src/models/proposal.model";
+import ProjectModel, { IProject } from "./src/models/projects.model";
+import ProposalModel, { IProposal } from "./src/models/proposal.model";
 import OrderModel, { IOrder } from "./src/models/order.model";
 import MessageModel from "./src/models/message.model";
 import NotificationModel from "./src/models/notification.model";
@@ -87,6 +87,50 @@ async function getTalentDashboardData(talentId: string) {
   };
 }
 
+async function getClientDashboardData(clientId: string) {
+  const totalProposals = await ProposalModel.countDocuments({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') } });
+  const pendingProposals = await ProposalModel.countDocuments({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') }, proposalStatus: "pending" });
+  const acceptedProposals = await ProposalModel.countDocuments({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') }, proposalStatus: "accepted" });
+  const deliveredProposals = await ProposalModel.countDocuments({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') }, proposalStatus: "delivered" });
+
+  const recentProposals = await ProposalModel.find({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') } })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .lean();
+
+  const recentProposalsWithDetails = await Promise.all(
+    recentProposals.map(async (proposal: any) => {
+      const talent = await UserModel.findById(proposal.talentId).select("userName").lean();
+      const project = await ProjectModel.findById(proposal.projectId).select("title").lean();
+      return {
+        _id: proposal._id.toString(),
+        projectId: proposal.projectId,
+        talentId: proposal.talentId,
+        talentUserName: talent?.userName || "Unknown",
+        bid: proposal.bid,
+        proposalStatus: proposal.proposalStatus,
+        deliverables: proposal.deliverables
+          ? {
+              files: proposal.deliverables.files || [],
+              note: proposal.deliverables.note || null,
+              submittedAt: proposal.deliverables.submittedAt?.toISOString() || null,
+            }
+          : undefined,
+        createdAt: proposal.createdAt.toISOString(),
+        updatedAt: proposal.updatedAt.toISOString(),
+      };
+    })
+  );
+
+  return {
+    totalProposals,
+    pendingProposals,
+    acceptedProposals,
+    deliveredProposals,
+    recentProposals: recentProposalsWithDetails,
+  };
+}
+
 io.on("connection", (socket: Socket & { userId?: string; role?: string }) => {
   console.log(`User connected: ${socket.userId}`);
 
@@ -96,6 +140,9 @@ io.on("connection", (socket: Socket & { userId?: string; role?: string }) => {
     try {
       if (socket.role === "talent") {
         const data = await getTalentDashboardData(socket.userId!);
+        socket.emit("dashboardUpdate", data);
+      } else if (socket.role === "user") {
+        const data = await getClientDashboardData(socket.userId!);
         socket.emit("dashboardUpdate", data);
       } else {
         const data = await getDashboardData(timeRange);
@@ -127,15 +174,17 @@ io.on("connection", (socket: Socket & { userId?: string; role?: string }) => {
     }
   });
 
-  socket.on(
-    "deliverablesSubmitted",
-    (data: { orderId: string; message: string; clientId: string }) => {
-      io.to(data.clientId).emit("deliverablesSubmitted", {
-        orderId: data.orderId,
-        message: data.message,
+  socket.on("proposalDeliverablesSubmitted", (data: { proposalId: string; message: string; clientId: string }) => {
+    io.to(data.clientId).emit("proposalDeliverablesSubmitted", {
+      proposalId: data.proposalId,
+      message: data.message,
+    });
+    if (socket.role === "user") {
+      getClientDashboardData(socket.userId!).then(data => {
+        socket.emit("dashboardUpdate", data);
       });
     }
-  );
+  });
 
   setupMessagingHandlers(io, socket);
 
@@ -155,7 +204,28 @@ connectDB().then(async () => {
     io.emit("dashboardUpdate", data);
   });
 
-  proposalChangeStream.on("change", async () => {
+  proposalChangeStream.on("change", async (change) => {
+    if (change.operationType === "update" && change.updateDescription.updatedFields?.deliverables) {
+      const proposal = await ProposalModel.findById(change.documentKey._id).lean<IProposal>();
+      if (proposal && proposal.projectId) {
+        const project = await ProjectModel.findById(proposal.projectId).lean<IProject>();
+        if (project && project.clientId) {
+          const notification = new NotificationModel({
+            userId: project.clientId,
+            projectId: project._id,
+            message: `Deliverables submitted for proposal on project: ${project.title}`,
+            read: false,
+          });
+          await notification.save();
+          io.to(project.clientId.toString()).emit("proposalDeliverablesSubmitted", {
+            proposalId: proposal._id.toString(),
+            message: `Deliverables submitted for proposal on project: ${project.title}`,
+          });
+          const clientData = await getClientDashboardData(project.clientId.toString());
+          io.to(project.clientId.toString()).emit("dashboardUpdate", clientData);
+        }
+      }
+    }
     const data = await getDashboardData("30");
     io.emit("dashboardUpdate", data);
   });

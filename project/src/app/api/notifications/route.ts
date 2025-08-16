@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import connectDB from "@/lib/connectDB";
@@ -32,7 +31,8 @@ export async function GET(req: NextRequest) {
         data: notifications.map((notif) => ({
           id: notif._id.toString(),
           message: notif.message,
-          orderId: notif.orderId.toString(),
+          orderId: notif.orderId?.toString(), // Handle optional orderId
+          projectId: notif.projectId?.toString(), // Include optional projectId
           read: notif.read,
           createdAt: notif.createdAt.toISOString(),
         })),
@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
     );
   }
 }
+
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

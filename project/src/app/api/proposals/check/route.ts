@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import ProposalModel from "@/models/proposal.model";
-import { authOptions } from "../../auth/[...nextauth]/options";
+import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 const checkProposalSchema = z.object({
   projectId: z.string().nonempty({ message: "Project ID is required" }),
@@ -60,6 +60,7 @@ export async function GET(req: NextRequest) {
         success: true,
         hasApplied: true,
         status: existingProposal.proposalStatus,
+        proposalId: existingProposal._id.toString(), 
         message: "Proposal found for this project.",
       },
       { status: 200 }

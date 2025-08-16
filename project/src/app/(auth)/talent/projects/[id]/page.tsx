@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import ProposalForm from "@/components/talent/proposals/ProposalForm";
+import DeliverableForm from "@/components/talent/DeliverableForm";
 import Loader from "@/components/Loader";
 
 interface ProjectFile {
@@ -31,7 +32,8 @@ interface ProjectFile {
 
 interface ProposalStatus {
   hasApplied: boolean;
-  status?: "pending" | "accepted" | "rejected";
+  status?: "pending" | "accepted" | "rejected" | "delivered";
+  proposalId?: string;
 }
 
 // Helper function to get category label from value
@@ -66,6 +68,8 @@ const getProposalStatusBadgeColor = (status?: string) => {
       return "bg-[#34D399] text-white";
     case "rejected":
       return "bg-[#EF4444] text-white";
+    case "delivered":
+      return "bg-[#3B82F6] text-white";
     default:
       return "bg-[#757575] text-white";
   }
@@ -79,6 +83,7 @@ export default function TalentProjectDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
+  const [isSubmittingDeliverables, setIsSubmittingDeliverables] = useState(false);
   const [proposalStatus, setProposalStatus] = useState<ProposalStatus>({
     hasApplied: false,
   });
@@ -118,6 +123,7 @@ export default function TalentProjectDetailsPage() {
         setProposalStatus({
           hasApplied: proposalResponse.data.hasApplied,
           status: proposalResponse.data.status,
+          proposalId: proposalResponse.data.proposalId,
         });
         console.log("Proposal status:", proposalResponse.data);
       }
@@ -170,7 +176,23 @@ export default function TalentProjectDetailsPage() {
       className: "bg-[#8DBCC7] text-white border-[#90D1CA] bg-opacity-80",
       duration: 4000,
     });
-    // Refresh proposal status
+    fetchProjectAndProposal();
+  };
+
+  // Handle deliverable form cancellation
+  const handleCancelDeliverables = () => {
+    setIsSubmittingDeliverables(false);
+  };
+
+  // Handle successful deliverable submission
+  const handleDeliverableSuccess = () => {
+    setIsSubmittingDeliverables(false);
+    setProposalStatus((prev) => ({ ...prev, status: "delivered" }));
+    toast.success("Deliverables Submitted", {
+      description: "Your deliverables have been submitted successfully.",
+      className: "bg-[#8DBCC7] text-white border-[#90D1CA] bg-opacity-80",
+      duration: 4000,
+    });
     fetchProjectAndProposal();
   };
 
@@ -327,6 +349,11 @@ export default function TalentProjectDetailsPage() {
                             Your previous proposal was rejected. You can submit a new proposal.
                           </p>
                         )}
+                        {proposalStatus.status === "delivered" && (
+                          <p className="text-sm mt-1" style={{ color: colors.neutralTextColor }}>
+                            Your deliverables have been submitted.
+                          </p>
+                        )}
                       </TableCell>
                     </TableRow>
                   )}
@@ -390,6 +417,15 @@ export default function TalentProjectDetailsPage() {
                 Apply Now
               </Button>
             )}
+            {isTalent && proposalStatus.status === "accepted" && proposalStatus.proposalId && (
+              <Button
+                onClick={() => setIsSubmittingDeliverables(true)}
+                className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
+                style={{ backgroundColor: colors.accentColor }}
+              >
+                Submit Deliverables
+              </Button>
+            )}
             <Button
               onClick={() => router.push("/talent/projects")}
               className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
@@ -409,6 +445,19 @@ export default function TalentProjectDetailsPage() {
               projectId={id as string}
               onCancel={handleCancelProposal}
               onSuccess={handleProposalSuccess}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Deliverable Form Modal */}
+      {isSubmittingDeliverables && proposalStatus.proposalId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 sm:mx-6 lg:mx-8 p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+            <DeliverableForm
+              proposalId={proposalStatus.proposalId}
+              onCancel={handleCancelDeliverables}
+              onSuccess={handleDeliverableSuccess}
             />
           </div>
         </div>
