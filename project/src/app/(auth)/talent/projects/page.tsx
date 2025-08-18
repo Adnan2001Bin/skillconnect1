@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { Images } from "@/lib/images";
 import Loader from "@/components/Loader";
+import { io } from "socket.io-client";
 
 export default function TalentProjectsListPage() {
   const { status, data: session } = useSession();
@@ -25,6 +26,39 @@ export default function TalentProjectsListPage() {
     neutralTextColor: "#757575",
     primary: "#90D1CA",
   };
+
+  // Initialize Socket.IO
+  useEffect(() => {
+    if (!session?.user?._id) return;
+
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+      auth: { userId: session.user._id },
+    });
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.IO server");
+      socket.emit("join", session.user._id);
+    });
+
+    socket.on("projectStatusUpdated", (data: { projectId: string; status: string }) => {
+      if (data.status === "completed" || data.status === "cancelled") {
+        setProjects((prev) => prev.filter((project) => project._id !== data.projectId));
+        toast.info("Project Status Updated", {
+          description: `A project has been marked as ${data.status}.`,
+          className: `bg-${data.status === "completed" ? "green" : "red"}-600 text-white border-${data.status === "completed" ? "green" : "red"}-700 bg-opacity-80`,
+          duration: 4000,
+        });
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from Socket.IO server");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [session?.user?._id]);
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "talent") {
@@ -87,7 +121,6 @@ export default function TalentProjectsListPage() {
         backgroundRepeat: "no-repeat",
       }}
     >
-    
       <div className="relative z-10 max-w-7xl mx-auto">
         <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#212121] mb-6 sm:mb-8 text-center sm:text-left">
           Available Projects

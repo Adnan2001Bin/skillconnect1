@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       projectId: validatedData.projectId,
       talentId: validatedData.talentId,
     })
-      .sort({ updatedAt: -1 }) // Get the most recent proposal
+      .sort({ updatedAt: -1 })
       .exec();
 
     // 6. Return response
@@ -60,7 +60,9 @@ export async function GET(req: NextRequest) {
         success: true,
         hasApplied: true,
         status: existingProposal.proposalStatus,
-        proposalId: existingProposal._id.toString(), 
+        proposalId: existingProposal._id.toString(),
+        revisionCount: existingProposal.revisionCount || 0,
+        revisionNote: existingProposal.revisionNote || null,
         message: "Proposal found for this project.",
       },
       { status: 200 }

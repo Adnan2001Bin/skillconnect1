@@ -174,15 +174,36 @@ io.on("connection", (socket: Socket & { userId?: string; role?: string }) => {
     }
   });
 
-  socket.on("proposalDeliverablesSubmitted", (data: { proposalId: string; message: string; clientId: string }) => {
+  socket.on("proposalDeliverablesSubmitted", async (data: { proposalId: string; projectId: string; message: string; clientId: string; projectStatus: string }) => {
     io.to(data.clientId).emit("proposalDeliverablesSubmitted", {
       proposalId: data.proposalId,
+      projectId: data.projectId,
       message: data.message,
+      projectStatus: data.projectStatus,
     });
     if (socket.role === "user") {
-      getClientDashboardData(socket.userId!).then(data => {
-        socket.emit("dashboardUpdate", data);
-      });
+      const clientData = await getClientDashboardData(socket.userId!);
+      socket.emit("dashboardUpdate", clientData);
+    }
+  });
+
+  socket.on("projectCompleted", async (data: { projectId: string; message: string }) => {
+    const project = await ProjectModel.findById(data.projectId).lean<IProject>();
+    if (project && project.clientId) {
+      const proposal = await ProposalModel.findOne({ projectId: data.projectId, proposalStatus: { $in: ["delivered", "revision-requested"] } }).lean<IProposal>();
+      if (proposal && proposal.talentId) {
+        const notification = new NotificationModel({
+          userId: proposal.talentId,
+          projectId: project._id,
+          message: data.message,
+          read: false,
+        });
+        await notification.save();
+        io.to(proposal.talentId.toString()).emit("projectCompleted", {
+          projectId: data.projectId,
+          message: data.message,
+        });
+      }
     }
   });
 
@@ -199,7 +220,26 @@ connectDB().then(async () => {
   const orderChangeStream = OrderModel.watch();
   const messageChangeStream = MessageModel.watch();
 
-  projectChangeStream.on("change", async () => {
+  projectChangeStream.on("change", async (change) => {
+    if (change.operationType === "update" && change.updateDescription.updatedFields?.status === "completed") {
+      const project = await ProjectModel.findById(change.documentKey._id).lean<IProject>();
+      if (project && project.clientId) {
+        const proposal = await ProposalModel.findOne({ projectId: project._id, proposalStatus: { $in: ["delivered", "revision-requested"] } }).lean<IProposal>();
+        if (proposal && proposal.talentId) {
+          const notification = new NotificationModel({
+            userId: proposal.talentId,
+            projectId: project._id,
+            message: `Project ${project.title} has been marked as completed.`,
+            read: false,
+          });
+          await notification.save();
+          io.to(proposal.talentId.toString()).emit("projectCompleted", {
+            projectId: project._id.toString(),
+            message: `Project ${project.title} has been marked as completed.`,
+          });
+        }
+      }
+    }
     const data = await getDashboardData("30");
     io.emit("dashboardUpdate", data);
   });
@@ -219,7 +259,9 @@ connectDB().then(async () => {
           await notification.save();
           io.to(project.clientId.toString()).emit("proposalDeliverablesSubmitted", {
             proposalId: proposal._id.toString(),
+            projectId: project._id.toString(),
             message: `Deliverables submitted for proposal on project: ${project.title}`,
+            projectStatus: project.status,
           });
           const clientData = await getClientDashboardData(project.clientId.toString());
           io.to(project.clientId.toString()).emit("dashboardUpdate", clientData);

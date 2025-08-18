@@ -3,12 +3,8 @@ import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import ProjectModel from "@/models/projects.model";
+import ProposalModel from "@/models/proposal.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
-
-const updateProjectSchema = z.object({
-  status: z.enum(["open", "in-progress"]).optional(),
-  talentId: z.string().optional(),
-});
 
 export async function GET(
   req: NextRequest,
@@ -35,6 +31,21 @@ export async function GET(
       );
     }
 
+    // Allow access to "open" or "in-progress" projects, or "completed" projects if the talent has a relevant proposal
+    if (!["open", "in-progress"].includes(project.status)) {
+      const hasRelevantProposal = await ProposalModel.findOne({
+        projectId: id,
+        talentId: session.user._id,
+        proposalStatus: { $in: ["delivered", "revision-requested"] },
+      });
+      if (!hasRelevantProposal) {
+        return NextResponse.json(
+          { success: false, message: "Project is not available for viewing." },
+          { status: 403 }
+        );
+      }
+    }
+
     return NextResponse.json(
       { success: true, data: project, message: "Project fetched successfully" },
       { status: 200 }
@@ -51,4 +62,3 @@ export async function GET(
     );
   }
 }
-

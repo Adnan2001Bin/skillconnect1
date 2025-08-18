@@ -13,12 +13,12 @@ import {
   FileText,
   Tag,
   UserCircle,
-  // --- Added new icons ---
   PackageCheck,
   CalendarCheck,
   MessageSquareText,
   Paperclip,
   Download,
+  RefreshCcw,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { IProject } from "@/models/projects.model";
@@ -26,7 +26,9 @@ import { Images } from "@/lib/images";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import ProjectActions from "@/components/userView/ProjectActions";
+import { io } from "socket.io-client";
 
 // Define interface for project files
 interface ProjectFile {
@@ -39,6 +41,9 @@ interface Deliverable {
   files: string[];
   note: string | null;
   submittedAt: string | null;
+  proposalStatus?: string;
+  revisionCount?: number;
+  revisionNote?: string | null;
 }
 
 // Helper function to get category label from value
@@ -52,13 +57,19 @@ const getCategoryLabel = (categoryValue: string | undefined | null) => {
 const getStatusBadgeColor = (status: string) => {
   switch (status) {
     case "open":
+    case "pending":
       return "bg-green-500/80 border-green-400 text-white";
     case "in-progress":
+    case "accepted":
       return "bg-blue-500/80 border-blue-400 text-white";
     case "completed":
+    case "delivered":
       return "bg-emerald-600/80 border-emerald-500 text-white";
     case "cancelled":
+    case "rejected":
       return "bg-red-600/80 border-red-500 text-white";
+    case "revision-requested":
+      return "bg-yellow-500/80 border-yellow-400 text-white";
     default:
       return "bg-gray-500/80 border-gray-400 text-white";
   }
@@ -72,6 +83,8 @@ export default function ProjectDetailsPage() {
   const [deliverables, setDeliverables] = useState<Deliverable | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [revisionNote, setRevisionNote] = useState<string>("");
+  const [isRequestingRevision, setIsRequestingRevision] = useState(false);
 
   const colors = {
     primary: "#16423C",
@@ -83,6 +96,74 @@ export default function ProjectDetailsPage() {
     inputBorderColor: "#6A9C89",
     errorRed: "#EF4444",
   };
+
+  // Initialize Socket.IO
+  useEffect(() => {
+    if (!session?.user?._id) return;
+
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+      auth: { userId: session.user._id },
+    });
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.IO server");
+      socket.emit("join", session.user._id);
+    });
+
+    socket.on("proposalDeliverablesSubmitted", (data: { proposalId: string; projectId: string; message: string; projectStatus: string }) => {
+      if (data.projectId === id) {
+        setProject((prev) =>
+          prev ? { ...prev, status: data.projectStatus } as IProject : null
+        );
+        toast.success("Project Status Updated", {
+          description: `The project has been marked as ${data.projectStatus}.`,
+          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+          duration: 4000,
+        });
+      }
+    });
+
+    socket.on("revisionRequested", (data: { proposalId: string; projectId: string; revisionCount: number; revisionNote: string }) => {
+      if (data.projectId === id) {
+        setDeliverables((prev) =>
+          prev
+            ? {
+                ...prev,
+                proposalStatus: "revision-requested",
+                revisionCount: data.revisionCount,
+                revisionNote: data.revisionNote,
+              }
+            : null
+        );
+        toast.info("Revision Requested", {
+          description: "A revision has been requested for the deliverables.",
+          className: "bg-yellow-600 text-white border-yellow-700 bg-opacity-80",
+          duration: 4000,
+        });
+      }
+    });
+
+    socket.on("projectStatusUpdated", (data: { projectId: string; status: string }) => {
+      if (data.projectId === id) {
+        setProject((prev) =>
+          prev ? { ...prev, status: data.status } as IProject : null
+        );
+        toast.success("Project Status Updated", {
+          description: `The project has been marked as ${data.status}.`,
+          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+          duration: 4000,
+        });
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from Socket.IO server");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [session?.user?._id, id]);
 
   // Fetch project details and deliverables
   useEffect(() => {
@@ -97,17 +178,23 @@ export default function ProjectDetailsPage() {
         }
         setProject(projectResponse.data.data);
 
-        // Fetch deliverables (from accepted proposal)
+        // Fetch deliverables (from accepted, delivered, or revision-requested proposal)
         const proposalResponse = await axios.get(`/api/projects/${id}/proposals`);
         if (proposalResponse.status === 200) {
-          const deliveredProposal = proposalResponse.data.data.find(
-            (proposal: any) => proposal.proposalStatus === "delivered"
+          const relevantProposal = proposalResponse.data.data.find(
+            (proposal: any) => 
+              proposal.proposalStatus === "delivered" || 
+              proposal.proposalStatus === "accepted" || 
+              proposal.proposalStatus === "revision-requested"
           );
-          if (deliveredProposal && deliveredProposal.deliverables) {
+          if (relevantProposal) {
             setDeliverables({
-              files: deliveredProposal.deliverables.files || [],
-              note: deliveredProposal.deliverables.note || null,
-              submittedAt: deliveredProposal.deliverables.submittedAt || null,
+              files: relevantProposal.deliverables?.files || [],
+              note: relevantProposal.deliverables?.note || null,
+              submittedAt: relevantProposal.deliverables?.submittedAt || null,
+              proposalStatus: relevantProposal.proposalStatus || "unknown",
+              revisionCount: relevantProposal.revisionCount || 0,
+              revisionNote: relevantProposal.revisionNote || null,
             });
           }
         }
@@ -136,9 +223,13 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // Handle status update
+  // Handle status update with validation
   const handleStatusUpdate = async (newStatus: "completed" | "cancelled") => {
     try {
+      if (newStatus === "completed" && (!deliverables || (deliverables.proposalStatus !== "delivered" && deliverables.proposalStatus !== "revision-requested"))) {
+        throw new Error("Cannot mark project as completed without delivered or revision-requested deliverables.");
+      }
+
       const response = await axios.put(`/api/projects/${id}`, {
         status: newStatus,
       });
@@ -151,7 +242,53 @@ export default function ProjectDetailsPage() {
         throw new Error(response.data.message || "Failed to update status");
       }
     } catch (error) {
-      toast.error("Failed to update project status.");
+      toast.error(error instanceof Error ? error.message : "Failed to update project status.");
+    }
+  };
+
+  // Handle revision request
+  const handleRequestRevision = async () => {
+    if (!deliverables || !deliverables.proposalStatus || deliverables.revisionCount === undefined) return;
+
+    try {
+      setIsRequestingRevision(true);
+      const proposalResponse = await axios.get(`/api/projects/${id}/proposals`);
+      const relevantProposal = proposalResponse.data.data.find(
+        (proposal: any) => proposal.proposalStatus === "delivered" || proposal.proposalStatus === "revision-requested"
+      );
+
+      if (!relevantProposal) {
+        throw new Error("No relevant proposal found for revision");
+      }
+
+      const response = await axios.post(`/api/proposals/${relevantProposal._id}/request-revision`, {
+        revisionNote,
+      });
+
+      if (response.data.success) {
+        setDeliverables((prev) =>
+          prev
+            ? {
+                ...prev,
+                proposalStatus: "revision-requested",
+                revisionCount: (prev.revisionCount || 0) + 1,
+                revisionNote,
+              }
+            : null
+        );
+        setRevisionNote("");
+        toast.success("Revision Requested", {
+          description: "Your revision request has been sent to the talent.",
+          className: "bg-yellow-600 text-white border-yellow-700 bg-opacity-80",
+          duration: 4000,
+        });
+      } else {
+        throw new Error(response.data.message || "Failed to request revision");
+      }
+    } catch (error) {
+      toast.error("Failed to request revision. Please try again.");
+    } finally {
+      setIsRequestingRevision(false);
     }
   };
 
@@ -199,8 +336,6 @@ export default function ProjectDetailsPage() {
 
   const isClient =
     session?.user?.role === "user" && session?.user?._id === project.clientId;
-  const isTalent = session?.user?.role === "talent";
-  const isAdmin = session?.user?.role === "admin";
 
   return (
     <div
@@ -295,16 +430,27 @@ export default function ProjectDetailsPage() {
                     </Button>
                   ))}
                 </div>
-              </div>
+            </div>
             )}
 
-            {/* Deliverables --- UPDATED SECTION --- */}
-            {(isClient || isAdmin) && deliverables && (
+            {/* Deliverables */}
+            {isClient  && deliverables && (
               <div>
-                <h2 className="text-xl font-semibold mb-3 border-b-2 border-emerald-500 pb-2 flex items-center gap-3">
-                  <PackageCheck className="h-6 w-6 text-emerald-400" />
-                  <span>Project Delivery</span>
-                </h2>
+                <div className="flex items-center justify-between mb-3 border-b-2 border-emerald-500 pb-2">
+                  <h2 className="text-xl font-semibold flex items-center gap-3">
+                    <PackageCheck className="h-6 w-6 text-emerald-400" />
+                    <span>Project Delivery</span>
+                  </h2>
+                  {deliverables.proposalStatus && (
+                    <Badge
+                      variant="outline"
+                      className={getStatusBadgeColor(deliverables.proposalStatus)}
+                    >
+                      {deliverables.proposalStatus.charAt(0).toUpperCase() +
+                        deliverables.proposalStatus.slice(1)}
+                    </Badge>
+                  )}
+                </div>
 
                 {deliverables.files.length > 0 ? (
                   <div className="mt-4 p-5 rounded-lg bg-emerald-900/30 border border-emerald-500/50 shadow-lg space-y-6">
@@ -341,6 +487,21 @@ export default function ProjectDetailsPage() {
                         <blockquote className="border-l-4 border-emerald-500 pl-4 py-2 bg-black/20 rounded-r-md">
                           <p className="text-sm text-gray-200 italic">
                             &ldquo;{deliverables.note}&rdquo;
+                          </p>
+                        </blockquote>
+                      </div>
+                    )}
+
+                    {/* Revision Note */}
+                    {deliverables.revisionNote && (
+                      <div>
+                        <h3 className="text-md font-semibold text-white mb-2 flex items-center gap-2">
+                          <MessageSquareText className="h-5 w-5 text-yellow-400" />
+                          Revision Request Note
+                        </h3>
+                        <blockquote className="border-l-4 border-yellow-500 pl-4 py-2 bg-black/20 rounded-r-md">
+                          <p className="text-sm text-gray-200 italic">
+                            &ldquo;{deliverables.revisionNote}&rdquo;
                           </p>
                         </blockquote>
                       </div>
@@ -390,6 +551,34 @@ export default function ProjectDetailsPage() {
                         })}
                       </ul>
                     </div>
+
+                    {/* Revision Request Section */}
+                    {isClient  && deliverables.proposalStatus === "delivered" && (deliverables.revisionCount || 0) < 2 && (
+                      <div>
+                        <h3 className="text-md font-semibold text-white mb-3 flex items-center gap-2">
+                          <RefreshCcw className="h-5 w-5 text-yellow-400" />
+                          Request Revision ({2 - (deliverables.revisionCount || 0)} attempts remaining)
+                        </h3>
+                        <Textarea
+                          value={revisionNote}
+                          onChange={(e) => setRevisionNote(e.target.value)}
+                          placeholder="Provide feedback for the revision..."
+                          className="mb-3 bg-white/10 border-emerald-500/50 text-white placeholder-gray-400"
+                        />
+                        <Button
+                          onClick={handleRequestRevision}
+                          disabled={isRequestingRevision || !revisionNote.trim()}
+                          className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                        >
+                          {isRequestingRevision ? (
+                            <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                          ) : (
+                            <RefreshCcw className="h-4 w-4 mr-2" />
+                          )}
+                          Request Revision
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="mt-4 p-6 rounded-lg bg-white/5 border border-white/20 text-center">
@@ -442,9 +631,8 @@ export default function ProjectDetailsPage() {
           <ProjectActions
             project={project}
             isClient={isClient}
-            isTalent={isTalent}
-            isAdmin={isAdmin}
             id={id as string}
+            deliverables={deliverables}
             colors={colors}
             handleStatusUpdate={handleStatusUpdate}
           />

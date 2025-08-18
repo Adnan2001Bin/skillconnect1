@@ -13,6 +13,7 @@ import {
   FileText,
   Tag,
   AlertCircle,
+  MessageSquareText,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { IProject } from "@/models/projects.model";
@@ -24,6 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import ProposalForm from "@/components/talent/proposals/ProposalForm";
 import DeliverableForm from "@/components/talent/DeliverableForm";
 import Loader from "@/components/Loader";
+import { io } from "socket.io-client";
 
 interface ProjectFile {
   url: string;
@@ -32,8 +34,10 @@ interface ProjectFile {
 
 interface ProposalStatus {
   hasApplied: boolean;
-  status?: "pending" | "accepted" | "rejected" | "delivered";
+  status?: "pending" | "accepted" | "rejected" | "delivered" | "revision-requested";
   proposalId?: string;
+  revisionNote?: string | null;
+  revisionCount?: number;
 }
 
 // Helper function to get category label from value
@@ -70,6 +74,8 @@ const getProposalStatusBadgeColor = (status?: string) => {
       return "bg-[#EF4444] text-white";
     case "delivered":
       return "bg-[#3B82F6] text-white";
+    case "revision-requested":
+      return "bg-[#F59E0B] text-white";
     default:
       return "bg-[#757575] text-white";
   }
@@ -99,6 +105,64 @@ export default function TalentProjectDetailsPage() {
     border: "#90D1CA30",
   };
 
+  // Initialize Socket.IO
+  useEffect(() => {
+    if (!session?.user?._id) return;
+
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+      auth: { userId: session.user._id },
+    });
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.IO server");
+      socket.emit("join", session.user._id);
+    });
+
+    socket.on("revisionRequested", (data: { proposalId: string; projectId: string; revisionCount: number; revisionNote: string }) => {
+      if (data.projectId === id) {
+        setProposalStatus((prev) => ({
+          ...prev,
+          status: "revision-requested",
+          revisionCount: data.revisionCount,
+          revisionNote: data.revisionNote,
+        }));
+        toast.info("Revision Requested", {
+          description: "The client has requested a revision for your deliverables.",
+          className: "bg-yellow-600 text-white border-yellow-700 bg-opacity-80",
+          duration: 4000,
+        });
+      }
+    });
+
+    socket.on("projectStatusUpdated", (data: { projectId: string; status: string }) => {
+      if (data.projectId === id) {
+        setProject((prev) => (prev ? { ...prev, status: data.status } as IProject : null));
+        if (data.status === "completed") {
+          toast.success("Project Completed", {
+            description: "The client has marked this project as completed.",
+            className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+            duration: 4000,
+          });
+        } else if (data.status === "cancelled") {
+          toast.error("Project Cancelled", {
+            description: "The client has cancelled this project.",
+            className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+            duration: 4000,
+          });
+          setTimeout(() => router.push("/talent/projects"), 4000); // Redirect to projects list
+        }
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from Socket.IO server");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [session?.user?._id, id, router]);
+
   // Fetch project details and proposal status
   const fetchProjectAndProposal = async () => {
     try {
@@ -110,22 +174,25 @@ export default function TalentProjectDetailsPage() {
         throw new Error("Failed to fetch project");
       }
       const projectData = projectResponse.data.data;
-      if (!["open", "in-progress"].includes(projectData.status)) {
-        throw new Error("Project is not available for viewing.");
-      }
       setProject(projectData);
 
       // Fetch proposal status if user is authenticated
       if (session?.user?._id) {
-        const proposalResponse = await axios.get(`/api/proposals/check`, {
-          params: { projectId: id, talentId: session.user._id },
-        });
-        setProposalStatus({
-          hasApplied: proposalResponse.data.hasApplied,
-          status: proposalResponse.data.status,
-          proposalId: proposalResponse.data.proposalId,
-        });
-        console.log("Proposal status:", proposalResponse.data);
+        try {
+          const proposalResponse = await axios.get(`/api/proposals/check`, {
+            params: { projectId: id, talentId: session.user._id },
+          });
+          setProposalStatus({
+            hasApplied: proposalResponse.data.hasApplied || false,
+            status: proposalResponse.data.status,
+            proposalId: proposalResponse.data.proposalId,
+            revisionCount: proposalResponse.data.revisionCount || 0,
+            revisionNote: proposalResponse.data.revisionNote || null,
+          });
+        } catch (err) {
+          console.error("Error fetching proposal status:", err);
+          setProposalStatus({ hasApplied: false });
+        }
       }
     } catch (err) {
       setError("Failed to load project details. Please try again later.");
@@ -354,6 +421,22 @@ export default function TalentProjectDetailsPage() {
                             Your deliverables have been submitted.
                           </p>
                         )}
+                        {proposalStatus.status === "revision-requested" && (
+                          <div className="mt-2">
+                            <p className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.activeTextColor }}>
+                              <MessageSquareText className="h-5 w-5" style={{ color: colors.iconColor }} />
+                              Revision Request Note
+                            </p>
+                            <blockquote className="border-l-4 border-yellow-500 pl-4 py-2 mt-1 bg-gray-100 rounded-r-md">
+                              <p className="text-sm italic" style={{ color: colors.neutralTextColor }}>
+                                &ldquo;{proposalStatus.revisionNote || "No note provided"}&rdquo;
+                              </p>
+                            </blockquote>
+                            <p className="text-sm mt-1" style={{ color: colors.neutralTextColor }}>
+                              Revision attempt {proposalStatus.revisionCount} of 2
+                            </p>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   )}
@@ -408,7 +491,7 @@ export default function TalentProjectDetailsPage() {
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            {isTalent && project.status === "open" && !proposalStatus.hasApplied && (
+            {isTalent && project.status === "open" && (!proposalStatus.hasApplied || proposalStatus.status === "rejected") && (
               <Button
                 onClick={() => setIsApplying(true)}
                 className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
@@ -417,13 +500,14 @@ export default function TalentProjectDetailsPage() {
                 Apply Now
               </Button>
             )}
-            {isTalent && proposalStatus.status === "accepted" && proposalStatus.proposalId && (
+            {isTalent && (proposalStatus.status === "accepted" || proposalStatus.status === "revision-requested") && proposalStatus.proposalId && (
               <Button
                 onClick={() => setIsSubmittingDeliverables(true)}
                 className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
                 style={{ backgroundColor: colors.accentColor }}
+                disabled={project.status !== "in-progress"}
               >
-                Submit Deliverables
+                {proposalStatus.status === "revision-requested" ? "Resubmit Deliverables" : "Submit Deliverables"}
               </Button>
             )}
             <Button

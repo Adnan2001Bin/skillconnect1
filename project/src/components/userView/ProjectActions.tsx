@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  RefreshCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,6 @@ import { categories } from "@/lib/categoriesAndServices";
 import { IProject } from "@/models/projects.model";
 import axios from "axios";
 
-// Define a plain interface for proposals
 interface PlainProposal {
   _id: string;
   projectId: string;
@@ -44,9 +44,11 @@ interface PlainProposal {
   bid: number;
   coverLetter: string;
   files?: string[];
-  proposalStatus: "pending" | "accepted" | "rejected";
+  proposalStatus: "pending" | "accepted" | "rejected" | "delivered" | "revision-requested";
   createdAt: string;
   updatedAt: string;
+  revisionCount?: number;
+  revisionNote?: string | null;
   talent?: {
     _id: string;
     userName: string;
@@ -57,12 +59,20 @@ interface PlainProposal {
   };
 }
 
+interface Deliverable {
+  files: string[];
+  note: string | null;
+  submittedAt: string | null;
+  proposalStatus?: string;
+  revisionCount?: number;
+  revisionNote?: string | null;
+}
+
 interface ProjectActionsProps {
   project: IProject;
   isClient: boolean;
-  isTalent: boolean;
-  isAdmin: boolean;
   id: string;
+  deliverables: Deliverable | null;
   colors: {
     primary: string;
     accentColor: string;
@@ -101,6 +111,18 @@ const getProposalStatusBadge = (status: string) => {
         className: "bg-red-600 hover:bg-red-700 text-white",
         text: "Rejected",
       };
+    case "delivered":
+      return {
+        variant: "default" as const,
+        className: "bg-blue-500 hover:bg-blue-600 text-white",
+        text: "Delivered",
+      };
+    case "revision-requested":
+      return {
+        variant: "default" as const,
+        className: "bg-yellow-600 hover:bg-yellow-700 text-white",
+        text: "Revision Requested",
+      };
     default:
       return {
         variant: "secondary" as const,
@@ -113,9 +135,8 @@ const getProposalStatusBadge = (status: string) => {
 export default function ProjectActions({
   project,
   isClient,
-  isTalent,
-  isAdmin,
   id,
+  deliverables,
   colors,
   handleStatusUpdate,
 }: ProjectActionsProps) {
@@ -203,9 +224,13 @@ export default function ProjectActions({
     }
   };
 
+  // Check if project can be marked as completed
+  const canMarkAsCompleted = isClient && project.status === "in-progress" && deliverables && 
+    (deliverables.proposalStatus === "delivered" || deliverables.proposalStatus === "revision-requested");
+
   return (
     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-      {isTalent && project.status === "open" && (
+      {project.status === "open" && (
         <Button
           onClick={() => router.push(`/projects/${id}/apply`)}
           className={`px-6 py-2 rounded-full font-semibold transition-colors`}
@@ -217,19 +242,20 @@ export default function ProjectActions({
           Apply Now
         </Button>
       )}
-      {(isClient || isAdmin) && project.status === "in-progress" && (
+      {isClient && (
         <Button
           onClick={() => handleStatusUpdate("completed")}
           className={`px-6 py-2 rounded-full font-semibold transition-colors`}
           style={{
-            backgroundColor: colors.accentColor,
+            backgroundColor: canMarkAsCompleted ? colors.accentColor : "#6B7280",
             color: colors.white,
           }}
+          disabled={!canMarkAsCompleted}
         >
           Mark as Completed
         </Button>
       )}
-      {(isClient || isAdmin) &&
+      {isClient &&
         (project.status === "open" || project.status === "in-progress") && (
           <Button
             onClick={() => handleStatusUpdate("cancelled")}
@@ -243,7 +269,7 @@ export default function ProjectActions({
             Cancel Project
           </Button>
         )}
-      {(isClient || isAdmin) &&
+      {isClient &&
         (project.status === "open" || project.status === "in-progress") && (
           <Dialog>
             <DialogTrigger asChild>
@@ -306,6 +332,9 @@ export default function ProjectActions({
                         </TableHead>
                         <TableHead className="font-semibold text-gray-700">
                           Files
+                        </TableHead>
+                        <TableHead className="font-semibold text-gray-700">
+                          Revision Info
                         </TableHead>
                         <TableHead className="text-right font-semibold text-gray-700">
                           Actions
@@ -509,6 +538,45 @@ export default function ProjectActions({
                               ) : (
                                 <span className="text-gray-400 text-sm">
                                   None
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {proposal.proposalStatus === "revision-requested" ||
+                              proposal.proposalStatus === "delivered" ? (
+                                <div className="flex flex-col gap-2">
+                                  <p className="text-sm text-gray-700">
+                                    Revision Attempts: {proposal.revisionCount || 0}/2
+                                  </p>
+                                  {proposal.revisionNote && (
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="flex items-center gap-2"
+                                        >
+                                          <RefreshCcw className="h-4 w-4" />
+                                          View Revision Note
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="sm:max-w-[625px]">
+                                        <DialogHeader>
+                                          <DialogTitle className="flex items-center gap-2">
+                                            <RefreshCcw className="text-yellow-600" />
+                                            Revision Request Note
+                                          </DialogTitle>
+                                          <DialogDescription className="pt-4 text-left text-base text-gray-700 leading-relaxed whitespace-pre-wrap">
+                                            {proposal.revisionNote}
+                                          </DialogDescription>
+                                        </DialogHeader>
+                                      </DialogContent>
+                                    </Dialog>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-sm">
+                                  N/A
                                 </span>
                               )}
                             </TableCell>

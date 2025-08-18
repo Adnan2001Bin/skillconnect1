@@ -57,7 +57,7 @@ export async function POST(
       );
     }
 
-    if (proposal.proposalStatus !== "accepted") {
+    if (proposal.proposalStatus !== "accepted" && proposal.proposalStatus !== "revision-requested") {
       return NextResponse.json(
         {
           success: false,
@@ -73,15 +73,21 @@ export async function POST(
       submittedAt: new Date(),
     };
     proposal.proposalStatus = "delivered";
-
     await proposal.save();
 
-    const project = await projectsModel.findById(proposal.projectId).select("_id clientId title");
+    const project = await projectsModel.findById(proposal.projectId);
     if (!project) {
       return NextResponse.json(
         { success: false, message: "Project not found" },
         { status: 404 }
       );
+    }
+
+    // Update project status to completed only on initial submission
+    if (proposal.proposalStatus === "accepted" && project.status === "in-progress") {
+      project.status = "completed";
+      project.updatedAt = new Date();
+      await project.save();
     }
 
     const client = await UserModel.findById(project.clientId).select("_id email userName");
@@ -105,7 +111,7 @@ export async function POST(
     //   console.error("Failed to send deliverables email:", emailResponse.message);
     // }
 
-    const notificationMessage = `Deliverables submitted for proposal on project: ${project.title}`;
+    const notificationMessage = `Deliverables ${proposal.proposalStatus === "revision-requested" ? "resubmitted" : "submitted"} for proposal on project: ${project.title}`;
     const notification = new NotificationModel({
       userId: client._id,
       projectId: project._id,
@@ -119,8 +125,10 @@ export async function POST(
     });
     socket.emit("proposalDeliverablesSubmitted", {
       proposalId: proposal._id.toString(),
+      projectId: project._id.toString(),
       message: notificationMessage,
       clientId: project.clientId.toString(),
+      projectStatus: project.status,
     });
     socket.disconnect();
 
@@ -141,6 +149,8 @@ export async function POST(
             note: proposal.deliverables?.note || null,
             submittedAt: proposal.deliverables?.submittedAt?.toISOString() || null,
           },
+          revisionCount: proposal.revisionCount || 0,
+          revisionNote: proposal.revisionNote || null,
           createdAt: proposal.createdAt.toISOString(),
           updatedAt: proposal.updatedAt.toISOString(),
         },

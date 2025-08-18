@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const projects = await projectsModel
       .find({ 
-        status: { $in: ["open", "in-progress"] }
+        status: { $in: ["open", "in-progress" ,"completed"] }
       })
       .sort({ createdAt: -1 });
     return NextResponse.json(
