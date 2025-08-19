@@ -267,6 +267,26 @@ connectDB().then(async () => {
           io.to(project.clientId.toString()).emit("dashboardUpdate", clientData);
         }
       }
+    } else if (change.operationType === "update" && change.updateDescription.updatedFields?.proposalStatus) {
+      const proposal = await ProposalModel.findById(change.documentKey._id).lean<IProposal>();
+      if (proposal && proposal.talentId && proposal.projectId) {
+        const project = await ProjectModel.findById(proposal.projectId).lean<IProject>();
+        if (project) {
+          const status = change.updateDescription.updatedFields.proposalStatus;
+          const notification = new NotificationModel({
+            userId: proposal.talentId,
+            projectId: project._id,
+            message: `Your proposal for project ${project.title} has been ${status}.`,
+            read: false,
+          });
+          await notification.save();
+          io.to(proposal.talentId.toString()).emit(`proposal${status.charAt(0).toUpperCase() + status.slice(1)}`, {
+            proposalId: proposal._id.toString(),
+            projectId: project._id.toString(),
+            message: `Your proposal for project ${project.title} has been ${status}.`,
+          });
+        }
+      }
     }
     const data = await getDashboardData("30");
     io.emit("dashboardUpdate", data);

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import ProposalModel from "@/models/proposal.model";
-import ProjectModel from "@/models/projects.model";
+import ProjectModel, { IProject } from "@/models/projects.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 const createProposalSchema = z.object({
@@ -97,6 +97,80 @@ export async function POST(req: NextRequest) {
       {
         success: false,
         message: "Internal server error. Failed to submit proposal.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    // 1. Authenticate user session
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "talent") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized. Only talents can view their proposals." },
+        { status: 401 }
+      );
+    }
+
+    // 2. Extract talentId from query params
+    const { searchParams } = new URL(req.url);
+    const talentId = searchParams.get("talentId");
+    if (!talentId) {
+      return NextResponse.json(
+        { success: false, message: "Missing talentId" },
+        { status: 400 }
+      );
+    }
+
+    // 3. Connect to the database
+    await connectDB();
+
+    // 4. Fetch proposals for the talent
+    const proposals = await ProposalModel.find({ talentId }).lean();
+
+    // 5. Fetch project titles for each proposal
+    const proposalsWithProjectTitles = await Promise.all(
+      proposals.map(async (proposal: any) => {
+        const project = await ProjectModel.findById(proposal.projectId)
+          .select("title")
+          .lean() as Pick<IProject, "_id" | "title"> | null;
+        return {
+          _id: proposal._id.toString(),
+          projectTitle: project?.title || "Unknown",
+          projectId: proposal.projectId.toString(),
+          talentId: proposal.talentId.toString(),
+          bid: proposal.bid,
+          proposalStatus: proposal.proposalStatus,
+          deliverables: proposal.deliverables
+            ? {
+                files: proposal.deliverables.files || [],
+                note: proposal.deliverables.note || null,
+                submittedAt: proposal.deliverables.submittedAt?.toISOString() || null,
+              }
+            : undefined,
+          createdAt: proposal.createdAt.toISOString(),
+          updatedAt: proposal.updatedAt.toISOString(),
+        };
+      })
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Proposals fetched successfully",
+        data: proposalsWithProjectTitles,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error fetching proposals:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Internal server error. Failed to fetch proposals.",
         error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }

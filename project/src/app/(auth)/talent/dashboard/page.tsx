@@ -1,43 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import axios from "axios";
+import { Loader2, Briefcase, CalendarDays, DollarSign, FileText, Tag } from "lucide-react";
 import { toast } from "sonner";
-import { io, Socket } from "socket.io-client";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Loader, ArrowRight, Clock } from "lucide-react";
+import Loader from "@/components/Loader";
+import { io } from "socket.io-client";
+import Image from "next/image";
 import { Images } from "@/lib/images";
-
-interface RatePlan {
-  type: "Basic" | "Standard" | "Premium";
-  price: number;
-  description: string;
-  whatsIncluded: string[];
-  deliveryDays: number;
-  revisions: number;
-}
-
-interface RevisionRequest {
-  files: string[];
-  note?: string;
-  requestedAt: string;
-}
 
 interface Order {
   _id: string;
-  talentId: string;
   clientId: string;
-  ratePlan: RatePlan;
+  clientUserName: string;
+  ratePlan: {
+    type: string;
+    price: number;
+    description: string;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
   projectDetails: {
     title: string;
     description: string;
@@ -47,8 +35,38 @@ interface Order {
   revisionCount: number;
   createdAt: string;
   updatedAt: string;
-  clientUserName?: string;
-  revisionRequest?: RevisionRequest;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: string;
+  };
+}
+
+interface Project {
+  _id: string;
+  title: string;
+  description: string;
+  budget: number;
+  timeline: number;
+  category: string;
+  status: "open" | "in-progress" | "completed" | "cancelled";
+  createdAt: string;
+}
+
+interface Proposal {
+  _id: string;
+  projectId: string;
+  projectTitle: string;
+  talentId: string;
+  bid: number;
+  proposalStatus: "pending" | "accepted" | "rejected" | "delivered" | "revision-requested";
+  createdAt: string;
+  updatedAt: string;
+  deliverables?: {
+    files: string[];
+    note?: string;
+    submittedAt: string;
+  };
 }
 
 interface DashboardData {
@@ -57,165 +75,226 @@ interface DashboardData {
   inProgressOrders: number;
   completedOrders: number;
   recentOrders: Order[];
+  totalProjects: number;
+  openProjects: number;
+  inProgressProjects: number;
+  completedProjects: number;
+  recentProjects: Project[];
+  totalProposals: number;
+  pendingProposals: number;
+  acceptedProposals: number;
+  deliveredProposals: number;
+  recentProposals: Proposal[];
 }
+
+const getStatusBadgeColor = (status: string) => {
+  switch (status) {
+    case "open":
+    case "pending":
+      return "bg-[#FBBF24] text-white";
+    case "in-progress":
+    case "accepted":
+      return "bg-[#3B82F6] text-white";
+    case "completed":
+    case "delivered":
+      return "bg-[#34D399] text-white";
+    case "cancelled":
+    case "rejected":
+      return "bg-[#EF4444] text-white";
+    case "revision-requested":
+      return "bg-[#F59E0B] text-white";
+    default:
+      return "bg-[#757575] text-white";
+  }
+};
 
 export default function TalentDashboardPage() {
   const { status, data: session } = useSession();
   const router = useRouter();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentTime, setCurrentTime] = useState(Date.now());
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const colors = {
-    primaryColor: "#8DBCC7",
-    secondaryColor: "#A4CCD9",
-    accentColor: "#90D1CA",
-    lightAccentColor: "#C4E1E6",
-    darkTextColor: "#212121",
-    grayTextColor: "#757575",
+    accentColor: "#8DBCC7",
+    activeTextColor: "#212121",
+    neutralTextColor: "#757575",
+    primary: "#90D1CA",
+    buttonHover: "hover:bg-[#90D1CA]",
+    containerBg: "bg-white bg-opacity-90 backdrop-blur-sm",
+    headerBg: "#212121",
+    iconColor: "#8DBCC7",
+    border: "#90D1CA30",
   };
 
   // Initialize Socket.IO
   useEffect(() => {
+    if (!session?.user?._id || session?.user?.role !== "talent") return;
+
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+      auth: { userId: session.user._id },
+    });
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.IO server");
+      socket.emit("join", session.user._id);
+    });
+
+    socket.on("orderCreated", () => {
+      fetchDashboardData();
+      toast.info("New Order", {
+        description: "A new order has been created.",
+        className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+        duration: 4000,
+      });
+    });
+
+    socket.on("orderStatusUpdated", () => {
+      fetchDashboardData();
+      toast.info("Order Status Updated", {
+        description: "An order status has been updated.",
+        className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+        duration: 4000,
+      });
+    });
+
+    socket.on("projectStatusUpdated", (data: { projectId: string; status: string }) => {
+      fetchDashboardData();
+      toast.info("Project Status Updated", {
+        description: `Project status changed to ${data.status}.`,
+        className: `bg-${data.status === "completed" ? "green" : "red"}-600 text-white border-${data.status === "completed" ? "green" : "red"}-700 bg-opacity-80`,
+        duration: 4000,
+      });
+    });
+
+    socket.on("proposalDeliverablesSubmitted", (data: { proposalId: string; projectId: string; message: string }) => {
+      fetchDashboardData();
+      toast.info("Deliverables Submitted", {
+        description: data.message,
+        className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+        duration: 4000,
+      });
+    });
+
+    socket.on("proposalAccepted", (data: { proposalId: string; projectId: string; message: string }) => {
+      fetchDashboardData();
+      toast.success("Proposal Accepted", {
+        description: data.message,
+        className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+        duration: 4000,
+        action: {
+          label: "View Project",
+          onClick: () => router.push(`/talent/projects/${data.projectId}`),
+        },
+      });
+    });
+
+    socket.on("proposalRejected", (data: { proposalId: string; projectId: string; message: string }) => {
+      fetchDashboardData();
+      toast.error("Proposal Rejected", {
+        description: data.message,
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+        duration: 4000,
+        action: {
+          label: "View Project",
+          onClick: () => router.push(`/talent/projects/${data.projectId}`),
+        },
+      });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from Socket.IO server");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [session?.user?._id, session?.user?.role, router]);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [orderResponse, projectResponse, proposalResponse] = await Promise.all([
+        axios.get("/api/talent/dashboard"),
+        axios.get("/api/talent/projects"),
+        axios.get("/api/proposals", { params: { talentId: session?.user?._id } }),
+      ]);
+
+      if (!orderResponse.data.success || !projectResponse.data.success || !proposalResponse.data.success) {
+        throw new Error("Failed to fetch dashboard data");
+      }
+
+      const orderData = orderResponse.data.data;
+      const projectData = projectResponse.data.data;
+      const proposalData = proposalResponse.data.data;
+
+      // Filter projects where talent has accepted or delivered proposals
+      const acceptedProposalIds = proposalData
+        .filter((p: Proposal) => ["accepted", "delivered", "revision-requested"].includes(p.proposalStatus))
+        .map((p: Proposal) => p.projectId);
+
+      const relevantProjects = projectData.filter((p: Project) => acceptedProposalIds.includes(p._id));
+
+      setDashboardData({
+        totalOrders: orderData.totalOrders,
+        pendingOrders: orderData.pendingOrders,
+        inProgressOrders: orderData.inProgressOrders,
+        completedOrders: orderData.completedOrders,
+        recentOrders: orderData.recentOrders,
+        totalProjects: relevantProjects.length,
+        openProjects: relevantProjects.filter((p: Project) => p.status === "open").length,
+        inProgressProjects: relevantProjects.filter((p: Project) => p.status === "in-progress").length,
+        completedProjects: relevantProjects.filter((p: Project) => p.status === "completed").length,
+        recentProjects: relevantProjects.slice(0, 5),
+        totalProposals: proposalData.length,
+        pendingProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "pending").length,
+        acceptedProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "accepted").length,
+        deliveredProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "delivered").length,
+        recentProposals: proposalData.slice(0, 5),
+      });
+    } catch (err) {
+      setError("Failed to load dashboard data. Please try again later.");
+      console.error("Error fetching dashboard data:", err);
+      toast.error("Error", {
+        description: "Failed to load dashboard data. Please try again.",
+        className: "bg-red-700 text-white border-red-800 bg-opacity-80",
+        duration: 4000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "talent") {
-      const socketIo = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
-        withCredentials: true,
-      });
-      setSocket(socketIo);
-
-      socketIo.on("connect", () => {
-        console.log("Connected to Socket.IO server");
-        socketIo.emit("getDashboardData", { timeRange: "30" });
-      });
-
-      socketIo.on("dashboardUpdate", (data: DashboardData) => {
-        setDashboardData(data);
-        setIsLoading(false);
-      });
-
-      socketIo.on("orderCreated", () => {
-        socketIo.emit("getDashboardData", { timeRange: "30" });
-      });
-
-      socketIo.on("orderStatusUpdated", () => {
-        socketIo.emit("getDashboardData", { timeRange: "30" });
-      });
-
-      socketIo.on("error", (error: { message: string }) => {
-        toast.error("Error", {
-          description: error.message,
-          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-          duration: 4000,
-        });
-      });
-
-      return () => {
-        socketIo.disconnect();
-      };
+      fetchDashboardData();
     }
   }, [status, session]);
 
-  // Update current time for countdown timers
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Initial data fetch
-  useEffect(() => {
-    if (status === "authenticated" && session?.user?.role === "talent") {
-      const fetchDashboardData = async () => {
-        setIsLoading(true);
-        try {
-          const response = await fetch("/api/talent/dashboard", {
-            credentials: "include",
-          });
-          const data = await response.json();
-          if (data.success) {
-            setDashboardData(data.data);
-          } else {
-            throw new Error(data.message || "Failed to fetch dashboard data");
-          }
-        } catch (error) {
-          console.error("Error fetching dashboard data:", error);
-          toast.error("Error", {
-            description: error instanceof Error ? error.message : "Failed to fetch dashboard data",
-            className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
-            duration: 4000,
-          });
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      fetchDashboardData();
-    } else if (status === "unauthenticated") {
-      router.replace("/sign-in");
-    }
-  }, [status, session, router]);
-
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return { backgroundColor: colors.grayTextColor, color: "#FFFFFF" };
-      case "in-progress":
-        return { backgroundColor: colors.accentColor, color: colors.darkTextColor };
-      case "delivered":
-        return { backgroundColor: colors.primaryColor, color: colors.darkTextColor };
-      case "rejected":
-      case "cancelled":
-        return { backgroundColor: "#EF4444", color: "#FFFFFF" };
-      case "completed":
-        return { backgroundColor: "#17B169", color: "#FFFFFF" };
-      default:
-        return { backgroundColor: colors.grayTextColor, color: "#FFFFFF" };
-    }
-  };
-
-  const getRemainingTime = (order: Order): string => {
-    if (order.status !== "in-progress") return "N/A";
-    const updatedAt = new Date(order.updatedAt).getTime();
-    const deliveryHours = order.ratePlan.deliveryDays * 24 * 60 * 60 * 1000;
-    const deadline = updatedAt + deliveryHours;
-    const now = currentTime;
-    const remainingMs = deadline - now;
-    if (remainingMs <= 0) {
-      return "Overdue";
-    }
-    const remainingHours = Math.ceil(remainingMs / (1000 * 60 * 60));
-    return `Delivery in ${remainingHours} hour${remainingHours !== 1 ? "s" : ""}`;
-  };
-
-  if (status === "loading" || isLoading) {
+  if (status === "loading" || loading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: colors.lightAccentColor }}
-      >
-        <Loader
-          className="animate-spin h-12 w-12 mr-4"
-          style={{ color: colors.accentColor }}
-        />
-        <p
-          className="text-2xl font-semibold"
-          style={{ color: colors.darkTextColor }}
-        >
-          Loading your dashboard...
-        </p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-blue-50">
+        <Loader text="Loading dashboard..." color="#000000" bgColor="#90D1CA" size="large" />
       </div>
     );
   }
 
   if (status !== "authenticated" || session?.user?.role !== "talent") {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center p-4 text-center"
-        style={{ backgroundColor: colors.lightAccentColor }}
-      >
-        <p className="text-xl font-bold" style={{ color: "#EF4444" }}>
-          Access denied. Please sign in as a talent to view your dashboard.
+      <div className="min-h-screen flex flex-col items-center justify-center bg-blue-50 px-4">
+        <p className="text-red-600 text-base sm:text-lg font-semibold text-center">
+          Unauthorized. Only talents can access this dashboard.
+        </p>
+      </div>
+    );
+  }
+
+  if (error || !dashboardData) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-blue-50 px-4">
+        <p className="text-red-600 text-base sm:text-lg font-semibold text-center">
+          {error || "Failed to load dashboard data."}
         </p>
       </div>
     );
@@ -223,203 +302,301 @@ export default function TalentDashboardPage() {
 
   return (
     <div
-      className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-8 max-w-[94rem] mx-auto"
+      className="min-h-screen py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8 font-sans relative mt-15"
       style={{
-        backgroundImage: `url(${
-          Images.talentProfileBackground
-            ? Images.talentProfileBackground.src
-            : ""
-        })`,
+        backgroundImage: `url(${Images.talentProfileBackground ? Images.talentProfileBackground.src : ""})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
     >
-      <div className="relative z-10">
-        <h1
-          className="text-3xl sm:text-4xl font-bold mb-6"
-          style={{ color: colors.darkTextColor }}
-        >
+      <div className="relative z-10 max-w-7xl mx-auto" style={{ backgroundColor: colors.containerBg }}>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#212121] mb-6 sm:mb-8 text-center sm:text-left">
           Talent Dashboard
         </h1>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div
-            className="bg-white rounded-lg shadow-md p-6 border transition-transform transform hover:scale-105"
-            style={{ borderColor: colors.primaryColor }}
-          >
-            <h2 className="text-lg font-semibold" style={{ color: colors.darkTextColor }}>
-              Total Orders
-            </h2>
-            <p className="text-3xl font-bold mt-2" style={{ color: colors.accentColor }}>
-              {dashboardData?.totalOrders || 0}
-            </p>
+        {/* Statistics Section */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+          {/* Order Stats */}
+          <div className="p-4 sm:p-6 rounded-lg shadow-md" style={{ backgroundColor: colors.headerBg }}>
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4">Orders</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-[#90D1CA]">Total Orders</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.totalOrders}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Pending</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.pendingOrders}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">In Progress</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.inProgressOrders}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Completed</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.completedOrders}</p>
+              </div>
+            </div>
           </div>
-          <div
-            className="bg-white rounded-lg shadow-md p-6 border transition-transform transform hover:scale-105"
-            style={{ borderColor: colors.primaryColor }}
-          >
-            <h2 className="text-lg font-semibold" style={{ color: colors.darkTextColor }}>
-              Pending Orders
-            </h2>
-            <p className="text-3xl font-bold mt-2" style={{ color: colors.accentColor }}>
-              {dashboardData?.pendingOrders || 0}
-            </p>
+
+          {/* Project Stats */}
+          <div className="p-4 sm:p-6 rounded-lg shadow-md" style={{ backgroundColor: colors.headerBg }}>
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4">Projects</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-[#90D1CA]">Total Projects</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.totalProjects}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Open</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.openProjects}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">In Progress</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.inProgressProjects}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Completed</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.completedProjects}</p>
+              </div>
+            </div>
           </div>
-          <div
-            className="bg-white rounded-lg shadow-md p-6 border transition-transform transform hover:scale-105"
-            style={{ borderColor: colors.primaryColor }}
-          >
-            <h2 className="text-lg font-semibold" style={{ color: colors.darkTextColor }}>
-              In Progress
-            </h2>
-            <p className="text-3xl font-bold mt-2" style={{ color: colors.accentColor }}>
-              {dashboardData?.inProgressOrders || 0}
-            </p>
-          </div>
-          <div
-            className="bg-white rounded-lg shadow-md p-6 border transition-transform transform hover:scale-105"
-            style={{ borderColor: colors.primaryColor }}
-          >
-            <h2 className="text-lg font-semibold" style={{ color: colors.darkTextColor }}>
-              Completed Orders
-            </h2>
-            <p className="text-3xl font-bold mt-2" style={{ color: colors.accentColor }}>
-              {dashboardData?.completedOrders || 0}
-            </p>
+
+          {/* Proposal Stats */}
+          <div className="p-4 sm:p-6 rounded-lg shadow-md" style={{ backgroundColor: colors.headerBg }}>
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4">Proposals</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-[#90D1CA]">Total Proposals</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.totalProposals}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Pending</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.pendingProposals}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Accepted</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.acceptedProposals}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Delivered</p>
+                <p className="text-2xl font-bold text-white">{dashboardData.deliveredProposals}</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Navigation */}
-        <div className="flex flex-wrap gap-4 mb-8">
-          <Button
-            onClick={() => router.push("/talent/orders")}
-            className="font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
-            style={{ backgroundColor: colors.accentColor, color: colors.darkTextColor }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = colors.secondaryColor)
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = colors.accentColor)
-            }
-          >
-            View All Orders
-            <ArrowRight className="h-5 w-5 ml-2" />
-          </Button>
-          <Button
-            onClick={() => router.push("/talent/clients")}
-            className="font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
-            style={{ backgroundColor: colors.accentColor, color: colors.darkTextColor }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = colors.secondaryColor)
-            }
-            onMouseLeave={(e) =>
-              (e.currentTarget.style.backgroundColor = colors.accentColor)
-            }
-          >
-            Manage Clients
-            <ArrowRight className="h-5 w-5 ml-2" />
-          </Button>
-        </div>
-
-        {/* Recent Orders */}
-        <div
-          className="bg-white rounded-lg shadow-md border p-6"
-          style={{ borderColor: colors.primaryColor }}
-        >
-          <h2
-            className="text-2xl font-semibold mb-4"
-            style={{ color: colors.darkTextColor }}
-          >
+        {/* Recent Orders Table */}
+        <div className="mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4" style={{ color: colors.activeTextColor }}>
             Recent Orders
           </h2>
-          {dashboardData?.recentOrders.length === 0 ? (
-            <p
-              className="text-lg"
-              style={{ color: colors.grayTextColor }}
-            >
-              No recent orders found.
+          {dashboardData.recentOrders.length === 0 ? (
+            <p className="text-[#757575] text-base sm:text-lg text-center">
+              No recent orders available.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead style={{ color: colors.darkTextColor }}>
-                    Client
-                  </TableHead>
-                  <TableHead style={{ color: colors.darkTextColor }}>
-                    Project Title
-                  </TableHead>
-                  <TableHead style={{ color: colors.darkTextColor }}>
-                    Status
-                  </TableHead>
-                  <TableHead style={{ color: colors.darkTextColor }}>
-                    Delivery Deadline
-                  </TableHead>
-                  <TableHead style={{ color: colors.darkTextColor }}>
-                    Created At
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dashboardData?.recentOrders.map((order) => (
-                  <TableRow
-                    key={order._id}
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => router.push(`/talent/orders/${order._id}`)}
-                  >
-                    <TableCell style={{ color: colors.grayTextColor }}>
-                      {order.clientUserName || "Unknown"}
-                    </TableCell>
-                    <TableCell style={{ color: colors.grayTextColor }}>
-                      {order.projectDetails.title}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        style={getStatusBadgeColor(order.status)}
-                        className="px-3 py-1 rounded-full text-sm font-medium"
-                      >
-                        {order.status === "in-progress"
-                          ? "In Progress"
-                          : order.status === "delivered"
-                          ? "Delivered"
-                          : order.status === "completed"
-                          ? "Completed"
-                          : order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell
-                      style={{
-                        color:
-                          order.status === "in-progress" && getRemainingTime(order) === "Overdue"
-                            ? "#EF4444"
-                            : colors.grayTextColor,
-                      }}
-                    >
-                      <div className="flex items-center">
-                        {order.status === "in-progress" && (
-                          <Clock
-                            className="h-4 w-4 mr-2"
-                            style={{
-                              color:
-                                getRemainingTime(order) === "Overdue"
-                                  ? "#EF4444"
-                                  : colors.accentColor,
-                            }}
-                          />
-                        )}
-                        {getRemainingTime(order)}
-                      </div>
-                    </TableCell>
-                    <TableCell style={{ color: colors.grayTextColor }}>
-                      {new Date(order.createdAt).toLocaleDateString()}
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#f8fafc]">
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Order Title
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Client
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Price
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Status
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Created
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Action
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData.recentOrders.map((order) => (
+                    <TableRow key={order._id}>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {order.projectDetails.title}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {order.clientUserName}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        ${order.ratePlan.price.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        <Badge className={getStatusBadgeColor(order.status)}>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          onClick={() => router.push(`/orders/${order._id}/deliverables`)}
+                          className={`text-sm ${colors.buttonHover}`}
+                          style={{ backgroundColor: colors.accentColor, color: "#FFFFFF" }}
+                        >
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
+        </div>
+
+        {/* Recent Projects Table */}
+        <div className="mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4" style={{ color: colors.activeTextColor }}>
+            Recent Projects
+          </h2>
+          {dashboardData.recentProjects.length === 0 ? (
+            <p className="text-[#757575] text-base sm:text-lg text-center">
+              No recent projects available.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#f8fafc]">
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Project Title
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Budget
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Status
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Created
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Action
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData.recentProjects.map((project) => (
+                    <TableRow key={project._id}>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {project.title}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        ${project.budget.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        <Badge className={getStatusBadgeColor(project.status)}>
+                          {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {new Date(project.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          onClick={() => router.push(`/talent/projects/${project._id}`)}
+                          className={`text-sm ${colors.buttonHover}`}
+                          style={{ backgroundColor: colors.accentColor, color: "#FFFFFF" }}
+                        >
+                          View
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Proposals Table */}
+        <div className="mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4" style={{ color: colors.activeTextColor }}>
+            Recent Proposals
+          </h2>
+          {dashboardData.recentProposals.length === 0 ? (
+            <p className="text-[#757575] text-base sm:text-lg text-center">
+              No recent proposals available.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#f8fafc]">
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Project Title
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Bid
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Status
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Created
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Action
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData.recentProposals.map((proposal) => (
+                    <TableRow key={proposal._id}>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {proposal.projectTitle}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        ${proposal.bid.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        <Badge className={getStatusBadgeColor(proposal.proposalStatus)}>
+                          {proposal.proposalStatus.charAt(0).toUpperCase() + proposal.proposalStatus.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {new Date(proposal.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          onClick={() => router.push(`/talent/projects/${proposal.projectId}`)}
+                          className={`text-sm ${colors.buttonHover}`}
+                          style={{ backgroundColor: colors.accentColor, color: "#FFFFFF" }}
+                        >
+                          View Project
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+
+        {/* Action Button */}
+        <div className="flex justify-center">
+          <Button
+            onClick={() => router.push("/talent/projects")}
+            className={`px-6 py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
+            style={{ backgroundColor: colors.accentColor }}
+          >
+            View All Projects
+          </Button>
         </div>
       </div>
     </div>
