@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Images } from "@/lib/images";
+import { io } from "socket.io-client";
 
 const statusOptions = [
   { value: "open", label: "Open" },
@@ -52,7 +53,7 @@ export default function AdminProjectManagementPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState<string>("");
   const [maxPrice, setMaxPrice] = useState<string>("");
-  
+
   // Define color scheme consistent with AdminTalentView
   const primaryDarkGray = "#2D3748";
   const secondaryDarkGray = "rgba(58, 71, 80, 0.6)";
@@ -62,6 +63,62 @@ export default function AdminProjectManagementPage() {
   const white = "#FFFFFF";
   const inputBorderColor = "#667580";
 
+  // Initialize Socket.IO
+  useEffect(() => {
+    if (!session?.user?._id || session?.user?.role !== "admin") return;
+
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+      auth: { userId: session.user._id },
+    });
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.IO server");
+      socket.emit("join", session.user._id);
+    });
+
+    socket.on("projectStatusUpdated", async (data: { projectId: string; status: string }) => {
+      try {
+        const response = await axios.get(`/api/projects/${data.projectId}`);
+        if (response.data.success) {
+          setProjects((prev) =>
+            prev.map((project) =>
+              project._id === data.projectId ? response.data.data : project
+            )
+          );
+          toast.info("Project Status Updated", {
+            description: `Project status changed to ${data.status}.`,
+            className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+            duration: 4000,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching updated project:", error);
+      }
+    });
+
+    socket.on("projectDeleted", (data: { projectId: string }) => {
+      setProjects((prev) => prev.filter((project) => project._id !== data.projectId));
+      toast.info("Project Deleted", {
+        description: "A project has been deleted.",
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+        duration: 4000,
+      });
+    });
+
+    socket.on("dashboardUpdate", (data: any) => {
+      setProjects(data.recentProjects || []);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from Socket.IO server");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [session?.user?._id, session?.user?.role]);
+
+  // Fetch projects
   useEffect(() => {
     const fetchProjects = async () => {
       try {

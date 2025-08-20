@@ -9,6 +9,7 @@ import { Loader2 as Loader, FileText, DollarSign, MessageSquareText, Tag, AlertC
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Images } from "@/lib/images";
+import { io } from "socket.io-client";
 
 interface PlainProposal {
   _id: string;
@@ -17,7 +18,12 @@ interface PlainProposal {
   bid: number;
   coverLetter: string;
   files?: string[];
-  proposalStatus: "pending" | "accepted" | "rejected";
+  proposalStatus: "pending" | "accepted" | "rejected" | "delivered" | "revision-requested";
+  deliverables?: {
+    files: string[];
+    note?: string | null;
+    submittedAt: string | null;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -35,6 +41,10 @@ const getProposalStatusBadgeColor = (status: string) => {
       return "bg-[#34D399] text-white"; // Green
     case "rejected":
       return "bg-[#EF4444] text-white"; // Red
+    case "delivered":
+      return "bg-[#3B82F6] text-white"; // Blue
+    case "revision-requested":
+      return "bg-[#F59E0B] text-white"; // Orange
     default:
       return "bg-[#757575] text-white"; // Neutral gray
   }
@@ -56,6 +66,51 @@ export default function AdminProposalsPage() {
   const neutralTextColor = "#B0B0B0";
   const white = "#FFFFFF";
 
+  // Initialize Socket.IO
+  useEffect(() => {
+    if (!session?.user?._id || session?.user?.role !== "admin" || !id) return;
+
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+      auth: { userId: session.user._id },
+    });
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.IO server");
+      socket.emit("join", session.user._id);
+    });
+
+    socket.on("proposalStatusUpdated", (data: { proposalId: string; status: "accepted" | "rejected" }) => {
+      if (data.status === "accepted") {
+        setProposals((prev) =>
+          prev.map((proposal) =>
+            proposal._id === data.proposalId ? { ...proposal, proposalStatus: data.status } : proposal
+          )
+        );
+        toast.success("Proposal Accepted", {
+          description: "A proposal has been accepted.",
+          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+          duration: 4000,
+        });
+      } else if (data.status === "rejected") {
+        setProposals((prev) => prev.filter((proposal) => proposal._id !== data.proposalId));
+        toast.info("Proposal Rejected", {
+          description: "A proposal has been rejected and removed.",
+          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+          duration: 4000,
+        });
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from Socket.IO server");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [session?.user?._id, session?.user?.role, id]);
+
+  // Fetch proposals
   useEffect(() => {
     const fetchProposals = async () => {
       try {
@@ -108,14 +163,19 @@ export default function AdminProposalsPage() {
               proposal._id === proposalId ? { ...proposal, proposalStatus: newStatus } : proposal
             )
           );
+          toast.success("Proposal Accepted", {
+            description: "Proposal has been accepted.",
+            className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+            duration: 4000,
+          });
         } else {
           setProposals((prev) => prev.filter((proposal) => proposal._id !== proposalId));
+          toast.info("Proposal Rejected", {
+            description: "Proposal has been rejected and removed.",
+            className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+            duration: 4000,
+          });
         }
-        toast.success("Proposal Updated", {
-          description: `Proposal has been ${newStatus}${newStatus === "rejected" ? " and deleted" : ""}.`,
-          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
-          duration: 4000,
-        });
       } else {
         throw new Error(response.data.message || "Failed to update proposal status");
       }
@@ -264,6 +324,37 @@ export default function AdminProposalsPage() {
                           </Button>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  {proposal.deliverables && (
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold flex items-center" style={{ color: activeTextColor }}>
+                        <FileText className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                        Deliverables
+                      </h3>
+                      <div className="flex flex-wrap gap-4">
+                        {proposal.deliverables.files.map((file, index) => (
+                          <Button
+                            key={index}
+                            onClick={() => handleFileDownload({ url: file })}
+                            className="flex items-center px-4 py-2 rounded-full transition-colors"
+                            style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+                          >
+                            <FileText className="h-5 w-5 mr-2" />
+                            Deliverable {index + 1}
+                          </Button>
+                        ))}
+                      </div>
+                      {proposal.deliverables.note && (
+                        <div className="mt-2">
+                          <p className="text-sm font-semibold" style={{ color: activeTextColor }}>
+                            Deliverable Note
+                          </p>
+                          <p className="text-sm" style={{ color: neutralTextColor }}>
+                            {proposal.deliverables.note}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                   {proposal.proposalStatus === "pending" && (

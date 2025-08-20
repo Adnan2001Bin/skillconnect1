@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MultiSelect } from "@/components/admin/MultiSelect";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { io } from "socket.io-client";
 
 interface ProjectFile {
   url: string;
@@ -74,6 +75,59 @@ export default function AdminProjectDetailsPage() {
   const white = "#FFFFFF";
   const inputBorderColor = "#667580";
 
+  // Initialize Socket.IO
+  useEffect(() => {
+    if (!session?.user?._id || session?.user?.role !== "admin" || !id) return;
+
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+      auth: { userId: session.user._id },
+    });
+
+    socket.on("connect", () => {
+      console.log("Connected to Socket.IO server");
+      socket.emit("join", session.user._id);
+    });
+
+    socket.on("projectStatusUpdated", async (data: { projectId: string; status: string }) => {
+      if (data.projectId === id) {
+        try {
+          const response = await axios.get(`/api/projects/${id}`);
+          if (response.data.success) {
+            setProject(response.data.data);
+            setFormData(response.data.data);
+            toast.info("Project Status Updated", {
+              description: `Project status changed to ${data.status}.`,
+              className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+              duration: 4000,
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching updated project:", error);
+        }
+      }
+    });
+
+    socket.on("projectDeleted", (data: { projectId: string }) => {
+      if (data.projectId === id) {
+        toast.info("Project Deleted", {
+          description: "This project has been deleted.",
+          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+          duration: 4000,
+        });
+        router.push("/admin/management/projects");
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Disconnected from Socket.IO server");
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [session?.user?._id, session?.user?.role, id, router]);
+
+  // Fetch project
   useEffect(() => {
     const fetchProject = async () => {
       try {
@@ -128,9 +182,17 @@ export default function AdminProjectDetailsPage() {
         setFormData(response.data.data);
         toast.success("Status Updated", {
           description: `Project marked as ${newStatus}.`,
-          className: "bg-green-600 text-white border-green-700 backdrop-blur-md bg-opacity-80",
+          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
           duration: 4000,
         });
+        // Emit Socket.IO event
+        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+        socket.emit("projectStatusUpdated", {
+          projectId: id,
+          status: newStatus,
+          message: `Project ${response.data.data.title} has been marked as ${newStatus}.`,
+        });
+        socket.disconnect();
       } else {
         throw new Error(response.data.message || "Failed to update status");
       }
@@ -152,7 +214,7 @@ export default function AdminProjectDetailsPage() {
         ...formData,
         services: selectedServices,
       };
-      const response = await axios.put(`/api/admin/projects/${id}`, dataToUpdate);
+      const response = await axios.put(`/api/projects/${id}`, dataToUpdate);
       if (response.data.success) {
         const updatedProject = response.data.data;
         setProject(updatedProject);
@@ -163,6 +225,14 @@ export default function AdminProjectDetailsPage() {
           className: "bg-green-600 text-white border-green-700 bg-opacity-80",
           duration: 4000,
         });
+        // Emit Socket.IO event
+        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+        socket.emit("projectStatusUpdated", {
+          projectId: id,
+          status: updatedProject.status,
+          message: `Project ${updatedProject.title} has been updated.`,
+        });
+        socket.disconnect();
       } else {
         throw new Error(response.data.message || "Failed to update project");
       }
@@ -250,7 +320,7 @@ export default function AdminProjectDetailsPage() {
   const projectFiles: ProjectFile[] = (project.files || []).map((file) =>
     typeof file === "string" ? { url: file } : file
   );
-  
+
   const availableServices = formData.category
     ? servicesByCategory[formData.category]?.map((service) => ({
         value: service,

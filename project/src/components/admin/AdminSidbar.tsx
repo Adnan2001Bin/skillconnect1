@@ -1,4 +1,3 @@
-// app/admin/AdminSidebar.tsx
 "use client";
 
 import { useState } from "react";
@@ -10,7 +9,8 @@ import {
   SquareChartGantt,
   ChartNoAxesCombined,
   Eye,
-  LogOut, // Import the LogOut icon
+  LogOut,
+  MessageSquare, // Import MessageSquare icon for Conversations
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -54,24 +54,21 @@ export default function AdminSidebar({
         { name: "Talent Management", href: "/admin/management/talents" },
         { name: "Project Management", href: "/admin/management/projects" },
         { name: "Order Management", href: "/admin/management/orders" },
-
-        {
-          name: "Transaction Management",
-          href: "/admin/management/transactions",
-        }
+        { name: "Transaction Management", href: "/admin/management/transactions" },
+        { name: "Conversations", href: "/admin/management/messages/conversations" }, 
       ],
     },
     { name: "Security & Moderation", icon: Eye, href: "/admin/security" },
   ];
 
- if (status !== "authenticated") {
+  if (status !== "authenticated") {
     return null;
   }
+
   const handleSignOut = async () => {
-      await signOut({ redirect: false });
-      router.push("/home");
-    };
- 
+    await signOut({ redirect: false });
+    router.push("/home");
+  };
 
   return (
     <div>
@@ -84,7 +81,7 @@ export default function AdminSidebar({
         role="navigation"
         aria-label="Admin Sidebar"
       >
-        <div className="p-4 pt-20 lg:pt-3 flex-grow"> {/* Added flex-grow */}
+        <div className="p-4 pt-20 lg:pt-3 flex-grow">
           <div className="flex items-center mb-6">
             <Image
               src={Images.logoTalent}
@@ -192,7 +189,7 @@ export default function AdminSidebar({
         </div>
 
         {/* Sign Out */}
-        <div className="p-4 border-t" style={{ borderColor: secondaryDarkGray }}> 
+        <div className="p-4 border-t" style={{ borderColor: secondaryDarkGray }}>
           <Button
             onClick={handleSignOut}
             className="w-full flex items-center justify-center space-x-2 p-3 rounded-lg"

@@ -2,24 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import connectDB from "@/lib/connectDB";
-import ProjectModel from "@/models/projects.model";
+import ProjectModel, { IProject } from "@/models/projects.model";
+import ProposalModel from "@/models/proposal.model";
 import { authOptions } from "../../auth/[...nextauth]/options";
-import proposalModel from "@/models/proposal.model";
+import { io } from "socket.io-client";
 
 const updateProjectSchema = z.object({
-  status: z.enum(["completed", "cancelled"], {
-    message: "Project status must be either 'completed' or 'cancelled'",
-  }),
+  title: z.string().min(3).max(100).optional(),
+  description: z.string().min(10).max(1000).optional(),
+  category: z.string().nonempty().optional(),
+  services: z.array(z.string()).min(1).optional(),
+  budget: z.union([z.number(), z.string()])
+    .transform(val => typeof val === 'string' ? Number(val) : val)
+    .refine(val => !isNaN(val) && val >= 10 && val <= 100000, {
+      message: "Budget must be a number between 10 and 100000"
+    })
+    .optional(),
+  timeline: z.union([z.number(), z.string()])
+    .transform(val => typeof val === 'string' ? Number(val) : val)
+    .refine(val => !isNaN(val) && val >= 1 && val <= 365, {
+      message: "Timeline must be a number between 1 and 365"
+    })
+    .optional(),
+  requirements: z.string().min(10).max(1000).optional(),
+  files: z.array(z.string()).optional(),
+  status: z.enum(["completed", "cancelled", "open"]).optional(),
 });
-
 
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  await connectDB();
-
   try {
+    await connectDB();
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json(
@@ -28,9 +43,8 @@ export async function GET(
       );
     }
 
-    const { id } = await context.params;
-    const project = await ProjectModel.findById(id);
-
+    const projectId = params.id;
+    const project = await ProjectModel.findById(projectId).lean<IProject>();
     if (!project) {
       return NextResponse.json(
         { success: false, message: "Project not found" },
@@ -54,8 +68,6 @@ export async function GET(
     );
   }
 }
-
-
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -85,7 +97,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     await connectDB();
 
     // 5. Verify project exists
-    const project = await ProjectModel.findById(projectId);
+    const project = await ProjectModel.findById(projectId) as IProject | null;
     if (!project) {
       return NextResponse.json(
         { success: false, message: "Project not found" },
@@ -101,36 +113,26 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       );
     }
 
-    // 7. Validate project status transition
-    if (project.status !== "open" && project.status !== "in-progress") {
-      return NextResponse.json(
-        { success: false, message: "Project cannot be updated from its current status." },
-        { status: 400 }
-      );
-    }
+    // 7. Initialize Socket.IO client
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
 
-    // 8. Handle project status update
+    // 8. Handle project updates
+    Object.assign(project, validatedData);
+    project.updatedAt = new Date();
+    await project.save();
+
+    // 9. Handle status-specific logic
     if (validatedData.status === "cancelled") {
-      // Update project status
-      project.status = validatedData.status;
-      project.updatedAt = new Date();
-      await project.save();
-
-      // Delete all associated proposals
-      await proposalModel.deleteMany({ projectId });
-
-      return NextResponse.json(
-        {
-          success: true,
-          message: "Project cancelled and all proposals deleted successfully",
-          data: project,
-        },
-        { status: 200 }
-      );
+      await ProposalModel.deleteMany({ projectId });
+      socket.emit("projectStatusUpdated", {
+        projectId,
+        status: "cancelled",
+        message: `Project ${project.title} has been cancelled and all proposals deleted.`,
+      });
     } else if (validatedData.status === "completed") {
-      // Check if there is an accepted proposal
-      const acceptedProposal = await proposalModel.findOne({ projectId, proposalStatus: "accepted" });
+      const acceptedProposal = await ProposalModel.findOne({ projectId, proposalStatus: "accepted" });
       if (!acceptedProposal) {
+        socket.disconnect();
         return NextResponse.json(
           {
             success: false,
@@ -139,24 +141,29 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           { status: 400 }
         );
       }
-
-      // Update project status
-      project.status = validatedData.status;
-      project.updatedAt = new Date();
-      await project.save();
-
-      // Delete all pending proposals
-      await proposalModel.deleteMany({ projectId, proposalStatus: "pending" });
-
-      return NextResponse.json(
-        {
-          success: true,
-          message: "Project marked as completed and pending proposals deleted successfully",
-          data: project,
-        },
-        { status: 200 }
-      );
+      await ProposalModel.deleteMany({ projectId, proposalStatus: "pending" });
+      socket.emit("projectStatusUpdated", {
+        projectId,
+        status: "completed",
+        message: `Project ${project.title} has been marked as completed.`,
+      });
+    } else if (validatedData.status === "open") {
+      socket.emit("projectStatusUpdated", {
+        projectId,
+        status: "open",
+        message: `Project ${project.title} has been reopened.`,
+      });
     }
+
+    socket.disconnect();
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Project updated successfully",
+        data: project,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -196,7 +203,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
 
     await connectDB();
 
-    const project = await ProjectModel.findById(projectId);
+    const project = await ProjectModel.findById(projectId) as IProject | null;
     if (!project) {
       return NextResponse.json(
         { success: false, message: "Project not found" },
@@ -205,7 +212,15 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     }
 
     await ProjectModel.findByIdAndDelete(projectId);
-    await proposalModel.deleteMany({ projectId });
+    await ProposalModel.deleteMany({ projectId });
+
+    // Emit Socket.IO event
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+    socket.emit("projectDeleted", {
+      projectId,
+      message: `Project ${project.title} has been deleted.`,
+    });
+    socket.disconnect();
 
     return NextResponse.json(
       {

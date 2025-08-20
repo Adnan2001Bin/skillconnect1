@@ -230,18 +230,7 @@ export default function ProjectActions({
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-      {project.status === "open" && (
-        <Button
-          onClick={() => router.push(`/projects/${id}/apply`)}
-          className={`px-6 py-2 rounded-full font-semibold transition-colors`}
-          style={{
-            backgroundColor: colors.accentColor,
-            color: colors.white,
-          }}
-        >
-          Apply Now
-        </Button>
-      )}
+      
       {isClient && (
         <Button
           onClick={() => handleStatusUpdate("completed")}

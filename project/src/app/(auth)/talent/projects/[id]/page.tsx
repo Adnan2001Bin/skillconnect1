@@ -491,15 +491,7 @@ export default function TalentProjectDetailsPage() {
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            {isTalent && project.status === "open" && (!proposalStatus.hasApplied || proposalStatus.status === "rejected") && (
-              <Button
-                onClick={() => setIsApplying(true)}
-                className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
-                style={{ backgroundColor: colors.accentColor }}
-              >
-                Apply Now
-              </Button>
-            )}
+            
             {isTalent && (proposalStatus.status === "accepted" || proposalStatus.status === "revision-requested") && proposalStatus.proposalId && (
               <Button
                 onClick={() => setIsSubmittingDeliverables(true)}

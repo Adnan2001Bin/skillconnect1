@@ -4,17 +4,18 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import io, { Socket } from "socket.io-client";
-import { Loader2 as Loader, Package, Clock } from "lucide-react";
+import { Loader2 as Loader, Package, Clock, Briefcase, DollarSign } from "lucide-react";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   BarElement,
+  ArcElement,
   Title,
   Tooltip,
   Legend,
 } from "chart.js";
-import { Bar } from "react-chartjs-2";
+import { Bar, Pie } from "react-chartjs-2";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -35,7 +36,7 @@ import {
 import { toast } from "sonner";
 import { Images } from "@/lib/images";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 interface Order {
   _id: string;
@@ -78,12 +79,31 @@ interface DashboardData {
     completed: number;
     cancelled: number;
   };
-  revisionStatusCounts?: {
+  revisionStatusCounts: {
     none: number;
     requested: number;
     submitted: number;
-  }; // Made optional to handle missing data
+  };
+  totalProjects: number;
+  projectsByStatus: {
+    open: number;
+    inProgress: number;
+    completed: number;
+    cancelled: number;
+  };
+  projectsByCategory: { [key: string]: number }; // Added
+  totalRevenue: number; // Added
   recentOrders: Order[];
+  recentProjects: {
+    _id: string;
+    clientId: string;
+    clientUserName: string;
+    title: string;
+    category: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+  }[];
 }
 
 const timeRangeOptions = [
@@ -130,7 +150,7 @@ export default function AdminDashboardPage() {
       });
 
       socketInstance.on("dashboardUpdate", (data: DashboardData) => {
-        console.log("Received dashboardUpdate:", data); // Debug log
+        console.log("Received dashboardUpdate:", JSON.stringify(data, null, 2));
         setDashboardData(data);
         setLoading(false);
       });
@@ -151,12 +171,55 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const exportData = () => {
+    if (!dashboardData) return;
+
+    const headers = [
+      "Type,Client,Talent/Title,Rate Plan/Category,Status,Revision Status,Created At",
+    ];
+    const orderRows = dashboardData.recentOrders.map((order) => [
+      "Order",
+      order.clientUserName || "Unknown",
+      order.talentUserName || "Unknown",
+      order.ratePlan.type,
+      order.status,
+      order.revisionStatus,
+      new Date(order.createdAt).toLocaleDateString(),
+    ].join(","));
+    const projectRows = dashboardData.recentProjects.map((project) => [
+      "Project",
+      project.clientUserName || "Unknown",
+      project.title,
+      project.category,
+      project.status,
+      "",
+      new Date(project.createdAt).toLocaleDateString(),
+    ].join(","));
+    const csvContent = [
+      ...headers,
+      ...orderRows,
+      ...projectRows,
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `dashboard-data-${timeRange}-days.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast.success("Data Exported", {
+      description: "Dashboard data has been exported as CSV.",
+      className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+      duration: 3000,
+    });
+  };
+
   const chartData = {
     labels: ["Pending", "In Progress", "Accepted", "Rejected", "Delivered", "Completed", "Cancelled"],
     datasets: [
       {
         label: "Orders by Status",
-        data: dashboardData
+        data: dashboardData?.ordersByStatus
           ? [
               dashboardData.ordersByStatus.pending,
               dashboardData.ordersByStatus.inProgress,
@@ -200,6 +263,54 @@ export default function AdminDashboardPage() {
     ],
   };
 
+  const projectChartData = {
+    labels: ["Open", "In Progress", "Completed", "Cancelled"],
+    datasets: [
+      {
+        label: "Projects by Status",
+        data: dashboardData?.projectsByStatus
+          ? [
+              dashboardData.projectsByStatus.open || 0,
+              dashboardData.projectsByStatus.inProgress || 0,
+              dashboardData.projectsByStatus.completed || 0,
+              dashboardData.projectsByStatus.cancelled || 0,
+            ]
+          : [0, 0, 0, 0],
+        backgroundColor: [
+          "#34D399", // Open (Green)
+          "#3B82F6", // In Progress (Blue)
+          "#6EE7B7", // Completed (Light green)
+          "#EF4444", // Cancelled (Red)
+        ],
+        borderColor: [activeTextColor],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const categoryChartData = {
+    labels: dashboardData?.projectsByCategory ? Object.keys(dashboardData.projectsByCategory) : [],
+    datasets: [
+      {
+        label: "Projects by Category",
+        data: dashboardData?.projectsByCategory
+          ? Object.values(dashboardData.projectsByCategory)
+          : [],
+        backgroundColor: [
+          "#34D399", // Green
+          "#3B82F6", // Blue
+          "#FBBF24", // Yellow
+          "#EC4899", // Pink
+          "#10B981", // Emerald
+          "#6EE7B7", // Light green
+          "#EF4444", // Red
+        ].slice(0, dashboardData?.projectsByCategory ? Object.keys(dashboardData.projectsByCategory).length : 0),
+        borderColor: [activeTextColor],
+        borderWidth: 1,
+      },
+    ],
+  };
+
   const chartOptions = {
     responsive: true,
     plugins: {
@@ -229,6 +340,56 @@ export default function AdminDashboardPage() {
         },
         ticks: { color: activeTextColor },
         grid: { color: neutralTextColor },
+      },
+    },
+  };
+
+  const projectChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top" as const,
+        labels: {
+          color: activeTextColor,
+        },
+      },
+      title: {
+        display: true,
+        text: "Projects by Status",
+        color: activeTextColor,
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: activeTextColor },
+        grid: { color: neutralTextColor },
+      },
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: "Number of Projects",
+          color: activeTextColor,
+        },
+        ticks: { color: activeTextColor },
+        grid: { color: neutralTextColor },
+      },
+    },
+  };
+
+  const categoryChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top" as const,
+        labels: {
+          color: activeTextColor,
+        },
+      },
+      title: {
+        display: true,
+        text: "Projects by Category",
+        color: activeTextColor,
       },
     },
   };
@@ -303,6 +464,14 @@ export default function AdminDashboardPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button
+            onClick={exportData}
+            className="px-6 py-2 rounded-full font-semibold"
+            style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+            disabled={!dashboardData}
+          >
+            Export Data
+          </Button>
         </div>
 
         {error && (
@@ -317,7 +486,7 @@ export default function AdminDashboardPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
                 <CardHeader>
                   <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
@@ -329,16 +498,65 @@ export default function AdminDashboardPage() {
                   <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.totalOrders}</p>
                 </CardContent>
               </Card>
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
+                <CardHeader>
+                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                    <Briefcase className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                    Total Projects
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.totalProjects}</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
+                <CardHeader>
+                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                    <DollarSign className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                    Total Revenue
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>${dashboardData.totalRevenue?.toFixed(2)}</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
+                <CardHeader>
+                  <CardTitle style={{ color: activeTextColor }}>Orders and Revision Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-80">
+                    <Bar data={chartData} options={chartOptions} />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
+                <CardHeader>
+                  <CardTitle style={{ color: activeTextColor }}>Projects by Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-80">
+                    <Bar data={projectChartData} options={projectChartOptions} />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
               <CardHeader>
-                <CardTitle style={{ color: activeTextColor }}>Orders and Revision Status</CardTitle>
+                <CardTitle style={{ color: activeTextColor }}>Projects by Category</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  <Bar data={chartData} options={chartOptions} />
-                </div>
+                {dashboardData.projectsByCategory && Object.keys(dashboardData.projectsByCategory).length > 0 ? (
+                  <div className="h-80">
+                    <Pie data={categoryChartData} options={categoryChartOptions} />
+                  </div>
+                ) : (
+                  <p style={{ color: neutralTextColor }}>No category data available.</p>
+                )}
               </CardContent>
             </Card>
 
@@ -350,7 +568,7 @@ export default function AdminDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {dashboardData.recentOrders.length === 0 ? (
+                {dashboardData.recentOrders?.length === 0 ? (
                   <p style={{ color: neutralTextColor }}>No recent orders found.</p>
                 ) : (
                   <Table>
@@ -407,6 +625,63 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
 
+            <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
+              <CardHeader>
+                <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                  <Briefcase className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                  Recent Projects
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {dashboardData.recentProjects?.length === 0 ? (
+                  <p style={{ color: neutralTextColor }}>No recent projects found.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead style={{ color: activeTextColor }}>Client</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Title</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Category</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Status</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Created At</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {dashboardData.recentProjects.map((project) => (
+                        <TableRow key={project._id}>
+                          <TableCell style={{ color: neutralTextColor }}>
+                            {project.clientUserName || "Unknown"}
+                          </TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>
+                            {project.title}
+                          </TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>
+                            {project.category}
+                          </TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>
+                            {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                          </TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>
+                            {new Date(project.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              onClick={() => router.push(`/admin/management/projects/${project._id}`)}
+                              className="px-4 py-1 rounded-full"
+                              style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+                            >
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+
             <div className="flex justify-center gap-4">
               <Button
                 onClick={() => router.push("/admin/management/orders")}
@@ -414,6 +689,13 @@ export default function AdminDashboardPage() {
                 style={{ backgroundColor: accentColor, color: primaryDarkGray }}
               >
                 Manage Orders
+              </Button>
+              <Button
+                onClick={() => router.push("/admin/management/projects")}
+                className="px-6 py-2 rounded-full font-semibold"
+                style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+              >
+                Manage Projects
               </Button>
             </div>
           </div>

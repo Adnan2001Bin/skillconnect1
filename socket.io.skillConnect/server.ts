@@ -33,9 +33,18 @@ io.use(authMiddleware);
 
 async function getTalentDashboardData(talentId: string) {
   const totalOrders = await OrderModel.countDocuments({ talentId });
-  const pendingOrders = await OrderModel.countDocuments({ talentId, status: "pending" });
-  const inProgressOrders = await OrderModel.countDocuments({ talentId, status: "in-progress" });
-  const completedOrders = await OrderModel.countDocuments({ talentId, status: "completed" });
+  const pendingOrders = await OrderModel.countDocuments({
+    talentId,
+    status: "pending",
+  });
+  const inProgressOrders = await OrderModel.countDocuments({
+    talentId,
+    status: "in-progress",
+  });
+  const completedOrders = await OrderModel.countDocuments({
+    talentId,
+    status: "completed",
+  });
 
   const recentOrders = await OrderModel.find({ talentId })
     .sort({ createdAt: -1 })
@@ -44,7 +53,9 @@ async function getTalentDashboardData(talentId: string) {
 
   const recentOrdersWithUserNames = await Promise.all(
     recentOrders.map(async (order: any) => {
-      const client = await UserModel.findById(order.clientId).select("userName").lean();
+      const client = await UserModel.findById(order.clientId)
+        .select("userName")
+        .lean();
       return {
         _id: order._id.toString(),
         talentId: order.talentId,
@@ -71,7 +82,8 @@ async function getTalentDashboardData(talentId: string) {
           ? {
               files: order.revisionRequest.files || [],
               note: order.revisionRequest.note || undefined,
-              requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
+              requestedAt:
+                order.revisionRequest.requestedAt?.toISOString() || "",
             }
           : undefined,
       };
@@ -88,20 +100,37 @@ async function getTalentDashboardData(talentId: string) {
 }
 
 async function getClientDashboardData(clientId: string) {
-  const totalProposals = await ProposalModel.countDocuments({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') } });
-  const pendingProposals = await ProposalModel.countDocuments({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') }, proposalStatus: "pending" });
-  const acceptedProposals = await ProposalModel.countDocuments({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') }, proposalStatus: "accepted" });
-  const deliveredProposals = await ProposalModel.countDocuments({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') }, proposalStatus: "delivered" });
+  const totalProposals = await ProposalModel.countDocuments({
+    projectId: { $in: await ProjectModel.find({ clientId }).distinct("_id") },
+  });
+  const pendingProposals = await ProposalModel.countDocuments({
+    projectId: { $in: await ProjectModel.find({ clientId }).distinct("_id") },
+    proposalStatus: "pending",
+  });
+  const acceptedProposals = await ProposalModel.countDocuments({
+    projectId: { $in: await ProjectModel.find({ clientId }).distinct("_id") },
+    proposalStatus: "accepted",
+  });
+  const deliveredProposals = await ProposalModel.countDocuments({
+    projectId: { $in: await ProjectModel.find({ clientId }).distinct("_id") },
+    proposalStatus: "delivered",
+  });
 
-  const recentProposals = await ProposalModel.find({ projectId: { $in: await ProjectModel.find({ clientId }).distinct('_id') } })
+  const recentProposals = await ProposalModel.find({
+    projectId: { $in: await ProjectModel.find({ clientId }).distinct("_id") },
+  })
     .sort({ createdAt: -1 })
     .limit(5)
     .lean();
 
   const recentProposalsWithDetails = await Promise.all(
     recentProposals.map(async (proposal: any) => {
-      const talent = await UserModel.findById(proposal.talentId).select("userName").lean();
-      const project = await ProjectModel.findById(proposal.projectId).select("title").lean();
+      const talent = await UserModel.findById(proposal.talentId)
+        .select("userName")
+        .lean();
+      const project = await ProjectModel.findById(proposal.projectId)
+        .select("title")
+        .lean();
       return {
         _id: proposal._id.toString(),
         projectId: proposal.projectId,
@@ -113,7 +142,8 @@ async function getClientDashboardData(clientId: string) {
           ? {
               files: proposal.deliverables.files || [],
               note: proposal.deliverables.note || null,
-              submittedAt: proposal.deliverables.submittedAt?.toISOString() || null,
+              submittedAt:
+                proposal.deliverables.submittedAt?.toISOString() || null,
             }
           : undefined,
         createdAt: proposal.createdAt.toISOString(),
@@ -140,9 +170,6 @@ io.on("connection", (socket: Socket & { userId?: string; role?: string }) => {
     try {
       if (socket.role === "talent") {
         const data = await getTalentDashboardData(socket.userId!);
-        socket.emit("dashboardUpdate", data);
-      } else if (socket.role === "user") {
-        const data = await getClientDashboardData(socket.userId!);
         socket.emit("dashboardUpdate", data);
       } else {
         const data = await getDashboardData(timeRange);
@@ -174,38 +201,65 @@ io.on("connection", (socket: Socket & { userId?: string; role?: string }) => {
     }
   });
 
-  socket.on("proposalDeliverablesSubmitted", async (data: { proposalId: string; projectId: string; message: string; clientId: string; projectStatus: string }) => {
-    io.to(data.clientId).emit("proposalDeliverablesSubmitted", {
-      proposalId: data.proposalId,
-      projectId: data.projectId,
-      message: data.message,
-      projectStatus: data.projectStatus,
-    });
-    if (socket.role === "user") {
-      const clientData = await getClientDashboardData(socket.userId!);
-      socket.emit("dashboardUpdate", clientData);
+  socket.on(
+    "deliverablesSubmitted",
+    (data: { orderId: string; message: string; clientId: string }) => {
+      io.to(data.clientId).emit("deliverablesSubmitted", {
+        orderId: data.orderId,
+        message: data.message,
+      });
     }
-  });
+  );
 
-  socket.on("projectCompleted", async (data: { projectId: string; message: string }) => {
-    const project = await ProjectModel.findById(data.projectId).lean<IProject>();
-    if (project && project.clientId) {
-      const proposal = await ProposalModel.findOne({ projectId: data.projectId, proposalStatus: { $in: ["delivered", "revision-requested"] } }).lean<IProposal>();
-      if (proposal && proposal.talentId) {
-        const notification = new NotificationModel({
-          userId: proposal.talentId,
-          projectId: project._id,
-          message: data.message,
-          read: false,
-        });
-        await notification.save();
-        io.to(proposal.talentId.toString()).emit("projectCompleted", {
-          projectId: data.projectId,
-          message: data.message,
-        });
+  socket.on(
+    "proposalDeliverablesSubmitted",
+    async (data: {
+      proposalId: string;
+      projectId: string;
+      message: string;
+      clientId: string;
+      projectStatus: string;
+    }) => {
+      io.to(data.clientId).emit("proposalDeliverablesSubmitted", {
+        proposalId: data.proposalId,
+        projectId: data.projectId,
+        message: data.message,
+        projectStatus: data.projectStatus,
+      });
+      if (socket.role === "user") {
+        const clientData = await getClientDashboardData(socket.userId!);
+        socket.emit("dashboardUpdate", clientData);
       }
     }
-  });
+  );
+
+  socket.on(
+    "projectCompleted",
+    async (data: { projectId: string; message: string }) => {
+      const project = await ProjectModel.findById(
+        data.projectId
+      ).lean<IProject>();
+      if (project && project.clientId) {
+        const proposal = await ProposalModel.findOne({
+          projectId: data.projectId,
+          proposalStatus: { $in: ["delivered", "revision-requested"] },
+        }).lean<IProposal>();
+        if (proposal && proposal.talentId) {
+          const notification = new NotificationModel({
+            userId: proposal.talentId,
+            projectId: project._id,
+            message: data.message,
+            read: false,
+          });
+          await notification.save();
+          io.to(proposal.talentId.toString()).emit("projectCompleted", {
+            projectId: data.projectId,
+            message: data.message,
+          });
+        }
+      }
+    }
+  );
 
   setupMessagingHandlers(io, socket);
 
@@ -221,10 +275,18 @@ connectDB().then(async () => {
   const messageChangeStream = MessageModel.watch();
 
   projectChangeStream.on("change", async (change) => {
-    if (change.operationType === "update" && change.updateDescription.updatedFields?.status === "completed") {
-      const project = await ProjectModel.findById(change.documentKey._id).lean<IProject>();
+    if (
+      change.operationType === "update" &&
+      change.updateDescription.updatedFields?.status === "completed"
+    ) {
+      const project = await ProjectModel.findById(
+        change.documentKey._id
+      ).lean<IProject>();
       if (project && project.clientId) {
-        const proposal = await ProposalModel.findOne({ projectId: project._id, proposalStatus: { $in: ["delivered", "revision-requested"] } }).lean<IProposal>();
+        const proposal = await ProposalModel.findOne({
+          projectId: project._id,
+          proposalStatus: { $in: ["delivered", "revision-requested"] },
+        }).lean<IProposal>();
         if (proposal && proposal.talentId) {
           const notification = new NotificationModel({
             userId: proposal.talentId,
@@ -240,15 +302,23 @@ connectDB().then(async () => {
         }
       }
     }
+    // Emit updated dashboard data including project metrics
     const data = await getDashboardData("30");
     io.emit("dashboardUpdate", data);
   });
 
   proposalChangeStream.on("change", async (change) => {
-    if (change.operationType === "update" && change.updateDescription.updatedFields?.deliverables) {
-      const proposal = await ProposalModel.findById(change.documentKey._id).lean<IProposal>();
+    if (
+      change.operationType === "update" &&
+      change.updateDescription.updatedFields?.deliverables
+    ) {
+      const proposal = await ProposalModel.findById(
+        change.documentKey._id
+      ).lean<IProposal>();
       if (proposal && proposal.projectId) {
-        const project = await ProjectModel.findById(proposal.projectId).lean<IProject>();
+        const project = await ProjectModel.findById(
+          proposal.projectId
+        ).lean<IProject>();
         if (project && project.clientId) {
           const notification = new NotificationModel({
             userId: project.clientId,
@@ -257,20 +327,35 @@ connectDB().then(async () => {
             read: false,
           });
           await notification.save();
-          io.to(project.clientId.toString()).emit("proposalDeliverablesSubmitted", {
-            proposalId: proposal._id.toString(),
-            projectId: project._id.toString(),
-            message: `Deliverables submitted for proposal on project: ${project.title}`,
-            projectStatus: project.status,
-          });
-          const clientData = await getClientDashboardData(project.clientId.toString());
-          io.to(project.clientId.toString()).emit("dashboardUpdate", clientData);
+          io.to(project.clientId.toString()).emit(
+            "proposalDeliverablesSubmitted",
+            {
+              proposalId: proposal._id.toString(),
+              projectId: project._id.toString(),
+              message: `Deliverables submitted for proposal on project: ${project.title}`,
+              projectStatus: project.status,
+            }
+          );
+          const clientData = await getClientDashboardData(
+            project.clientId.toString()
+          );
+          io.to(project.clientId.toString()).emit(
+            "dashboardUpdate",
+            clientData
+          );
         }
       }
-    } else if (change.operationType === "update" && change.updateDescription.updatedFields?.proposalStatus) {
-      const proposal = await ProposalModel.findById(change.documentKey._id).lean<IProposal>();
+    } else if (
+      change.operationType === "update" &&
+      change.updateDescription.updatedFields?.proposalStatus
+    ) {
+      const proposal = await ProposalModel.findById(
+        change.documentKey._id
+      ).lean<IProposal>();
       if (proposal && proposal.talentId && proposal.projectId) {
-        const project = await ProjectModel.findById(proposal.projectId).lean<IProject>();
+        const project = await ProjectModel.findById(
+          proposal.projectId
+        ).lean<IProject>();
         if (project) {
           const status = change.updateDescription.updatedFields.proposalStatus;
           const notification = new NotificationModel({
@@ -280,11 +365,14 @@ connectDB().then(async () => {
             read: false,
           });
           await notification.save();
-          io.to(proposal.talentId.toString()).emit(`proposal${status.charAt(0).toUpperCase() + status.slice(1)}`, {
-            proposalId: proposal._id.toString(),
-            projectId: project._id.toString(),
-            message: `Your proposal for project ${project.title} has been ${status}.`,
-          });
+          io.to(proposal.talentId.toString()).emit(
+            `proposal${status.charAt(0).toUpperCase() + status.slice(1)}`,
+            {
+              proposalId: proposal._id.toString(),
+              projectId: project._id.toString(),
+              message: `Your proposal for project ${project.title} has been ${status}.`,
+            }
+          );
         }
       }
     }
@@ -295,7 +383,9 @@ connectDB().then(async () => {
   orderChangeStream.on("change", async (change) => {
     if (change.operationType === "insert") {
       io.emit("orderCreated");
-      const order = await OrderModel.findById(change.documentKey._id).lean<IOrder | null>();
+      const order = await OrderModel.findById(
+        change.documentKey._id
+      ).lean<IOrder | null>();
       if (order && order.talentId) {
         const data = await getTalentDashboardData(order.talentId.toString());
         io.to(order.talentId.toString()).emit("dashboardUpdate", data);
@@ -305,7 +395,9 @@ connectDB().then(async () => {
       change.updateDescription.updatedFields?.status
     ) {
       io.emit("orderStatusUpdated");
-      const order = await OrderModel.findById(change.documentKey._id).lean<IOrder | null>();
+      const order = await OrderModel.findById(
+        change.documentKey._id
+      ).lean<IOrder | null>();
       if (order && order.talentId) {
         const data = await getTalentDashboardData(order.talentId.toString());
         io.to(order.talentId.toString()).emit("dashboardUpdate", data);

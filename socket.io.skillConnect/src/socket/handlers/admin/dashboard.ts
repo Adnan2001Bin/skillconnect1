@@ -1,4 +1,5 @@
 import OrderModel from "@/src/models/order.model";
+import ProjectModel from "@/src/models/projects.model";
 import UserModel from "@/src/models/user.model";
 import { DashboardData } from "../../../type";
 
@@ -44,6 +45,32 @@ export const getDashboardData = async (timeRange: string): Promise<DashboardData
     submitted: await OrderModel.countDocuments({ ...query, revisionStatus: "submitted" }),
   };
 
+  // Project metrics
+  const totalProjects = await ProjectModel.countDocuments(query);
+  const projectsByStatus = {
+    open: await ProjectModel.countDocuments({ ...query, status: "open" }),
+    inProgress: await ProjectModel.countDocuments({ ...query, status: "in-progress" }),
+    completed: await ProjectModel.countDocuments({ ...query, status: "completed" }),
+    cancelled: await ProjectModel.countDocuments({ ...query, status: "cancelled" }),
+  };
+
+  // Projects by category
+  const categoryAggregation = await ProjectModel.aggregate([
+    { $match: query },
+    { $group: { _id: "$category", count: { $sum: 1 } } },
+  ]);
+  const projectsByCategory = categoryAggregation.reduce((acc, curr) => {
+    acc[curr._id] = curr.count;
+    return acc;
+  }, {} as { [key: string]: number });
+
+  // Total revenue from completed orders
+  const revenueAggregation = await OrderModel.aggregate([
+    { $match: { ...query, status: "completed" } },
+    { $group: { _id: null, total: { $sum: "$ratePlan.price" } } },
+  ]);
+  const totalRevenue = revenueAggregation[0]?.total || 0;
+
   // Recent orders (up to 5)
   const recentOrders = await OrderModel.find(query)
     .sort({ createdAt: -1 })
@@ -59,7 +86,7 @@ export const getDashboardData = async (timeRange: string): Promise<DashboardData
         talentId: order.talentId,
         clientId: order.clientId,
         clientUserName: client?.userName || "Unknown",
-        talentUserName: talent?.userName || "Unknown", // Added talentUserName
+        talentUserName: talent?.userName || "Unknown",
         ratePlan: {
           type: order.ratePlan.type,
           price: order.ratePlan.price,
@@ -88,10 +115,40 @@ export const getDashboardData = async (timeRange: string): Promise<DashboardData
     })
   );
 
-  return {
+  // Recent projects (up to 5)
+  const recentProjects = await ProjectModel.find(query)
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .lean();
+
+  const recentProjectsWithUserNames = await Promise.all(
+    recentProjects.map(async (project: any) => {
+      const client = await UserModel.findById(project.clientId).select("userName").lean();
+      return {
+        _id: project._id.toString(),
+        clientId: project.clientId,
+        clientUserName: client?.userName || "Unknown",
+        title: project.title,
+        category: project.category,
+        status: project.status,
+        createdAt: project.createdAt.toISOString(),
+        updatedAt: project.updatedAt.toISOString(),
+      };
+    })
+  );
+
+  const dashboardData: DashboardData = {
     totalOrders,
     ordersByStatus,
     revisionStatusCounts,
+    totalProjects,
+    projectsByStatus,
+    projectsByCategory,
+    totalRevenue,
     recentOrders: recentOrdersWithUserNames,
+    recentProjects: recentProjectsWithUserNames,
   };
+
+  console.log("getDashboardData result:", JSON.stringify(dashboardData, null, 2));
+  return dashboardData;
 };

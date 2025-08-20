@@ -16,12 +16,21 @@ export interface DashboardData {
     requested: number;
     submitted: number;
   };
+  totalProjects: number;
+  projectsByStatus: {
+    open: number;
+    inProgress: number;
+    completed: number;
+    cancelled: number;
+  };
+  projectsByCategory: { [key: string]: number }; // Added
+  totalRevenue: number; // Added
   recentOrders: {
     _id: string;
     talentId: string;
     clientId: string;
     clientUserName: string;
-    talentUserName: string; // Added talentUserName
+    talentUserName: string;
     ratePlan: {
       type: "Basic" | "Standard" | "Premium";
       price: number;
@@ -44,13 +53,20 @@ export interface DashboardData {
       note?: string;
       requestedAt: string;
     };
-
- 
   }[];
-  
+  recentProjects: {
+    _id: string;
+    clientId: string;
+    clientUserName: string;
+    title: string;
+    category: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+  }[];
 }
 
-   export interface LeanMessage {
+export interface LeanMessage {
   _id: string;
   senderId: string;
   receiverId: string;
@@ -58,45 +74,10 @@ export interface DashboardData {
   conversationId: string;
   createdAt: Date;
   updatedAt?: Date;
-  deletedAt?: Date; 
+  deletedAt?: Date;
   isRead: boolean;
 }
 
 export interface AuthenticatedSocket extends Socket {
   userId: string;
 }
-
-
-
-// export interface LeanProject {
-//   _id: string;
-//   title: string;
-//   status: string;
-//   createdAt: Date;
-//   updatedAt: Date;
-//   proposalCount?: number;
-// }
-
-// export interface LeanOrder {
-//   _id: string;
-//   projectDetails: { title: string; description: string };
-//   status: string;
-//   createdAt: Date;
-//   updatedAt: Date;
-//   talentId: { userName: string };
-//   clientId: { userName: string };
-// }
-
-
-
-// export interface DashboardData {
-//   totalProjects: number;
-//   projectsByStatus: { open: number; inProgress: number; completed: number; cancelled: number };
-//   totalOrders: number;
-//   ordersByStatus: { pending: number; accepted: number; rejected: number; completed: number; cancelled: number };
-//   activeProposals: number;
-//   disputes: number;
-//   recentActivity: { id: string; title: string; type: string; timestamp: Date }[];
-//   highPriorityIssues: { id: string; title: string; issue: string; type: "project" | "order" }[];
-// }
-

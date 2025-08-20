@@ -61,9 +61,12 @@ export default function Notifications({
 
     fetchNotifications();
 
-    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
-      auth: { userId: session.user._id },
-    });
+    const socketInstance = io(
+      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000",
+      {
+        auth: { userId: session.user._id },
+      }
+    );
 
     setSocket(socketInstance);
 
@@ -76,57 +79,70 @@ export default function Notifications({
       });
     });
 
-    socketInstance.on("deliverablesSubmitted", (data: { orderId: string; message: string }) => {
-      setNotifications((prev) => {
-        const exists = prev.some((notif) => notif.orderId === data.orderId && notif.message === data.message);
-        if (exists) return prev;
-        return [
-          {
-            id: `${data.orderId}-${Date.now()}`,
-            message: data.message,
-            orderId: data.orderId,
-            read: false,
-            createdAt: new Date().toISOString(),
+    socketInstance.on(
+      "deliverablesSubmitted",
+      (data: { orderId: string; message: string }) => {
+        setNotifications((prev) => {
+          const exists = prev.some(
+            (notif) =>
+              notif.orderId === data.orderId && notif.message === data.message
+          );
+          if (exists) return prev;
+          return [
+            {
+              id: `${data.orderId}-${Date.now()}`,
+              message: data.message,
+              orderId: data.orderId,
+              read: false,
+              createdAt: new Date().toISOString(),
+            },
+            ...prev.slice(0, 9),
+          ];
+        });
+        toast.info("New Deliverables", {
+          description: data.message,
+          className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+          duration: 4000,
+          action: {
+            label: "View",
+            onClick: () => router.push(`/orders/${data.orderId}/deliverables`),
           },
-          ...prev.slice(0, 9),
-        ];
-      });
-      toast.info("New Deliverables", {
-        description: data.message,
-        className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
-        duration: 4000,
-        action: {
-          label: "View",
-          onClick: () => router.push(`/orders/${data.orderId}/deliverables`),
-        },
-      });
-    });
+        });
+      }
+    );
 
-    socketInstance.on("projectStatusUpdated", (data: { projectId: string; status: string; message: string }) => {
-      setNotifications((prev) => {
-        const exists = prev.some((notif) => notif.projectId === data.projectId && notif.message === data.message);
-        if (exists) return prev;
-        return [
-          {
-            id: `${data.projectId}-${Date.now()}`,
-            message: data.message,
-            projectId: data.projectId,
-            read: false,
-            createdAt: new Date().toISOString(),
+    socketInstance.on(
+      "projectStatusUpdated",
+      (data: { projectId: string; status: string; message: string }) => {
+        setNotifications((prev) => {
+          const exists = prev.some(
+            (notif) =>
+              notif.projectId === data.projectId &&
+              notif.message === data.message
+          );
+          if (exists) return prev;
+          return [
+            {
+              id: `${data.projectId}-${Date.now()}`,
+              message: data.message,
+              projectId: data.projectId,
+              read: false,
+              createdAt: new Date().toISOString(),
+            },
+            ...prev.slice(0, 9),
+          ];
+        });
+        toast.info("Project Status Updated", {
+          description: data.message,
+          className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+          duration: 4000,
+          action: {
+            label: "View",
+            onClick: () => router.push(`/projects/${data.projectId}`),
           },
-          ...prev.slice(0, 9),
-        ];
-      });
-      toast.info("Project Status Updated", {
-        description: data.message,
-        className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
-        duration: 4000,
-        action: {
-          label: "View",
-          onClick: () => router.push(`/projects/${data.projectId}`),
-        },
-      });
-    });
+        });
+      }
+    );
 
     return () => {
       socketInstance.disconnect();
@@ -185,7 +201,7 @@ export default function Notifications({
         )}
       </button>
       {isNotificationsOpen && isMenuOpen && (
-        <div className="pl-4 pr-2 py-2 bg-gray-50 rounded-md mt-1">
+        <div className="pl-4 pr-2 py-2 bg-gray-50 rounded-md mt-1 max-h-60 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="px-4 py-2 text-sm text-gray-500">
               No notifications
@@ -198,7 +214,9 @@ export default function Notifications({
                 className={`block px-4 py-2 text-sm ${
                   notif.read ? "text-gray-500" : "text-gray-700 font-medium"
                 } hover:bg-[#4CAF50] hover:text-white rounded ${
-                  !notif.orderId && !notif.projectId ? "pointer-events-none opacity-50" : ""
+                  !notif.orderId && !notif.projectId
+                    ? "pointer-events-none opacity-50"
+                    : ""
                 }`}
                 onClick={() => {
                   if (notif.orderId || notif.projectId) {
@@ -235,38 +253,42 @@ export default function Notifications({
         )}
       </button>
       {isNotificationsOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
+        <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg z-10 border border-gray-200">
           <div className="px-4 py-2 text-sm font-semibold text-gray-700 border-b border-gray-200">
             Notifications
           </div>
-          {notifications.length === 0 ? (
-            <div className="px-4 py-2 text-sm text-gray-500">
-              No notifications
-            </div>
-          ) : (
-            notifications.map((notif) => (
-              <Link
-                key={notif.id}
-                href={getNotificationHref(notif)}
-                className={`block px-4 py-2 text-sm ${
-                  notif.read ? "text-gray-500" : "text-gray-700 font-medium"
-                } hover:bg-[#4CAF50] hover:text-white ${
-                  !notif.orderId && !notif.projectId ? "pointer-events-none opacity-50" : ""
-                }`}
-                onClick={() => {
-                  if (notif.orderId || notif.projectId) {
-                    markNotificationAsRead(notif.id);
-                    setIsNotificationsOpen(false);
-                  }
-                }}
-              >
-                {notif.message}
-                <div className="text-xs text-gray-400">
-                  {new Date(notif.createdAt).toLocaleTimeString()}
-                </div>
-              </Link>
-            ))
-          )}
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="px-4 py-2 text-sm text-gray-500">
+                No notifications
+              </div>
+            ) : (
+              notifications.map((notif) => (
+                <Link
+                  key={notif.id}
+                  href={getNotificationHref(notif)}
+                  className={`block px-4 py-2 text-sm ${
+                    notif.read ? "text-gray-500" : "text-gray-700 font-medium"
+                  } hover:bg-[#4CAF50] hover:text-white ${
+                    !notif.orderId && !notif.projectId
+                      ? "pointer-events-none opacity-50"
+                      : ""
+                  }`}
+                  onClick={() => {
+                    if (notif.orderId || notif.projectId) {
+                      markNotificationAsRead(notif.id);
+                      setIsNotificationsOpen(false);
+                    }
+                  }}
+                >
+                  {notif.message}
+                  <div className="text-xs text-gray-400">
+                    {new Date(notif.createdAt).toLocaleTimeString()}
+                  </div>
+                </Link>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
