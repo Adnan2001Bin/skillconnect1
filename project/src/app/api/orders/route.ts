@@ -6,6 +6,12 @@ import UserModel from "@/models/user.model";
 import { authOptions } from "../auth/[...nextauth]/options";
 import { createOrderSchema } from "@/schemas/createOrderSchema";
 import { z } from "zod";
+import Stripe from "stripe";
+
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2025-07-30.basil",
+});
 
 // Define response type for GET
 interface OrderResponse {
@@ -23,13 +29,14 @@ interface OrderResponse {
       price: number;
       whatsIncluded: string[];
       deliveryDays: number;
-      revisions: number; // Added revisions field
+      revisions: number;
     };
     projectDetails: {
       title: string;
       description: string;
     };
     status: string;
+    paymentStatus: string; // Added to response type
     createdAt: string;
   }[];
   error?: string;
@@ -37,7 +44,6 @@ interface OrderResponse {
 
 export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>> {
   try {
-    // Authenticate user session
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json(
@@ -46,7 +52,6 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
       );
     }
 
-    // Get query parameters
     const { searchParams } = new URL(req.url);
     const talentId = searchParams.get("talentId");
     const clientId = searchParams.get("clientId");
@@ -54,13 +59,10 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
     const timeRange = searchParams.get("timeRange");
     const search = searchParams.get("search");
 
-    // Connect to the database
     await connectDB();
 
-    // Build query
     const query: any = {};
     if (session.user.role !== "admin") {
-      // Restrict non-admins to their own orders
       if (session.user.role === "user") {
         query.clientId = session.user._id;
       } else if (session.user.role === "talent") {
@@ -98,10 +100,8 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
       ];
     }
 
-    // Fetch orders
     const orders = await OrderModel.find(query).lean();
 
-    // Fetch talent and client usernames
     const ordersWithUserNames = await Promise.all(
       orders.map(async (order: any) => {
         const [talent, client] = await Promise.all([
@@ -139,7 +139,6 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
 
 export async function POST(req: NextRequest) {
   try {
-    // Authenticate user session
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "user") {
       return NextResponse.json(
@@ -148,32 +147,55 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Parse and validate request body
     const body = await req.json();
     const validatedData = createOrderSchema.parse(body);
 
-    // Connect to the database
     await connectDB();
 
-    // Create new order
+    // Create Stripe Checkout session
+    const checkoutSession = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `${validatedData.ratePlan.type} Plan - ${validatedData.projectDetails.title}`,
+              description: validatedData.projectDetails.description,
+            },
+            unit_amount: Math.round(validatedData.ratePlan.price * 100), // Convert to cents
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: `${process.env.NEXT_PUBLIC_SUCCESS_URL}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_CANCEL_URL}`,
+      metadata: {
+        talentId: validatedData.talentId,
+        clientId: session.user._id,
+        ratePlan: JSON.stringify(validatedData.ratePlan),
+        projectDetails: JSON.stringify(validatedData.projectDetails),
+      },
+    });
+
     const order = new OrderModel({
       talentId: validatedData.talentId,
       clientId: session.user._id,
       ratePlan: validatedData.ratePlan,
       projectDetails: validatedData.projectDetails,
       status: "pending",
+      paymentStatus: "pending", // Initial payment status
     });
 
-    // Save order
     await order.save();
-
     return NextResponse.json(
       {
         success: true,
-        message: "Order requested successfully",
-        data: order,
+        message: "Checkout session created and Order requested successfully",
+        sessionId: checkoutSession.id,
       },
-      { status: 201 }
+      { status: 200 }
     );
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -182,11 +204,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    console.error("Error creating order:", error);
+    console.error("Error creating checkout session:", error);
     return NextResponse.json(
       {
         success: false,
-        message: "Internal server error. Failed to create order.",
+        message: "Internal server error. Failed to create checkout session.",
         error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }

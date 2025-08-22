@@ -171,7 +171,7 @@ export default function Notifications({
 
   const getNotificationHref = (notif: Notification): string => {
     if (notif.orderId) {
-      return `/orders/${notif.orderId}/deliverables`;
+      return `/orders`;
     } else if (notif.projectId) {
       return `/projects/${notif.projectId}`;
     }

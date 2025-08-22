@@ -30,7 +30,7 @@ import { ArrowLeft, User, Package } from "lucide-react";
 
 // Utilities & Types
 import { Images } from "@/lib/images";
-import type { Order } from "@/types/order"; // Import Order type
+import type { Order } from "@/types/order";
 
 // Import the new dialog component
 import ViewDeliverablesDialog from "@/components/userView/ViewDeliverablesDialog";
@@ -42,6 +42,7 @@ export default function ClientOrdersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [revisionStatusFilter, setRevisionStatusFilter] = useState<string>("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const colors = {
@@ -67,8 +68,8 @@ export default function ClientOrdersPage() {
           params: {
             clientId: session.user._id,
             status: statusFilter !== "all" ? statusFilter : undefined,
-            revisionStatus:
-              revisionStatusFilter !== "all" ? revisionStatusFilter : undefined,
+            revisionStatus: revisionStatusFilter !== "all" ? revisionStatusFilter : undefined,
+            paymentStatus: paymentStatusFilter !== "all" ? paymentStatusFilter : undefined,
           },
         });
         if (res.data.success) {
@@ -82,7 +83,7 @@ export default function ClientOrdersPage() {
         setIsLoading(false);
       }
     }
-  }, [session, status, statusFilter, revisionStatusFilter]);
+  }, [session, status, statusFilter, revisionStatusFilter, paymentStatusFilter]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -126,6 +127,36 @@ export default function ClientOrdersPage() {
     }
   };
 
+  const getPaymentStatusBadgeColor = (paymentStatus: string) => {
+    switch (paymentStatus) {
+      case "completed":
+        return { backgroundColor: colors.successColor, color: colors.white };
+      case "pending":
+        return { backgroundColor: colors.warningColor, color: colors.white };
+      case "failed":
+        return { backgroundColor: colors.errorRed, color: colors.white };
+      case "cancelled":
+        return { backgroundColor: colors.neutralTextColor, color: colors.white };
+      default:
+        return { backgroundColor: colors.errorRed, color: colors.white };
+    }
+  };
+
+  const getRevisionDeadline = (order: Order) => {
+    if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
+      const requestedAt = new Date(order.revisionRequest.requestedAt);
+      const deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      const now = new Date();
+      const timeLeft = Math.max(0, deadline.getTime() - now.getTime());
+      return {
+        deadline,
+        daysLeft: Math.floor(timeLeft / (1000 * 60 * 60 * 24)),
+        hoursLeft: Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      };
+    }
+    return null;
+  };
+
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
@@ -161,7 +192,7 @@ export default function ClientOrdersPage() {
             Your Orders
           </h1>
 
-          {/* Filters and Table remain the same... */}
+          {/* Filters */}
           <div className="mb-6 flex flex-col sm:flex-row gap-4">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]" style={{ borderColor: colors.inputBorderColor, color: colors.neutralTextColor }}>
@@ -187,6 +218,18 @@ export default function ClientOrdersPage() {
                 <SelectItem value="submitted">Submitted</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+              <SelectTrigger className="w-[180px]" style={{ borderColor: colors.inputBorderColor, color: colors.neutralTextColor }}>
+                <SelectValue placeholder="Filter by Payment" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Payments</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {orders.length === 0 ? (
@@ -203,31 +246,50 @@ export default function ClientOrdersPage() {
                     <TableHead style={{ color: colors.activeTextColor }}>Talent</TableHead>
                     <TableHead style={{ color: colors.activeTextColor }}>Project</TableHead>
                     <TableHead style={{ color: colors.activeTextColor }}>Status</TableHead>
+                    <TableHead style={{ color: colors.activeTextColor }}>Payment</TableHead>
                     <TableHead style={{ color: colors.activeTextColor }}>Revision</TableHead>
+                    <TableHead style={{ color: colors.activeTextColor }}>Deadline</TableHead>
                     <TableHead style={{ color: colors.activeTextColor }}>Created</TableHead>
                     <TableHead style={{ color: colors.activeTextColor }}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {orders.map((order) => (
-                    <TableRow key={order._id}>
-                      <TableCell style={{ color: colors.neutralTextColor }}>{order.talentUserName || "N/A"}</TableCell>
-                      <TableCell style={{ color: colors.neutralTextColor }}>{order.projectDetails.title}</TableCell>
-                      <TableCell><Badge style={getStatusBadgeColor(order.status)}>{order.status}</Badge></TableCell>
-                      <TableCell><Badge style={getRevisionStatusBadgeColor(order.revisionStatus)}>{order.revisionStatus}</Badge></TableCell>
-                      <TableCell style={{ color: colors.neutralTextColor }}>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => router.push(`/talentList/${order.talentId}`)} style={{ borderColor: colors.accentColor, color: colors.accentColor }}>
-                          <User className="h-4 w-4 mr-2" /> View Talent
-                        </Button>
-                        {(order.status === "delivered" || order.status === "completed") && (
-                          <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)} style={{ borderColor: colors.accentColor, color: colors.accentColor }}>
-                            <Package className="h-4 w-4 mr-2" /> View Deliverables
+                  {orders.map((order) => {
+                    const deadlineInfo = getRevisionDeadline(order);
+                    return (
+                      <TableRow key={order._id}>
+                        <TableCell style={{ color: colors.neutralTextColor }}>{order.talentUserName || "N/A"}</TableCell>
+                        <TableCell style={{ color: colors.neutralTextColor }}>{order.projectDetails.title}</TableCell>
+                        <TableCell><Badge style={getStatusBadgeColor(order.status)}>{order.status}</Badge></TableCell>
+                        <TableCell><Badge style={getPaymentStatusBadgeColor(order.paymentStatus)}>{order.paymentStatus}</Badge></TableCell>
+                        <TableCell><Badge style={getRevisionStatusBadgeColor(order.revisionStatus)}>{order.revisionStatus}</Badge></TableCell>
+                        <TableCell suppressHydrationWarning style={{ color: colors.neutralTextColor }}>
+                          {deadlineInfo ? (
+                            deadlineInfo.daysLeft > 0 ? (
+                              `${deadlineInfo.daysLeft}d ${deadlineInfo.hoursLeft}h left`
+                            ) : deadlineInfo.hoursLeft > 0 ? (
+                              `${deadlineInfo.hoursLeft}h left`
+                            ) : (
+                              "Expired"
+                            )
+                          ) : (
+                            "N/A"
+                          )}
+                        </TableCell>
+                        <TableCell suppressHydrationWarning style={{ color: colors.neutralTextColor }}>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="flex gap-2">
+                          <Button variant="outline" size="sm" onClick={() => router.push(`/talentList/${order.talentId}`)} style={{ borderColor: colors.accentColor, color: colors.accentColor }}>
+                            <User className="h-4 w-4 mr-2" /> View Talent
                           </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          {(order.status === "delivered" || order.status === "completed") && (
+                            <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)} style={{ borderColor: colors.accentColor, color: colors.accentColor }}>
+                              <Package className="h-4 w-4 mr-2" /> View Deliverables
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

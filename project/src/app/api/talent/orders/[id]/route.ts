@@ -146,6 +146,7 @@ export async function PATCH(
             description: order.projectDetails.description,
           },
           status: order.status,
+          paymentStatus: order.paymentStatus, // Include payment status in response
           revisionStatus: order.revisionStatus,
           revisionCount: order.revisionCount,
           createdAt: order.createdAt.toISOString(),

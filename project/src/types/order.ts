@@ -1,23 +1,15 @@
-export interface RatePlan {
-  type: "Basic" | "Standard" | "Premium";
-  description: string;
-  price: number;
-  whatsIncluded: string[];
-  deliveryDays: number;
-  revisions: number;
-}
-
-export interface Deliverables {
-  files: string[];
-  note: string | null;
-  submittedAt: string;
-}
-
 export interface Order {
   _id: string;
   talentId: string;
   clientId: string;
-  ratePlan: RatePlan;
+  ratePlan: {
+    type: "Basic" | "Standard" | "Premium";
+    description: string;
+    price: number;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
   projectDetails: {
     title: string;
     description: string;
@@ -30,6 +22,7 @@ export interface Order {
     | "delivered"
     | "completed"
     | "cancelled";
+  paymentStatus: "pending" | "completed" | "failed" | "cancelled"; // Added
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   revisionRequest?: {
@@ -40,5 +33,10 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   talentUserName?: string;
-  deliverables?: Deliverables;
+  clientUserName?: string;
+  deliverables?: {
+    files: string[];
+    note: string | null;
+    submittedAt: string;
+  };
 }

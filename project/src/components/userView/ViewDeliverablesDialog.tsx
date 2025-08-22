@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useForm } from "react-hook-form";
@@ -65,14 +64,8 @@ export interface Order {
     title: string;
     description: string;
   };
-  status:
-    | "pending"
-    | "in-progress"
-    | "accepted"
-    | "rejected"
-    | "delivered"
-    | "completed"
-    | "cancelled";
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
+  paymentStatus: "pending" | "completed" | "failed" | "cancelled";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   revisionRequest?: {
@@ -187,6 +180,23 @@ export default function ViewDeliverablesDialog({
     }
   };
 
+  const getRevisionDeadline = () => {
+    if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
+      const requestedAt = new Date(order.revisionRequest.requestedAt);
+      const deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      const now = new Date();
+      const timeLeft = Math.max(0, deadline.getTime() - now.getTime());
+      return {
+        deadline,
+        daysLeft: Math.floor(timeLeft / (1000 * 60 * 60 * 24)),
+        hoursLeft: Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+      };
+    }
+    return null;
+  };
+
+  const deadlineInfo = getRevisionDeadline();
+
   if (!order.deliverables) {
     return (
       <DialogContent>
@@ -247,6 +257,11 @@ export default function ViewDeliverablesDialog({
             </h3>
             <p className="text-sm text-gray-300 mt-1">
               Used: {order.revisionCount} / {order.ratePlan.revisions}
+              {deadlineInfo && (
+                <span className="block">
+                  Deadline: {deadlineInfo.daysLeft}d {deadlineInfo.hoursLeft}h left
+                </span>
+              )}
             </p>
             <Dialog>
               <DialogTrigger asChild>
@@ -255,7 +270,8 @@ export default function ViewDeliverablesDialog({
                     isSubmitting ||
                     order.status !== "delivered" ||
                     order.revisionCount >= order.ratePlan.revisions ||
-                    order.revisionStatus === "requested"
+                    order.revisionStatus === "requested" ||
+                    (deadlineInfo ? (deadlineInfo.daysLeft === 0 && deadlineInfo.hoursLeft === 0) : false)
                   }
                   className="mt-3 bg-amber-500 hover:bg-amber-600 text-white"
                 >

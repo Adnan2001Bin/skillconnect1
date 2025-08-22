@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import axios from "axios";
 import Image from "next/image";
+import { loadStripe } from "@stripe/stripe-js"; // Import Stripe.js
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,6 +55,9 @@ import { TalentProfileInput } from "@/schemas/profileSchema";
 import Loader from "@/components/Loader";
 import io, { Socket } from "socket.io-client";
 
+// Initialize Stripe with your publishable key
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
+
 // Define RatePlan type to match talentProfileSchema
 interface RatePlan {
   type: "Basic" | "Standard" | "Premium";
@@ -61,7 +65,7 @@ interface RatePlan {
   price: number;
   whatsIncluded: string[];
   deliveryDays: number;
-  revisions: number; // Added revisions field
+  revisions: number;
 }
 
 // Define Order type for orders fetched from API
@@ -131,7 +135,6 @@ export default function UserTalentProfilePage() {
 
   useEffect(() => {
     if (status === "authenticated" && params.id) {
-      // Initialize Socket.IO
       const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
         auth: { userId: session.user._id },
       });
@@ -182,7 +185,6 @@ export default function UserTalentProfilePage() {
         });
       });
 
-      // Fetch talent profile and orders
       const fetchTalentAndOrders = async () => {
         setIsLoading(true);
         try {
@@ -238,21 +240,18 @@ export default function UserTalentProfilePage() {
     }
   }, [status, params.id, session, router]);
 
-  // Scroll to bottom of chat when messages update
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Helper function to get the category label
   const getCategoryLabel = (categoryValue: string | null | undefined) => {
     if (!categoryValue) return "";
     const foundCategory = categories.find((cat) => cat.value === categoryValue);
     return foundCategory ? foundCategory.label : categoryValue;
   };
 
-  // Handle opening the order dialog
   const handleOpenOrderDialog = (ratePlan: RatePlan) => {
     if (session?.user?.role !== "user") {
       toast.error("Error", {
@@ -276,7 +275,6 @@ export default function UserTalentProfilePage() {
     setIsOrderDialogOpen(true);
   };
 
-  // Handle order submission
   const handleRequestOrder = async () => {
     if (!selectedRatePlan || !talent) return;
 
@@ -291,21 +289,25 @@ export default function UserTalentProfilePage() {
         },
       });
 
-      if (response.data.success) {
-        toast.success("Success", {
-          description: "Order requested successfully.",
-          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
-          duration: 4000,
+      if (response.data.success && response.data.sessionId) {
+        const stripe = await stripePromise;
+        if (!stripe) {
+          throw new Error("Stripe.js failed to load.");
+        }
+        // Redirect to Stripe Checkout
+        const { error } = await stripe.redirectToCheckout({
+          sessionId: response.data.sessionId,
         });
-        setPendingOrders((prev) => new Set(prev).add(selectedRatePlan.type));
-        setIsOrderDialogOpen(false);
+        if (error) {
+          throw new Error(error.message);
+        }
       } else {
-        throw new Error(response.data.message || "Failed to request order.");
+        throw new Error(response.data.message || "Failed to initiate payment.");
       }
     } catch (error) {
-      console.error("Error requesting order:", error);
+      console.error("Error initiating payment:", error);
       toast.error("Error", {
-        description: error instanceof Error ? error.message : "Failed to request order.",
+        description: error instanceof Error ? error.message : "Failed to initiate payment.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",
         duration: 4000,
       });
@@ -314,7 +316,6 @@ export default function UserTalentProfilePage() {
     }
   };
 
-  // Handle sending a message
   const handleSendMessage = () => {
     if (!newMessage.trim() || !socket || !talent) return;
     socket.emit("sendMessage", {
@@ -324,14 +325,12 @@ export default function UserTalentProfilePage() {
     setNewMessage("");
   };
 
-  // Handle opening the edit message dialog
   const handleOpenEditDialog = (message: Message) => {
     setEditingMessage(message);
     setEditedContent(message.content);
     setIsEditDialogOpen(true);
   };
 
-  // Handle editing a message
   const handleEditMessage = () => {
     if (!editingMessage || !editedContent.trim() || !socket) return;
     socket.emit("editMessage", {
@@ -343,7 +342,6 @@ export default function UserTalentProfilePage() {
     setEditedContent("");
   };
 
-  // Handle deleting a message
   const handleDeleteMessage = (messageId: string) => {
     if (!socket) return;
     socket.emit("deleteMessage", { messageId });
@@ -435,7 +433,7 @@ export default function UserTalentProfilePage() {
               style={{ backgroundColor: colors.accentColor, color: colors.white }}
             >
               {isSubmitting ? <Loader2 className="animate-spin h-5 w-5 mr-2" /> : null}
-              Request Order
+              Proceed to Payment
             </Button>
           </DialogFooter>
         </DialogContent>

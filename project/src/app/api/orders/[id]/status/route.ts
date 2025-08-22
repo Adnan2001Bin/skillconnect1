@@ -123,6 +123,21 @@ export async function PATCH(
       }
 
       order.status = validatedData.status;
+      if (validatedData.status === "completed") {
+        order.paymentStatus = "completed"; // Set payment status to completed when project is approved
+      }
+    }
+
+    // Check for revision expiration (3 days)
+    if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
+      const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
+      const expirationTime = new Date(order.revisionRequest.requestedAt).getTime() + threeDaysInMs;
+      const now = new Date().getTime();
+      if (now > expirationTime && order.paymentStatus !== "completed") {
+        order.paymentStatus = "completed"; // Auto-complete payment if 3 days passed without response
+        order.revisionStatus = "none"; // Reset revision status
+        order.revisionRequest = undefined; // Clear revision request
+      }
     }
 
     await order.save();
@@ -138,6 +153,7 @@ export async function PATCH(
           ratePlan: order.ratePlan,
           projectDetails: order.projectDetails,
           status: order.status,
+          paymentStatus: order.paymentStatus, // Include payment status in response
           revisionStatus: order.revisionStatus,
           revisionCount: order.revisionCount,
           createdAt: order.createdAt.toISOString(),

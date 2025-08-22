@@ -22,6 +22,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@stripe/stripe-js": "^7.8.0",
     "@uploadthing/react": "^7.3.2",
     "axios": "^1.10.0",
     "bcryptjs": "^3.0.2",
@@ -46,6 +47,7 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "sonner": "^2.0.6",
+    "stripe": "^18.4.0",
     "tailwind-merge": "^3.3.1",
     "uploadthing": "^7.7.3",
     "zod": "^3.25.76"
@@ -58,6 +60,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "15.4.1",
     "tailwindcss": "^4",

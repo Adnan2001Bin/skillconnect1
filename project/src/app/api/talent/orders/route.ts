@@ -27,6 +27,7 @@ interface OrderResponse {
       description: string;
     };
     status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
+    paymentStatus: "pending" | "completed" | "failed" | "cancelled"; // Added payment status
     revisionStatus: "none" | "requested" | "submitted";
     revisionCount: number;
     createdAt: string;
@@ -52,12 +53,16 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
+    const paymentStatus = searchParams.get("paymentStatus"); // New filter param
 
     await connectDB();
 
     const query: any = { talentId: session.user._id };
     if (status && status !== "all") {
       query.status = status;
+    }
+    if (paymentStatus && paymentStatus !== "all") {
+      query.paymentStatus = paymentStatus;
     }
 
     const orders = await OrderModel.find(query).lean();
@@ -83,6 +88,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
             description: order.projectDetails.description,
           },
           status: order.status,
+          paymentStatus: order.paymentStatus, // Include payment status
           revisionStatus: order.revisionStatus || "none",
           revisionCount: order.revisionCount || 0,
           createdAt: order.createdAt.toISOString(),

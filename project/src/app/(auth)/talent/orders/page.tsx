@@ -29,7 +29,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader, ArrowLeft, User, Package, File, Paperclip, Eye, Clock } from "lucide-react";
+import {
+  Loader,
+  ArrowLeft,
+  User,
+  Package,
+  File,
+  Paperclip,
+  Eye,
+  Clock,
+} from "lucide-react";
 import { Images } from "@/lib/images";
 
 interface RatePlan {
@@ -56,7 +65,15 @@ interface Order {
     title: string;
     description: string;
   };
-  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
+  status:
+    | "pending"
+    | "in-progress"
+    | "accepted"
+    | "rejected"
+    | "delivered"
+    | "cancelled"
+    | "completed";
+  paymentStatus: "pending" | "completed" | "failed" | "cancelled";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   createdAt: string;
@@ -71,8 +88,9 @@ export default function TalentOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("all");
   const [openDialogId, setOpenDialogId] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [currentTime, setCurrentTime] = useState<number | null>(null);
 
   const colors = {
     primaryColor: "#8DBCC7",
@@ -85,6 +103,8 @@ export default function TalentOrdersPage() {
 
   // Update current time every second for countdown timers
   useEffect(() => {
+    // Set initial time on client mount to prevent hydration mismatch
+    setCurrentTime(Date.now());
     const timer = setInterval(() => {
       setCurrentTime(Date.now());
     }, 1000);
@@ -97,7 +117,11 @@ export default function TalentOrdersPage() {
         setIsLoading(true);
         try {
           const ordersResponse = await axios.get("/api/talent/orders", {
-            params: { status: statusFilter },
+            params: {
+              status: statusFilter,
+              paymentStatus:
+                paymentStatusFilter !== "all" ? paymentStatusFilter : undefined,
+            },
           });
           if (ordersResponse.data.success) {
             setOrders(ordersResponse.data.data);
@@ -126,7 +150,7 @@ export default function TalentOrdersPage() {
     } else if (status === "unauthenticated") {
       router.replace("/sign-in");
     }
-  }, [status, session, router, statusFilter]);
+  }, [status, session, router, statusFilter, paymentStatusFilter]);
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
@@ -152,7 +176,9 @@ export default function TalentOrdersPage() {
           duration: 4000,
         });
       } else {
-        throw new Error(response.data.message || "Failed to update order status.");
+        throw new Error(
+          response.data.message || "Failed to update order status."
+        );
       }
     } catch (error) {
       console.error("Error updating order status:", error);
@@ -162,7 +188,7 @@ export default function TalentOrdersPage() {
         className:
           "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
-    })
+      });
     }
   };
 
@@ -184,9 +210,15 @@ export default function TalentOrdersPage() {
       case "pending":
         return { backgroundColor: colors.grayTextColor, color: "#FFFFFF" };
       case "in-progress":
-        return { backgroundColor: colors.accentColor, color: colors.darkTextColor };
+        return {
+          backgroundColor: colors.accentColor,
+          color: colors.darkTextColor,
+        };
       case "delivered":
-        return { backgroundColor: colors.primaryColor, color: colors.darkTextColor };
+        return {
+          backgroundColor: colors.primaryColor,
+          color: colors.darkTextColor,
+        };
       case "rejected":
       case "cancelled":
         return { backgroundColor: "#EF4444", color: "#FFFFFF" };
@@ -197,12 +229,30 @@ export default function TalentOrdersPage() {
     }
   };
 
+  const getPaymentStatusBadgeColor = (paymentStatus: string) => {
+    switch (paymentStatus) {
+      case "completed":
+        return { backgroundColor: "#34D399", color: "#FFFFFF" };
+      case "pending":
+        return { backgroundColor: "#FBBF24", color: "#FFFFFF" };
+      case "failed":
+        return { backgroundColor: "#EF4444", color: "#FFFFFF" };
+      case "cancelled":
+        return { backgroundColor: colors.grayTextColor, color: "#FFFFFF" };
+      default:
+        return { backgroundColor: colors.grayTextColor, color: "#FFFFFF" };
+    }
+  };
+
   const getRevisionStatusBadgeColor = (revisionStatus: string) => {
     switch (revisionStatus) {
       case "requested":
         return { backgroundColor: "#F59E0B", color: "#FFFFFF" };
       case "submitted":
-        return { backgroundColor: colors.secondaryColor, color: colors.darkTextColor };
+        return {
+          backgroundColor: colors.secondaryColor,
+          color: colors.darkTextColor,
+        };
       default:
         return { backgroundColor: colors.grayTextColor, color: "#FFFFFF" };
     }
@@ -210,15 +260,23 @@ export default function TalentOrdersPage() {
 
   const getRemainingTime = (order: Order): string => {
     if (order.status !== "in-progress") return "N/A";
+    
+    // Return a placeholder on the server or before the client has mounted
+    if (currentTime === null) {
+      return "Calculating...";
+    }
+
     const updatedAt = new Date(order.updatedAt).getTime();
-    const deliveryHours = order.ratePlan.deliveryDays * 24 * 60 * 60 * 1000; // Convert days to milliseconds
+    const deliveryHours = order.ratePlan.deliveryDays * 24 * 60 * 60 * 1000;
     const deadline = updatedAt + deliveryHours;
     const now = currentTime;
     const remainingMs = deadline - now;
+
     if (remainingMs <= 0) {
       return "Overdue";
     }
-    const remainingHours = Math.ceil(remainingMs / (1000 * 60 * 60)); // Convert to hours, round up
+
+    const remainingHours = Math.ceil(remainingMs / (1000 * 60 * 60));
     return `Delivery in ${remainingHours} hour${remainingHours !== 1 ? "s" : ""}`;
   };
 
@@ -273,7 +331,10 @@ export default function TalentOrdersPage() {
         <Button
           onClick={() => router.push("/talent/dashboard")}
           className="mb-6 font-semibold py-2 px-4 rounded-lg transition-colors duration-300 flex items-center shadow-md"
-          style={{ backgroundColor: colors.accentColor, color: colors.darkTextColor }}
+          style={{
+            backgroundColor: colors.accentColor,
+            color: colors.darkTextColor,
+          }}
           onMouseEnter={(e) =>
             (e.currentTarget.style.backgroundColor = colors.secondaryColor)
           }
@@ -300,10 +361,7 @@ export default function TalentOrdersPage() {
           >
             Filter by Status:
           </label>
-          <Select
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-          >
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger
               id="status-filter"
               className="w-[180px]"
@@ -324,6 +382,35 @@ export default function TalentOrdersPage() {
               <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
           </Select>
+          <label
+            htmlFor="payment-filter"
+            className="text-sm font-medium"
+            style={{ color: colors.darkTextColor }}
+          >
+            Filter by Payment:
+          </label>
+          <Select
+            value={paymentStatusFilter}
+            onValueChange={setPaymentStatusFilter}
+          >
+            <SelectTrigger
+              id="payment-filter"
+              className="w-[180px]"
+              style={{
+                borderColor: colors.primaryColor,
+                color: colors.darkTextColor,
+              }}
+            >
+              <SelectValue placeholder="Select payment status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {orders.length === 0 ? (
@@ -331,10 +418,7 @@ export default function TalentOrdersPage() {
             className="bg-transparent rounded-lg shadow-md shadow-[#212121] p-6 border text-center"
             style={{ borderColor: colors.primaryColor }}
           >
-            <p
-              className="text-lg"
-              style={{ color: colors.grayTextColor }}
-            >
+            <p className="text-lg" style={{ color: colors.grayTextColor }}>
               No {statusFilter === "all" ? "" : statusFilter} orders found.
             </p>
           </div>
@@ -357,6 +441,9 @@ export default function TalentOrdersPage() {
                   </TableHead>
                   <TableHead style={{ color: colors.darkTextColor }}>
                     Status
+                  </TableHead>
+                  <TableHead style={{ color: colors.darkTextColor }}>
+                    Payment Status
                   </TableHead>
                   <TableHead style={{ color: colors.darkTextColor }}>
                     Revision Status
@@ -394,11 +481,17 @@ export default function TalentOrdersPage() {
                       >
                         {order.status === "in-progress"
                           ? "In Progress"
-                          : order.status === "delivered"
-                          ? "Delivered"
-                          : order.status === "completed"
-                          ? "Completed"
-                          : order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                          : order.status.charAt(0).toUpperCase() +
+                            order.status.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        style={getPaymentStatusBadgeColor(order.paymentStatus)}
+                        className="px-3 py-1 rounded-full text-sm font-medium"
+                      >
+                        {order.paymentStatus.charAt(0).toUpperCase() +
+                          order.paymentStatus.slice(1)}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -406,22 +499,42 @@ export default function TalentOrdersPage() {
                         style={getRevisionStatusBadgeColor(order.revisionStatus)}
                         className="px-3 py-1 rounded-full text-sm font-medium"
                       >
-                        {order.revisionStatus.charAt(0).toUpperCase() + order.revisionStatus.slice(1)}
+                        {order.revisionStatus.charAt(0).toUpperCase() +
+                          order.revisionStatus.slice(1)}
                       </Badge>
                     </TableCell>
-                    <TableCell style={{ color: order.status === "in-progress" && getRemainingTime(order) === "Overdue" ? "#EF4444" : colors.grayTextColor }}>
+                    <TableCell
+                      style={{
+                        color:
+                          order.status === "in-progress" &&
+                          getRemainingTime(order) === "Overdue"
+                            ? "#EF4444"
+                            : colors.grayTextColor,
+                      }}
+                    >
                       <div className="flex items-center">
                         {order.status === "in-progress" && (
-                          <Clock className="h-4 w-4 mr-2" style={{ color: getRemainingTime(order) === "Overdue" ? "#EF4444" : colors.accentColor }} />
+                          <Clock
+                            className="h-4 w-4 mr-2"
+                            style={{
+                              color:
+                                getRemainingTime(order) === "Overdue"
+                                  ? "#EF4444"
+                                  : colors.accentColor,
+                            }}
+                          />
                         )}
                         {getRemainingTime(order)}
                       </div>
                     </TableCell>
                     <TableCell style={{ color: colors.grayTextColor }}>
-                      {order.revisionStatus === "requested" && order.revisionRequest ? (
+                      {order.revisionStatus === "requested" &&
+                      order.revisionRequest ? (
                         <Dialog
                           open={openDialogId === order._id}
-                          onOpenChange={(open) => setOpenDialogId(open ? order._id : null)}
+                          onOpenChange={(open) =>
+                            setOpenDialogId(open ? order._id : null)
+                          }
                         >
                           <DialogTrigger asChild>
                             <Button
@@ -432,10 +545,12 @@ export default function TalentOrdersPage() {
                                 color: colors.accentColor,
                               }}
                               onMouseEnter={(e) =>
-                                (e.currentTarget.style.backgroundColor = colors.lightAccentColor)
+                                (e.currentTarget.style.backgroundColor =
+                                  colors.lightAccentColor)
                               }
                               onMouseLeave={(e) =>
-                                (e.currentTarget.style.backgroundColor = "transparent")
+                                (e.currentTarget.style.backgroundColor =
+                                  "transparent")
                               }
                             >
                               <Eye className="h-4 w-4 mr-2" />
@@ -450,54 +565,83 @@ export default function TalentOrdersPage() {
                               {order.revisionRequest.note && (
                                 <div>
                                   <div className="flex items-center">
-                                    <Paperclip className="h-4 w-4 mr-2" style={{ color: colors.accentColor }} />
-                                    <span className="font-semibold" style={{ color: colors.darkTextColor }}>
+                                    <Paperclip
+                                      className="h-4 w-4 mr-2"
+                                      style={{ color: colors.accentColor }}
+                                    />
+                                    <span
+                                      className="font-semibold"
+                                      style={{ color: colors.darkTextColor }}
+                                    >
                                       Revision Note:
                                     </span>
                                   </div>
                                   <p
                                     className="mt-1 p-2 border rounded-lg"
-                                    style={{ borderColor: colors.primaryColor, color: colors.grayTextColor }}
+                                    style={{
+                                      borderColor: colors.primaryColor,
+                                      color: colors.grayTextColor,
+                                    }}
                                   >
                                     {order.revisionRequest.note}
                                   </p>
                                 </div>
                               )}
-                              {order.revisionRequest.files && order.revisionRequest.files.length > 0 && (
-                                <div>
-                                  <div className="flex items-center">
-                                    <File className="h-4 w-4 mr-2" style={{ color: colors.accentColor }} />
-                                    <span className="font-semibold" style={{ color: colors.darkTextColor }}>
-                                      Revision Files:
-                                    </span>
-                                  </div>
-                                  <div className="mt-1 flex flex-wrap gap-2">
-                                    {order.revisionRequest.files.map((file, index) => (
-                                      <a
-                                        key={index}
-                                        href={file}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center px-2 py-1 rounded-full text-sm font-medium"
+                              {order.revisionRequest.files &&
+                                order.revisionRequest.files.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center">
+                                      <File
+                                        className="h-4 w-4 mr-2"
+                                        style={{ color: colors.accentColor }}
+                                      />
+                                      <span
+                                        className="font-semibold"
                                         style={{
-                                          backgroundColor: colors.accentColor,
                                           color: colors.darkTextColor,
                                         }}
-                                        onMouseEnter={(e) =>
-                                          (e.currentTarget.style.backgroundColor = colors.lightAccentColor)
-                                        }
-                                        onMouseLeave={(e) =>
-                                          (e.currentTarget.style.backgroundColor = colors.accentColor)
-                                        }
                                       >
-                                        File {index + 1}
-                                      </a>
-                                    ))}
+                                        Revision Files:
+                                      </span>
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap gap-2">
+                                      {order.revisionRequest.files.map(
+                                        (file, index) => (
+                                          <a
+                                            key={index}
+                                            href={file}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center px-2 py-1 rounded-full text-sm font-medium"
+                                            style={{
+                                              backgroundColor:
+                                                colors.accentColor,
+                                              color: colors.darkTextColor,
+                                            }}
+                                            onMouseEnter={(e) =>
+                                              (e.currentTarget.style.backgroundColor =
+                                                colors.lightAccentColor)
+                                            }
+                                            onMouseLeave={(e) =>
+                                              (e.currentTarget.style.backgroundColor =
+                                                colors.accentColor)
+                                            }
+                                          >
+                                            File {index + 1}
+                                          </a>
+                                        )
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
-                              <p className="text-sm" style={{ color: colors.grayTextColor }}>
-                                Requested on {new Date(order.revisionRequest.requestedAt).toLocaleDateString()}
+                                )}
+                              <p
+                                className="text-sm"
+                                style={{ color: colors.grayTextColor }}
+                              >
+                                Requested on{" "}
+                                {new Date(
+                                  order.revisionRequest.requestedAt
+                                ).toLocaleDateString()}
                               </p>
                             </div>
                           </DialogContent>
@@ -512,7 +656,9 @@ export default function TalentOrdersPage() {
                     <TableCell className="flex gap-2">
                       {getAvailableStatuses(order.status).length > 0 && (
                         <Select
-                          onValueChange={(value) => handleStatusChange(order._id, value)}
+                          onValueChange={(value) =>
+                            handleStatusChange(order._id, value)
+                          }
                         >
                           <SelectTrigger
                             className="w-[120px]"
@@ -524,54 +670,66 @@ export default function TalentOrdersPage() {
                             <SelectValue placeholder="Change status" />
                           </SelectTrigger>
                           <SelectContent>
-                            {getAvailableStatuses(order.status).map((status) => (
-                              <SelectItem key={status} value={status}>
-                                {status === "in-progress"
-                                  ? "In Progress"
-                                  : status === "delivered"
-                                  ? "Delivered"
-                                  : status.charAt(0).toUpperCase() + status.slice(1)}
-                              </SelectItem>
-                            ))}
+                            {getAvailableStatuses(order.status).map(
+                              (status) => (
+                                <SelectItem key={status} value={status}>
+                                  {status === "in-progress"
+                                    ? "In Progress"
+                                    : status.charAt(0).toUpperCase() +
+                                      status.slice(1)}
+                                </SelectItem>
+                              )
+                            )}
                           </SelectContent>
                         </Select>
                       )}
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => router.push(`/talent/clients/${order.clientId}`)}
+                        onClick={() =>
+                          router.push(`/talent/clients/${order.clientId}`)
+                        }
                         style={{
                           borderColor: colors.accentColor,
                           color: colors.accentColor,
                         }}
                         onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = colors.lightAccentColor)
+                          (e.currentTarget.style.backgroundColor =
+                            colors.lightAccentColor)
                         }
                         onMouseLeave={(e) =>
-                          (e.currentTarget.style.backgroundColor = "transparent")
+                          (e.currentTarget.style.backgroundColor =
+                            "transparent")
                         }
                       >
                         <User className="h-4 w-4 mr-2" />
                         View Client
                       </Button>
-                      {(order.status === "in-progress" || order.revisionStatus === "requested") && (
+                      {(order.status === "in-progress" ||
+                        order.revisionStatus === "requested") && (
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => router.push(`/talent/orders/${order._id}/deliver`)}
+                          onClick={() =>
+                            router.push(`/talent/orders/${order._id}/deliver`)
+                          }
                           style={{
                             borderColor: colors.accentColor,
                             color: colors.accentColor,
                           }}
                           onMouseEnter={(e) =>
-                            (e.currentTarget.style.backgroundColor = colors.lightAccentColor)
+                            (e.currentTarget.style.backgroundColor =
+                              colors.lightAccentColor)
                           }
                           onMouseLeave={(e) =>
-                            (e.currentTarget.style.backgroundColor = "transparent")
+                            (e.currentTarget.style.backgroundColor =
+                              "transparent")
                           }
                         >
                           <Package className="h-4 w-4 mr-2" />
-                          {order.revisionStatus === "requested" ? "Submit Revision" : "Deliver Project"}
+                          {order.revisionStatus === "requested"
+                            ? "Submit Revision"
+                            : "Deliver Project"}
                         </Button>
                       )}
                     </TableCell>
