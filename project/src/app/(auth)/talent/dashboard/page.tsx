@@ -69,6 +69,16 @@ interface Proposal {
   };
 }
 
+interface Transaction {
+  _id: string;
+  orderId: string;
+  clientName: string;
+  amount: number;
+  currency: string;
+  status: "pending" | "completed" | "failed" | "cancelled";
+  createdAt: string;
+}
+
 interface DashboardData {
   totalOrders: number;
   pendingOrders: number;
@@ -85,6 +95,9 @@ interface DashboardData {
   acceptedProposals: number;
   deliveredProposals: number;
   recentProposals: Proposal[];
+  totalEarnings: number;
+  pendingPayments: number;
+  recentTransactions: Transaction[];
 }
 
 const getStatusBadgeColor = (status: string) => {
@@ -202,6 +215,15 @@ export default function TalentDashboardPage() {
       });
     });
 
+    socket.on("paymentStatusUpdated", () => {
+      fetchDashboardData();
+      toast.info("Payment Status Updated", {
+        description: "A payment status has been updated.",
+        className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+        duration: 4000,
+      });
+    });
+
     socket.on("disconnect", () => {
       console.log("Disconnected from Socket.IO server");
     });
@@ -215,26 +237,34 @@ export default function TalentDashboardPage() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [orderResponse, projectResponse, proposalResponse] = await Promise.all([
+      const [orderResponse, projectResponse, proposalResponse, paymentResponse] = await Promise.all([
         axios.get("/api/talent/dashboard"),
         axios.get("/api/talent/projects"),
         axios.get("/api/proposals", { params: { talentId: session?.user?._id } }),
+        axios.get("/api/talent/payments"),
       ]);
 
-      if (!orderResponse.data.success || !projectResponse.data.success || !proposalResponse.data.success) {
+      if (!orderResponse.data.success || !projectResponse.data.success || !proposalResponse.data.success || !paymentResponse.data.success) {
         throw new Error("Failed to fetch dashboard data");
       }
 
       const orderData = orderResponse.data.data;
       const projectData = projectResponse.data.data;
       const proposalData = proposalResponse.data.data;
+      const paymentData = paymentResponse.data.data;
 
-      // Filter projects where talent has accepted or delivered proposals
       const acceptedProposalIds = proposalData
         .filter((p: Proposal) => ["accepted", "delivered", "revision-requested"].includes(p.proposalStatus))
         .map((p: Proposal) => p.projectId);
 
       const relevantProjects = projectData.filter((p: Project) => acceptedProposalIds.includes(p._id));
+
+      const totalEarnings = paymentData
+        .filter((t: Transaction) => t.status === "completed")
+        .reduce((sum: any, t: { amount: any; }) => sum + t.amount, 0);
+      const pendingPayments = paymentData
+        .filter((t: Transaction) => t.status === "pending")
+        .reduce((sum: any, t: { amount: any; }) => sum + t.amount, 0);
 
       setDashboardData({
         totalOrders: orderData.totalOrders,
@@ -252,6 +282,9 @@ export default function TalentDashboardPage() {
         acceptedProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "accepted").length,
         deliveredProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "delivered").length,
         recentProposals: proposalData.slice(0, 5),
+        totalEarnings,
+        pendingPayments,
+        recentTransactions: paymentData.slice(0, 5),
       });
     } catch (err) {
       setError("Failed to load dashboard data. Please try again later.");
@@ -316,7 +349,7 @@ export default function TalentDashboardPage() {
         </h1>
 
         {/* Statistics Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
           {/* Order Stats */}
           <div className="p-4 sm:p-6 rounded-lg shadow-md" style={{ backgroundColor: colors.headerBg }}>
             <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4">Orders</h2>
@@ -382,6 +415,21 @@ export default function TalentDashboardPage() {
               <div>
                 <p className="text-sm text-[#90D1CA]">Delivered</p>
                 <p className="text-2xl font-bold text-white">{dashboardData.deliveredProposals}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Stats */}
+          <div className="p-4 sm:p-6 rounded-lg shadow-md" style={{ backgroundColor: colors.headerBg }}>
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4">Payments</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-[#90D1CA]">Total Earnings</p>
+                <p className="text-2xl font-bold text-white">${dashboardData.totalEarnings.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Pending Payments</p>
+                <p className="text-2xl font-bold text-white">${dashboardData.pendingPayments.toLocaleString()}</p>
               </div>
             </div>
           </div>
@@ -579,6 +627,65 @@ export default function TalentDashboardPage() {
                         >
                           View Project
                         </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+
+        {/* Recent Transactions Table */}
+        <div className="mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4" style={{ color: colors.activeTextColor }}>
+            Recent Transactions
+          </h2>
+          {dashboardData.recentTransactions.length === 0 ? (
+            <p className="text-[#757575] text-base sm:text-lg text-center">
+              No recent transactions available.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#f8fafc]">
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Order ID
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Client
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Amount
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Status
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Date
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData.recentTransactions.map((transaction) => (
+                    <TableRow key={transaction._id}>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {transaction.orderId}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {transaction.clientName}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        ${transaction.amount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        <Badge className={getStatusBadgeColor(transaction.status)}>
+                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {new Date(transaction.createdAt).toLocaleDateString()}
                       </TableCell>
                     </TableRow>
                   ))}

@@ -123,20 +123,27 @@ export async function PATCH(
       }
 
       order.status = validatedData.status;
+
+      // Set paymentStatus to "completed" when status is updated to "completed"
       if (validatedData.status === "completed") {
-        order.paymentStatus = "completed"; // Set payment status to completed when project is approved
+        order.paymentStatus = "completed";
       }
     }
 
-    // Check for revision expiration (3 days)
+    // Check and update payment status based on deadlines
+    const now = new Date();
+    if (order.status === "delivered" && order.deliverables?.submittedAt) {
+      const deliveredAt = new Date(order.deliverables.submittedAt);
+      const deadline = new Date(deliveredAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      if (now >= deadline && order.paymentStatus !== "completed") {
+        order.paymentStatus = "completed";
+      }
+    }
     if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
-      const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
-      const expirationTime = new Date(order.revisionRequest.requestedAt).getTime() + threeDaysInMs;
-      const now = new Date().getTime();
-      if (now > expirationTime && order.paymentStatus !== "completed") {
-        order.paymentStatus = "completed"; // Auto-complete payment if 3 days passed without response
-        order.revisionStatus = "none"; // Reset revision status
-        order.revisionRequest = undefined; // Clear revision request
+      const requestedAt = new Date(order.revisionRequest.requestedAt);
+      const deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      if (now >= deadline && order.paymentStatus === "completed") {
+        order.paymentStatus = "cancelled";
       }
     }
 
@@ -153,7 +160,7 @@ export async function PATCH(
           ratePlan: order.ratePlan,
           projectDetails: order.projectDetails,
           status: order.status,
-          paymentStatus: order.paymentStatus, // Include payment status in response
+          paymentStatus: order.paymentStatus,
           revisionStatus: order.revisionStatus,
           revisionCount: order.revisionCount,
           createdAt: order.createdAt.toISOString(),

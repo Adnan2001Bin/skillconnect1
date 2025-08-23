@@ -71,12 +71,20 @@ export const getDashboardData = async (timeRange: string): Promise<DashboardData
   ]);
   const totalRevenue = revenueAggregation[0]?.total || 0;
 
-  // Recent orders (up to 5)
+  // Transaction metrics
+  const totalTransactions = await OrderModel.countDocuments(query); // Assuming each order has a transaction
+  const transactionsByStatus = {
+    pending: await OrderModel.countDocuments({ ...query, paymentStatus: "pending" }),
+    completed: await OrderModel.countDocuments({ ...query, paymentStatus: "completed" }),
+    failed: await OrderModel.countDocuments({ ...query, paymentStatus: "failed" }),
+    cancelled: await OrderModel.countDocuments({ ...query, paymentStatus: "cancelled" }),
+  };
+
+  // Recent orders
   const recentOrders = await OrderModel.find(query)
     .sort({ createdAt: -1 })
     .limit(5)
     .lean();
-
   const recentOrdersWithUserNames = await Promise.all(
     recentOrders.map(async (order: any) => {
       const client = await UserModel.findById(order.clientId).select("userName").lean();
@@ -115,12 +123,35 @@ export const getDashboardData = async (timeRange: string): Promise<DashboardData
     })
   );
 
-  // Recent projects (up to 5)
+  // Recent transactions (derived from recent orders)
+  const recentTransactions = await OrderModel.find(query)
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .lean();
+  const recentTransactionsWithUserNames = await Promise.all(
+    recentTransactions.map(async (order: any) => {
+      const client = await UserModel.findById(order.clientId).select("userName").lean();
+      const talent = await UserModel.findById(order.talentId).select("userName").lean();
+      return {
+        _id: order._id,
+        orderId: order._id,
+        clientId: order.clientId,
+        clientUserName: client?.userName || "Unknown",
+        talentId: order.talentId,
+        talentUserName: talent?.userName || "Unknown",
+        amount: order.ratePlan.price || 0,
+        paymentStatus: order.paymentStatus || "pending",
+        createdAt: order.createdAt.toISOString(),
+        updatedAt: order.updatedAt.toISOString(),
+      };
+    })
+  );
+
+  // Recent projects
   const recentProjects = await ProjectModel.find(query)
     .sort({ createdAt: -1 })
     .limit(5)
     .lean();
-
   const recentProjectsWithUserNames = await Promise.all(
     recentProjects.map(async (project: any) => {
       const client = await UserModel.findById(project.clientId).select("userName").lean();
@@ -145,6 +176,9 @@ export const getDashboardData = async (timeRange: string): Promise<DashboardData
     projectsByStatus,
     projectsByCategory,
     totalRevenue,
+    totalTransactions,
+    transactionsByStatus,
+    recentTransactions: recentTransactionsWithUserNames,
     recentOrders: recentOrdersWithUserNames,
     recentProjects: recentProjectsWithUserNames,
   };

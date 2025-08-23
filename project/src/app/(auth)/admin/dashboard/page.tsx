@@ -91,9 +91,57 @@ interface DashboardData {
     completed: number;
     cancelled: number;
   };
-  projectsByCategory: { [key: string]: number }; // Added
-  totalRevenue: number; // Added
-  recentOrders: Order[];
+  projectsByCategory: { [key: string]: number };
+  totalRevenue: number;
+  totalTransactions: number;
+  transactionsByStatus: {
+    pending: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+  };
+  recentTransactions: {
+    _id: string;
+    orderId: string;
+    clientId: string;
+    clientUserName: string;
+    talentId: string;
+    talentUserName: string;
+    amount: number;
+    paymentStatus: string;
+    createdAt: string;
+    updatedAt: string;
+  }[];
+  recentOrders: {
+    _id: string;
+    talentId: string;
+    clientId: string;
+    clientUserName: string;
+    talentUserName: string;
+    paymentStatus:string
+    ratePlan: {
+      type: "Basic" | "Standard" | "Premium";
+      price: number;
+      description: string;
+      whatsIncluded: string[];
+      deliveryDays: number;
+      revisions: number;
+    };
+    projectDetails: {
+      title: string;
+      description: string;
+    };
+    status: string;
+    revisionStatus: string;
+    revisionCount: number;
+    createdAt: string;
+    updatedAt: string;
+    revisionRequest?: {
+      files: string[];
+      note?: string;
+      requestedAt: string;
+    };
+  }[];
   recentProjects: {
     _id: string;
     clientId: string;
@@ -122,7 +170,6 @@ export default function AdminDashboardPage() {
   const [timeRange, setTimeRange] = useState<string>("30");
   const [socket, setSocket] = useState<Socket | null>(null);
 
-  // Define color scheme consistent with AdminClientsView
   const primaryDarkGray = "#2D3748";
   const secondaryDarkGray = "rgba(58, 71, 80, 0.6)";
   const accentColor = "#A5BFCC";
@@ -155,6 +202,13 @@ export default function AdminDashboardPage() {
         setLoading(false);
       });
 
+      socketInstance.on("paymentTransactionUpdated", () => {
+        console.log("Payment transaction updated, fetching new data...");
+        if (socket) {
+          socket.emit("getDashboardData", { timeRange });
+        }
+      });
+
       socketInstance.emit("getDashboardData", { timeRange });
 
       return () => {
@@ -175,7 +229,7 @@ export default function AdminDashboardPage() {
     if (!dashboardData) return;
 
     const headers = [
-      "Type,Client,Talent/Title,Rate Plan/Category,Status,Revision Status,Created At",
+      "Type,Client,Talent/Title,Rate Plan/Category,Status,Payment Status,Revision Status,Created At",
     ];
     const orderRows = dashboardData.recentOrders.map((order) => [
       "Order",
@@ -183,8 +237,19 @@ export default function AdminDashboardPage() {
       order.talentUserName || "Unknown",
       order.ratePlan.type,
       order.status,
+      order.paymentStatus || "pending",
       order.revisionStatus,
       new Date(order.createdAt).toLocaleDateString(),
+    ].join(","));
+    const transactionRows = dashboardData.recentTransactions.map((transaction) => [
+      "Transaction",
+      transaction.clientUserName || "Unknown",
+      transaction.talentUserName || "Unknown",
+      `$${transaction.amount.toFixed(2)}`,
+      transaction.paymentStatus,
+      "",
+      "",
+      new Date(transaction.createdAt).toLocaleDateString(),
     ].join(","));
     const projectRows = dashboardData.recentProjects.map((project) => [
       "Project",
@@ -193,11 +258,13 @@ export default function AdminDashboardPage() {
       project.category,
       project.status,
       "",
+      "",
       new Date(project.createdAt).toLocaleDateString(),
     ].join(","));
     const csvContent = [
       ...headers,
       ...orderRows,
+      ...transactionRows,
       ...projectRows,
     ].join("\n");
 
@@ -231,13 +298,13 @@ export default function AdminDashboardPage() {
             ]
           : [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: [
-          accentColor, // Pending
-          "#EC4899", // In Progress (Pink)
-          "#60A5FA", // Accepted (Light blue)
-          "#FBBF24", // Rejected (Yellow)
-          "#10B981", // Delivered (Emerald)
-          "#34D399", // Completed (Green)
-          "#EF4444", // Cancelled (Red)
+          accentColor,
+          "#EC4899",
+          "#60A5FA",
+          "#FBBF24",
+          "#10B981",
+          "#34D399",
+          "#EF4444",
         ],
         borderColor: [activeTextColor],
         borderWidth: 1,
@@ -253,9 +320,9 @@ export default function AdminDashboardPage() {
             ]
           : [0, 0, 0, 0, 0, 0, 0],
         backgroundColor: [
-          "#6B7280", // None (Gray)
-          "#F59E0B", // Requested (Amber)
-          "#3B82F6", // Submitted (Blue)
+          "#6B7280",
+          "#F59E0B",
+          "#3B82F6",
         ],
         borderColor: [activeTextColor],
         borderWidth: 1,
@@ -277,10 +344,10 @@ export default function AdminDashboardPage() {
             ]
           : [0, 0, 0, 0],
         backgroundColor: [
-          "#34D399", // Open (Green)
-          "#3B82F6", // In Progress (Blue)
-          "#6EE7B7", // Completed (Light green)
-          "#EF4444", // Cancelled (Red)
+          "#34D399",
+          "#3B82F6",
+          "#6EE7B7",
+          "#EF4444",
         ],
         borderColor: [activeTextColor],
         borderWidth: 1,
@@ -297,14 +364,39 @@ export default function AdminDashboardPage() {
           ? Object.values(dashboardData.projectsByCategory)
           : [],
         backgroundColor: [
-          "#34D399", // Green
-          "#3B82F6", // Blue
-          "#FBBF24", // Yellow
-          "#EC4899", // Pink
-          "#10B981", // Emerald
-          "#6EE7B7", // Light green
-          "#EF4444", // Red
+          "#34D399",
+          "#3B82F6",
+          "#FBBF24",
+          "#EC4899",
+          "#10B981",
+          "#6EE7B7",
+          "#EF4444",
         ].slice(0, dashboardData?.projectsByCategory ? Object.keys(dashboardData.projectsByCategory).length : 0),
+        borderColor: [activeTextColor],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const transactionChartData = {
+    labels: ["Pending", "Completed", "Failed", "Cancelled"],
+    datasets: [
+      {
+        label: "Transactions by Status",
+        data: dashboardData?.transactionsByStatus
+          ? [
+              dashboardData.transactionsByStatus.pending,
+              dashboardData.transactionsByStatus.completed,
+              dashboardData.transactionsByStatus.failed,
+              dashboardData.transactionsByStatus.cancelled,
+            ]
+          : [0, 0, 0, 0],
+        backgroundColor: [
+          "#FBBF24", // Pending (Yellow)
+          "#34D399", // Completed (Green)
+          "#EF4444", // Failed (Red)
+          "#6B7280", // Cancelled (Gray)
+        ],
         borderColor: [activeTextColor],
         borderWidth: 1,
       },
@@ -314,30 +406,14 @@ export default function AdminDashboardPage() {
   const chartOptions = {
     responsive: true,
     plugins: {
-      legend: {
-        position: "top" as const,
-        labels: {
-          color: activeTextColor,
-        },
-      },
-      title: {
-        display: true,
-        text: "Orders and Revision Status",
-        color: activeTextColor,
-      },
+      legend: { position: "top" as const, labels: { color: activeTextColor } },
+      title: { display: true, text: "Orders and Revision Status", color: activeTextColor },
     },
     scales: {
-      x: {
-        ticks: { color: activeTextColor },
-        grid: { color: neutralTextColor },
-      },
+      x: { ticks: { color: activeTextColor }, grid: { color: neutralTextColor } },
       y: {
         beginAtZero: true,
-        title: {
-          display: true,
-          text: "Number of Orders",
-          color: activeTextColor,
-        },
+        title: { display: true, text: "Number of Orders", color: activeTextColor },
         ticks: { color: activeTextColor },
         grid: { color: neutralTextColor },
       },
@@ -347,30 +423,14 @@ export default function AdminDashboardPage() {
   const projectChartOptions = {
     responsive: true,
     plugins: {
-      legend: {
-        position: "top" as const,
-        labels: {
-          color: activeTextColor,
-        },
-      },
-      title: {
-        display: true,
-        text: "Projects by Status",
-        color: activeTextColor,
-      },
+      legend: { position: "top" as const, labels: { color: activeTextColor } },
+      title: { display: true, text: "Projects by Status", color: activeTextColor },
     },
     scales: {
-      x: {
-        ticks: { color: activeTextColor },
-        grid: { color: neutralTextColor },
-      },
+      x: { ticks: { color: activeTextColor }, grid: { color: neutralTextColor } },
       y: {
         beginAtZero: true,
-        title: {
-          display: true,
-          text: "Number of Projects",
-          color: activeTextColor,
-        },
+        title: { display: true, text: "Number of Projects", color: activeTextColor },
         ticks: { color: activeTextColor },
         grid: { color: neutralTextColor },
       },
@@ -380,43 +440,41 @@ export default function AdminDashboardPage() {
   const categoryChartOptions = {
     responsive: true,
     plugins: {
-      legend: {
-        position: "top" as const,
-        labels: {
-          color: activeTextColor,
-        },
-      },
-      title: {
-        display: true,
-        text: "Projects by Category",
-        color: activeTextColor,
+      legend: { position: "top" as const, labels: { color: activeTextColor } },
+      title: { display: true, text: "Projects by Category", color: activeTextColor },
+    },
+  };
+
+  const transactionChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: "top" as const, labels: { color: activeTextColor } },
+      title: { display: true, text: "Transactions by Status", color: activeTextColor },
+    },
+    scales: {
+      x: { ticks: { color: activeTextColor }, grid: { color: neutralTextColor } },
+      y: {
+        beginAtZero: true,
+        title: { display: true, text: "Number of Transactions", color: activeTextColor },
+        ticks: { color: activeTextColor },
+        grid: { color: neutralTextColor },
       },
     },
   };
 
   if (status === "loading") {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: primaryDarkGray }}
-      >
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: primaryDarkGray }}>
         <Loader className="animate-spin h-10 w-10 mr-3" style={{ color: accentColor }} />
-        <p className="text-xl font-semibold" style={{ color: activeTextColor }}>
-          Loading dashboard...
-        </p>
+        <p className="text-xl font-semibold" style={{ color: activeTextColor }}>Loading dashboard...</p>
       </div>
     );
   }
 
   if (status !== "authenticated" || session?.user?.role !== "admin") {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: primaryDarkGray }}
-      >
-        <p className="text-lg font-semibold" style={{ color: "#EF4444" }}>
-          Access denied. Please sign in as an admin.
-        </p>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: primaryDarkGray }}>
+        <p className="text-lg font-semibold" style={{ color: "#EF4444" }}>Access denied. Please sign in as an admin.</p>
       </div>
     );
   }
@@ -440,25 +498,13 @@ export default function AdminDashboardPage() {
           <Select value={timeRange} onValueChange={handleTimeRangeChange}>
             <SelectTrigger
               className="w-48 text-base rounded-lg p-3 h-auto border-2 focus:ring-2 focus:ring-offset-2"
-              style={{
-                backgroundColor: white,
-                borderColor: inputBorderColor,
-                color: primaryDarkGray,
-                boxShadow: `0 0 0 2px ${accentColor}`,
-              }}
+              style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
             >
               <SelectValue placeholder="Select time range" />
             </SelectTrigger>
-            <SelectContent
-              className="bg-white text-primaryDarkGray rounded-lg shadow-lg border"
-              style={{ borderColor: accentColor }}
-            >
+            <SelectContent className="bg-white text-primaryDarkGray rounded-lg shadow-lg border" style={{ borderColor: accentColor }}>
               {timeRangeOptions.map((option) => (
-                <SelectItem
-                  key={option.value}
-                  value={option.value}
-                  className="hover:bg-[#A4CCD9]/30 cursor-pointer p-3"
-                >
+                <SelectItem key={option.value} value={option.value} className="hover:bg-[#A4CCD9]/30 cursor-pointer p-3">
                   {option.label}
                 </SelectItem>
               ))}
@@ -486,7 +532,7 @@ export default function AdminDashboardPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
                 <CardHeader>
                   <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
@@ -513,11 +559,22 @@ export default function AdminDashboardPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
                     <DollarSign className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                    Total Transactions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.totalTransactions}</p>
+                </CardContent>
+              </Card>
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
+                <CardHeader>
+                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                    <DollarSign className="h-5 w-5 mr-2" style={{ color: accentColor }} />
                     Total Revenue
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold" style={{ color: accentColor }}>${dashboardData.totalRevenue?.toFixed(2)}</p>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>${dashboardData.totalRevenue.toFixed(2)}</p>
                 </CardContent>
               </Card>
             </div>
@@ -562,6 +619,17 @@ export default function AdminDashboardPage() {
 
             <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
               <CardHeader>
+                <CardTitle style={{ color: activeTextColor }}>Transactions by Status</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-80">
+                  <Bar data={transactionChartData} options={transactionChartOptions} />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
+              <CardHeader>
                 <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
                   <Clock className="h-5 w-5 mr-2" style={{ color: accentColor }} />
                   Recent Orders
@@ -579,6 +647,7 @@ export default function AdminDashboardPage() {
                         <TableHead style={{ color: activeTextColor }}>Project Title</TableHead>
                         <TableHead style={{ color: activeTextColor }}>Rate Plan</TableHead>
                         <TableHead style={{ color: activeTextColor }}>Status</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Payment Status</TableHead>
                         <TableHead style={{ color: activeTextColor }}>Revision Status</TableHead>
                         <TableHead style={{ color: activeTextColor }}>Created At</TableHead>
                         <TableHead style={{ color: activeTextColor }}>Actions</TableHead>
@@ -587,27 +656,20 @@ export default function AdminDashboardPage() {
                     <TableBody>
                       {dashboardData.recentOrders.map((order) => (
                         <TableRow key={order._id}>
+                          <TableCell style={{ color: neutralTextColor }}>{order.clientUserName || "Unknown"}</TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>{order.talentUserName || "Unknown"}</TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>{order.projectDetails.title}</TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>{order.ratePlan.type}</TableCell>
                           <TableCell style={{ color: neutralTextColor }}>
-                            {order.clientUserName || "Unknown"}
+                            {(order.status || 'N/A').charAt(0).toUpperCase() + (order.status || 'N/A').slice(1)}
                           </TableCell>
                           <TableCell style={{ color: neutralTextColor }}>
-                            {order.talentUserName || "Unknown"}
+                            {(order.paymentStatus || 'pending').charAt(0).toUpperCase() + (order.paymentStatus || 'pending').slice(1)}
                           </TableCell>
                           <TableCell style={{ color: neutralTextColor }}>
-                            {order.projectDetails.title}
+                            {(order.revisionStatus || 'none').charAt(0).toUpperCase() + (order.revisionStatus || 'none').slice(1)}
                           </TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>
-                            {order.ratePlan.type}
-                          </TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>
-                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                          </TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>
-                            {order.revisionStatus.charAt(0).toUpperCase() + order.revisionStatus.slice(1)}
-                          </TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>
-                            {new Date(order.createdAt).toLocaleDateString()}
-                          </TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
                           <TableCell>
                             <Button
                               onClick={() => router.push(`/admin/management/orders/${order._id}`)}
@@ -628,52 +690,36 @@ export default function AdminDashboardPage() {
             <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
               <CardHeader>
                 <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
-                  <Briefcase className="h-5 w-5 mr-2" style={{ color: accentColor }} />
-                  Recent Projects
+                  <Clock className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                  Recent Transactions
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {dashboardData.recentProjects?.length === 0 ? (
-                  <p style={{ color: neutralTextColor }}>No recent projects found.</p>
+                {dashboardData.recentTransactions?.length === 0 ? (
+                  <p style={{ color: neutralTextColor }}>No recent transactions found.</p>
                 ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead style={{ color: activeTextColor }}>Client</TableHead>
-                        <TableHead style={{ color: activeTextColor }}>Title</TableHead>
-                        <TableHead style={{ color: activeTextColor }}>Category</TableHead>
-                        <TableHead style={{ color: activeTextColor }}>Status</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Talent</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Order ID</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Amount</TableHead>
+                        <TableHead style={{ color: activeTextColor }}>Payment Status</TableHead>
                         <TableHead style={{ color: activeTextColor }}>Created At</TableHead>
-                        <TableHead style={{ color: activeTextColor }}>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {dashboardData.recentProjects.map((project) => (
-                        <TableRow key={project._id}>
+                      {dashboardData.recentTransactions && dashboardData.recentTransactions.map((transaction) => (
+                        <TableRow key={transaction._id}>
+                          <TableCell style={{ color: neutralTextColor }}>{transaction.clientUserName || "Unknown"}</TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>{transaction.talentUserName || "Unknown"}</TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>{transaction.orderId}</TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>${transaction.amount.toFixed(2)}</TableCell>
                           <TableCell style={{ color: neutralTextColor }}>
-                            {project.clientUserName || "Unknown"}
+                            {(transaction.paymentStatus || 'N/A').charAt(0).toUpperCase() + (transaction.paymentStatus || 'N/A').slice(1)}
                           </TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>
-                            {project.title}
-                          </TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>
-                            {project.category}
-                          </TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>
-                            {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
-                          </TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>
-                            {new Date(project.createdAt).toLocaleDateString()}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              onClick={() => router.push(`/admin/management/projects/${project._id}`)}
-                              className="px-4 py-1 rounded-full"
-                              style={{ backgroundColor: accentColor, color: primaryDarkGray }}
-                            >
-                              View
-                            </Button>
-                          </TableCell>
+                          <TableCell style={{ color: neutralTextColor }}>{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

@@ -201,6 +201,13 @@ io.on("connection", (socket: Socket & { userId?: string; role?: string }) => {
     }
   });
 
+  socket.on("paymentStatusUpdated", async () => {
+    if (socket.role !== "talent") { // Only admin should receive full dashboard updates
+      const data = await getDashboardData("30");
+      socket.emit("dashboardUpdate", data);
+    }
+  });
+
   socket.on(
     "deliverablesSubmitted",
     (data: { orderId: string; message: string; clientId: string }) => {
@@ -380,48 +387,49 @@ connectDB().then(async () => {
     io.emit("dashboardUpdate", data);
   });
 
-  orderChangeStream.on("change", async (change) => {
-    if (change.operationType === "insert") {
-      io.emit("orderCreated");
-      const order = await OrderModel.findById(
-        change.documentKey._id
-      ).lean<IOrder | null>();
-      if (order && order.talentId) {
-        const data = await getTalentDashboardData(order.talentId.toString());
-        io.to(order.talentId.toString()).emit("dashboardUpdate", data);
-      }
-    } else if (
-      change.operationType === "update" &&
-      change.updateDescription.updatedFields?.status
+ orderChangeStream.on("change", async (change) => {
+  if (change.operationType === "insert") {
+    io.emit("orderCreated");
+    const order = await OrderModel.findById(change.documentKey._id).lean<IOrder | null>();
+    if (order && order.talentId) {
+      const data = await getTalentDashboardData(order.talentId.toString());
+      io.to(order.talentId.toString()).emit("dashboardUpdate", data);
+    }
+  } else if (
+    change.operationType === "update" &&
+    (change.updateDescription.updatedFields?.status || change.updateDescription.updatedFields?.paymentStatus)
+  ) {
+    io.emit("orderStatusUpdated");
+    const order = await OrderModel.findById(change.documentKey._id).lean<IOrder | null>();
+    if (order && order.talentId) {
+      const data = await getTalentDashboardData(order.talentId.toString());
+      io.to(order.talentId.toString()).emit("dashboardUpdate", data);
+    }
+    if (change.updateDescription.updatedFields?.paymentStatus) {
+      io.emit("paymentTransactionUpdated"); // New event for payment updates
+    }
+    if (
+      change.updateDescription.updatedFields?.status === "completed" &&
+      change.updateDescription.updatedFields?.deliverables
     ) {
-      io.emit("orderStatusUpdated");
-      const order = await OrderModel.findById(
-        change.documentKey._id
-      ).lean<IOrder | null>();
-      if (order && order.talentId) {
-        const data = await getTalentDashboardData(order.talentId.toString());
-        io.to(order.talentId.toString()).emit("dashboardUpdate", data);
-      }
-      if (
-        change.updateDescription.updatedFields?.status === "completed" &&
-        change.updateDescription.updatedFields?.deliverables
-      ) {
-        if (order && order.clientId && order.projectDetails) {
-          const notification = new NotificationModel({
-            userId: order.clientId,
-            orderId: order._id,
-            message: `Deliverables submitted for order: ${order.projectDetails.title}`,
-            read: false,
-          });
-          await notification.save();
-          io.to(order.clientId.toString()).emit("deliverablesSubmitted", {
-            orderId: order._id.toString(),
-            message: `Deliverables submitted for order: ${order.projectDetails.title}`,
-          });
-        }
+      if (order && order.clientId && order.projectDetails) {
+        const notification = new NotificationModel({
+          userId: order.clientId,
+          orderId: order._id,
+          message: `Deliverables submitted for order: ${order.projectDetails.title}`,
+          read: false,
+        });
+        await notification.save();
+        io.to(order.clientId.toString()).emit("deliverablesSubmitted", {
+          orderId: order._id.toString(),
+          message: `Deliverables submitted for order: ${order.projectDetails.title}`,
+        });
       }
     }
-  });
+  }
+  const data = await getDashboardData("30");
+  io.emit("dashboardUpdate", data);
+});
 
   messageChangeStream.on("change", async (change) => {
     if (change.operationType === "insert") {

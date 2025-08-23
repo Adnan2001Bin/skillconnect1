@@ -169,7 +169,7 @@ export default function Navbar() {
                       My Profile
                     </Link>
                     <Link
-                      href="/wallet"
+                      href="/payments"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
                     >
                       Wallet/Payments
@@ -289,7 +289,7 @@ export default function Navbar() {
                   My Profile
                 </Link>
                 <Link
-                  href="/wallet"
+                  href="/payments"
                   className="block px-4 py-2 text-gray-700 hover:bg-[#4CAF50] hover:text-white rounded-md"
                   onClick={toggleMenu}
                 >

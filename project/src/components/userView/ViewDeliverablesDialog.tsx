@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useForm } from "react-hook-form";
@@ -180,22 +181,33 @@ export default function ViewDeliverablesDialog({
     }
   };
 
-  const getRevisionDeadline = () => {
-    if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
+  const getDeadlineInfo = () => {
+    let deadline = null;
+    let daysLeft = 0;
+    let hoursLeft = 0;
+
+    // Timer for "delivered" project status
+    if (order.status === "delivered" && order.deliverables?.submittedAt) {
+      const deliveredAt = new Date(order.deliverables.submittedAt);
+      deadline = new Date(deliveredAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
+    }
+    // Timer for "requested" revision status
+    else if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
       const requestedAt = new Date(order.revisionRequest.requestedAt);
-      const deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
+    }
+
+    if (deadline) {
       const now = new Date();
       const timeLeft = Math.max(0, deadline.getTime() - now.getTime());
-      return {
-        deadline,
-        daysLeft: Math.floor(timeLeft / (1000 * 60 * 60 * 24)),
-        hoursLeft: Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-      };
+      daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+      hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     }
-    return null;
+
+    return { deadline, daysLeft, hoursLeft };
   };
 
-  const deadlineInfo = getRevisionDeadline();
+  const deadlineInfo = getDeadlineInfo();
 
   if (!order.deliverables) {
     return (
@@ -232,13 +244,19 @@ export default function ViewDeliverablesDialog({
               {order.status === "completed"
                 ? "This project has been approved."
                 : "Approve if you are satisfied."}
+              {deadlineInfo.deadline && order.status === "delivered" && (
+                <span className="block text-sm">
+                  Deadline: {deadlineInfo.daysLeft}d {deadlineInfo.hoursLeft}h left
+                </span>
+              )}
             </p>
             <Button
               onClick={() => setOpenApproveDialog(true)}
               disabled={
                 isApproving ||
                 order.status !== "delivered" ||
-                order.revisionStatus === "requested"
+                order.revisionStatus === "requested" ||
+                (deadlineInfo.deadline !== null && deadlineInfo.daysLeft === 0 && deadlineInfo.hoursLeft === 0)
               }
               className="mt-3 bg-[#17B169] hover:bg-[#14995a] text-white"
             >
@@ -257,7 +275,7 @@ export default function ViewDeliverablesDialog({
             </h3>
             <p className="text-sm text-gray-300 mt-1">
               Used: {order.revisionCount} / {order.ratePlan.revisions}
-              {deadlineInfo && (
+              {deadlineInfo.deadline && order.revisionStatus === "requested" && (
                 <span className="block">
                   Deadline: {deadlineInfo.daysLeft}d {deadlineInfo.hoursLeft}h left
                 </span>
@@ -271,7 +289,7 @@ export default function ViewDeliverablesDialog({
                     order.status !== "delivered" ||
                     order.revisionCount >= order.ratePlan.revisions ||
                     order.revisionStatus === "requested" ||
-                    (deadlineInfo ? (deadlineInfo.daysLeft === 0 && deadlineInfo.hoursLeft === 0) : false)
+                    (deadlineInfo.deadline !== null && deadlineInfo.daysLeft === 0 && deadlineInfo.hoursLeft === 0)
                   }
                   className="mt-3 bg-amber-500 hover:bg-amber-600 text-white"
                 >

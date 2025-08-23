@@ -28,7 +28,7 @@ export default function SuccessPage() {
         <h1 className="text-2xl font-bold text-gray-800 mb-4">Payment Successful</h1>
         <p className="text-gray-600 mb-6">Your order has been placed successfully. You'll be redirected shortly.</p>
         <Button
-          onClick={() => router.push("/user/orders")}
+          onClick={() => router.push("/orders")}
           className="bg-green-600 hover:bg-green-700 text-white"
         >
           View Your Orders

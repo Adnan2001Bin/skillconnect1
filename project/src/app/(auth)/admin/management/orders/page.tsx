@@ -42,6 +42,7 @@ interface Order {
   ratePlan: RatePlan;
   projectDetails: { title: string; description: string };
   status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "completed" | "cancelled";
+  paymentStatus: "pending" | "completed" | "failed" | "cancelled";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   revisionRequest?: {
@@ -172,6 +173,21 @@ export default function AdminOrdersPage() {
         return { backgroundColor: warningColor, color: primaryDarkGray };
       case "submitted":
         return { backgroundColor: successColor, color: white };
+      default:
+        return { backgroundColor: neutralTextColor, color: white };
+    }
+  };
+
+  const getPaymentStatusBadgeColor = (paymentStatus: string) => {
+    switch (paymentStatus) {
+      case "pending":
+        return { backgroundColor: warningColor, color: primaryDarkGray };
+      case "completed":
+        return { backgroundColor: successColor, color: white };
+      case "failed":
+        return { backgroundColor: errorColor, color: white };
+      case "cancelled":
+        return { backgroundColor: neutralTextColor, color: white };
       default:
         return { backgroundColor: neutralTextColor, color: white };
     }
@@ -356,6 +372,7 @@ export default function AdminOrdersPage() {
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Order ID</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Talent</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Client</TableHead>
+                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Payment Status</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Project Title</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Rate Plan</TableHead>
                   <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</TableHead>
@@ -376,6 +393,14 @@ export default function AdminOrdersPage() {
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                       {order.clientUserName || "Unknown"}
+                    </TableCell>
+                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                      <Badge
+                        style={getPaymentStatusBadgeColor(order.paymentStatus)}
+                        className="px-3 py-1 rounded-full text-sm font-medium"
+                      >
+                        {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                      </Badge>
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 truncate max-w-xs">
                       {order.projectDetails.title}

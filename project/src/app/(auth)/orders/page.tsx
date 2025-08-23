@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -60,6 +60,8 @@ export default function ClientOrdersPage() {
     inProgressColor: "#3B82F6",
   };
 
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const fetchOrders = useCallback(async () => {
     if (status === "authenticated" && session?.user?.role === "user") {
       setIsLoading(true);
@@ -91,6 +93,13 @@ export default function ClientOrdersPage() {
     } else if (status === "unauthenticated") {
       router.replace("/sign-in");
     }
+
+    // Start interval to check deadlines every minute
+    intervalRef.current = setInterval(checkDeadlines, 60000); // Check every minute
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [status, router, fetchOrders]);
 
   const handleOrderUpdate = () => {
@@ -142,19 +151,73 @@ export default function ClientOrdersPage() {
     }
   };
 
-  const getRevisionDeadline = (order: Order) => {
-    if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
+  const getDeadlineInfo = (order: Order) => {
+    let deadline = null;
+    let daysLeft = 0;
+    let hoursLeft = 0;
+
+    // Timer for "delivered" project status
+    if (order.status === "delivered" && order.deliverables?.submittedAt) {
+      const deliveredAt = new Date(order.deliverables.submittedAt);
+      deadline = new Date(deliveredAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
+    }
+    // Timer for "requested" revision status
+    else if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
       const requestedAt = new Date(order.revisionRequest.requestedAt);
-      const deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
+    }
+
+    if (deadline) {
       const now = new Date();
       const timeLeft = Math.max(0, deadline.getTime() - now.getTime());
-      return {
-        deadline,
-        daysLeft: Math.floor(timeLeft / (1000 * 60 * 60 * 24)),
-        hoursLeft: Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-      };
+      daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+      hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     }
-    return null;
+
+    return { deadline, daysLeft, hoursLeft };
+  };
+
+  const checkDeadlines = async () => {
+    const updatedOrders = orders.map(order => {
+      const deadlineInfo = getDeadlineInfo(order);
+      if (deadlineInfo && deadlineInfo.deadline && deadlineInfo.daysLeft === 0 && deadlineInfo.hoursLeft === 0) {
+        if (order.status === "delivered" && order.paymentStatus !== "completed") {
+          handleAutoCompletePayment(order._id);
+        } else if (order.revisionStatus === "requested" && order.paymentStatus === "completed") {
+          handleAutoRefundPayment(order._id);
+        }
+      }
+      return order;
+    });
+    setOrders(updatedOrders);
+  };
+
+  const handleAutoCompletePayment = async (orderId: string) => {
+    try {
+      const res = await axios.patch(`/api/orders/${orderId}/status`, {
+        paymentStatus: "completed",
+      });
+      if (res.data.success) {
+        toast.success("Payment auto-completed due to expired delivery deadline.");
+        fetchOrders();
+      }
+    } catch (error) {
+      toast.error("Failed to auto-complete payment.");
+    }
+  };
+
+  const handleAutoRefundPayment = async (orderId: string) => {
+    try {
+      const res = await axios.patch(`/api/orders/${orderId}/status`, {
+        paymentStatus: "cancelled",
+      });
+      if (res.data.success) {
+        toast.success("Payment auto-refunded due to expired revision deadline.");
+        fetchOrders();
+      }
+    } catch (error) {
+      toast.error("Failed to auto-refund payment.");
+    }
   };
 
   if (status === "loading" || isLoading) {
@@ -255,7 +318,7 @@ export default function ClientOrdersPage() {
                 </TableHeader>
                 <TableBody>
                   {orders.map((order) => {
-                    const deadlineInfo = getRevisionDeadline(order);
+                    const deadlineInfo = getDeadlineInfo(order);
                     return (
                       <TableRow key={order._id}>
                         <TableCell style={{ color: colors.neutralTextColor }}>{order.talentUserName || "N/A"}</TableCell>
@@ -264,7 +327,7 @@ export default function ClientOrdersPage() {
                         <TableCell><Badge style={getPaymentStatusBadgeColor(order.paymentStatus)}>{order.paymentStatus}</Badge></TableCell>
                         <TableCell><Badge style={getRevisionStatusBadgeColor(order.revisionStatus)}>{order.revisionStatus}</Badge></TableCell>
                         <TableCell suppressHydrationWarning style={{ color: colors.neutralTextColor }}>
-                          {deadlineInfo ? (
+                          {deadlineInfo && deadlineInfo.deadline ? (
                             deadlineInfo.daysLeft > 0 ? (
                               `${deadlineInfo.daysLeft}d ${deadlineInfo.hoursLeft}h left`
                             ) : deadlineInfo.hoursLeft > 0 ? (

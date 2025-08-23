@@ -23,8 +23,25 @@ export interface DashboardData {
     completed: number;
     cancelled: number;
   };
-  projectsByCategory: { [key: string]: number }; // Added
-  totalRevenue: number; // Added
+  projectsByCategory: { [key: string]: number };
+  totalRevenue: number;
+  totalTransactions: number; // New
+  transactionsByStatus: {
+    pending: number;
+    completed: number;
+    failed: number;
+    cancelled: number;
+  }; // New
+  recentTransactions: {
+    _id: string;
+    orderId: string;
+    clientUserName: string;
+    talentUserName: string;
+    amount: number;
+    paymentStatus: "pending" | "completed" | "failed" | "cancelled";
+    createdAt: string;
+    updatedAt: string;
+  }[]; // New
   recentOrders: {
     _id: string;
     talentId: string;
@@ -76,8 +93,4 @@ export interface LeanMessage {
   updatedAt?: Date;
   deletedAt?: Date;
   isRead: boolean;
-}
-
-export interface AuthenticatedSocket extends Socket {
-  userId: string;
 }
