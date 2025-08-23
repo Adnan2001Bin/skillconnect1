@@ -17,7 +17,6 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    // Explicitly type the lean output using INotification
     const notifications = await NotificationModel.find({
       userId: new mongoose.Types.ObjectId(session.user._id as string),
     })
@@ -31,8 +30,8 @@ export async function GET(req: NextRequest) {
         data: notifications.map((notif) => ({
           id: notif._id.toString(),
           message: notif.message,
-          orderId: notif.orderId?.toString(), // Handle optional orderId
-          projectId: notif.projectId?.toString(), // Include optional projectId
+          orderId: notif.orderId?.toString(),
+          projectId: notif.projectId?.toString(),
           read: notif.read,
           createdAt: notif.createdAt.toISOString(),
         })),
@@ -95,6 +94,58 @@ export async function PATCH(req: NextRequest) {
       {
         success: false,
         message: "Internal server error. Failed to mark notification as read.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ✨ NEW DELETE FUNCTION ✨
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== "user") {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized. Only clients can delete notifications." },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json(
+        { success: false, message: "Invalid or missing notification ID" },
+        { status: 400 }
+      );
+    }
+
+    await connectDB();
+
+    const deletedNotification = await NotificationModel.findOneAndDelete({
+      _id: id,
+      userId: session.user._id, // Ensure user can only delete their own notifications
+    });
+
+    if (!deletedNotification) {
+      return NextResponse.json(
+        { success: false, message: "Notification not found or you are not authorized to delete" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, message: "Notification deleted successfully" },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Error deleting notification:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Internal server error. Failed to delete notification.",
         error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }

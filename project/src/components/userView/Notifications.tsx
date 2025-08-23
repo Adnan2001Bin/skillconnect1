@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Session } from "next-auth";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, Trash2 } from "lucide-react"; // Import Trash2 icon
 import { Badge } from "@/components/ui/badge";
 import axios from "axios";
 import { toast } from "sonner";
@@ -169,6 +169,33 @@ export default function Notifications({
     }
   };
 
+  // ✨ NEW DELETE HANDLER FUNCTION ✨
+  const handleDeleteNotification = async (
+    e: React.MouseEvent<HTMLButtonElement>,
+    id: string
+  ) => {
+    e.stopPropagation(); // Stop click from propagating to parent Link
+    e.preventDefault();
+
+    const originalNotifications = [...notifications];
+    // Optimistically update UI
+    setNotifications((prev) => prev.filter((notif) => notif.id !== id));
+
+    try {
+      await axios.delete(`/api/notifications?id=${id}`);
+      toast.success("Notification deleted.");
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      // Revert UI change on failure
+      setNotifications(originalNotifications);
+      toast.error("Error", {
+        description: "Failed to delete the notification.",
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+        duration: 4000,
+      });
+    }
+  };
+
   const getNotificationHref = (notif: Notification): string => {
     if (notif.orderId) {
       return `/orders`;
@@ -181,8 +208,27 @@ export default function Notifications({
   const unreadCount = notifications.filter((notif) => !notif.read).length;
 
   if (status !== "authenticated") {
-    return null; // Don't render notifications for unauthenticated users
+    return null;
   }
+
+  // Helper component for rendering a single notification item
+  const NotificationItem = ({ notif }: { notif: Notification }) => (
+    <div className="flex justify-between items-center w-full">
+      <div className="flex-1">
+        {notif.message}
+        <div className="text-xs text-gray-400 mt-1">
+          {new Date(notif.createdAt).toLocaleTimeString()}
+        </div>
+      </div>
+      <button
+        onClick={(e) => handleDeleteNotification(e, notif.id)}
+        className="p-1 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-500 ml-2 opacity-50 hover:opacity-100 transition-opacity"
+        aria-label="Delete notification"
+      >
+        <Trash2 size={16} />
+      </button>
+    </div>
+  );
 
   return isMobile ? (
     <div className="relative">
@@ -203,20 +249,16 @@ export default function Notifications({
       {isNotificationsOpen && isMenuOpen && (
         <div className="pl-4 pr-2 py-2 bg-gray-50 rounded-md mt-1 max-h-60 overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="px-4 py-2 text-sm text-gray-500">
-              No notifications
-            </div>
+            <div className="px-4 py-2 text-sm text-gray-500">No notifications</div>
           ) : (
             notifications.map((notif) => (
               <Link
                 key={notif.id}
                 href={getNotificationHref(notif)}
-                className={`block px-4 py-2 text-sm ${
+                className={`block px-4 py-2 text-sm rounded ${
                   notif.read ? "text-gray-500" : "text-gray-700 font-medium"
-                } hover:bg-[#4CAF50] hover:text-white rounded ${
-                  !notif.orderId && !notif.projectId
-                    ? "pointer-events-none opacity-50"
-                    : ""
+                } hover:bg-[#4CAF50] hover:text-white ${
+                  !notif.orderId && !notif.projectId ? "pointer-events-none opacity-50" : ""
                 }`}
                 onClick={() => {
                   if (notif.orderId || notif.projectId) {
@@ -226,10 +268,7 @@ export default function Notifications({
                   }
                 }}
               >
-                {notif.message}
-                <div className="text-xs text-gray-400">
-                  {new Date(notif.createdAt).toLocaleTimeString()}
-                </div>
+                <NotificationItem notif={notif} />
               </Link>
             ))
           )}
@@ -259,20 +298,16 @@ export default function Notifications({
           </div>
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
-              <div className="px-4 py-2 text-sm text-gray-500">
-                No notifications
-              </div>
+              <div className="px-4 py-2 text-sm text-gray-500">No notifications</div>
             ) : (
               notifications.map((notif) => (
                 <Link
                   key={notif.id}
                   href={getNotificationHref(notif)}
-                  className={`block px-4 py-2 text-sm ${
+                  className={`block px-4 py-2 text-sm group ${
                     notif.read ? "text-gray-500" : "text-gray-700 font-medium"
                   } hover:bg-[#4CAF50] hover:text-white ${
-                    !notif.orderId && !notif.projectId
-                      ? "pointer-events-none opacity-50"
-                      : ""
+                    !notif.orderId && !notif.projectId ? "pointer-events-none opacity-50" : ""
                   }`}
                   onClick={() => {
                     if (notif.orderId || notif.projectId) {
@@ -281,10 +316,7 @@ export default function Notifications({
                     }
                   }}
                 >
-                  {notif.message}
-                  <div className="text-xs text-gray-400">
-                    {new Date(notif.createdAt).toLocaleTimeString()}
-                  </div>
+                  <NotificationItem notif={notif} />
                 </Link>
               ))
             )}
