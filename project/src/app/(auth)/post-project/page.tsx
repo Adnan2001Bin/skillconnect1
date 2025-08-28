@@ -12,7 +12,6 @@ import type { OurFileRouter } from "@/app/api/uploadthing/core/route"; // Import
 
 // Shadcn UI components
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -46,7 +45,7 @@ import { BudgetField } from "@/components/userView/form/BudgetField";
 import { TimelineField } from "@/components/userView/form/TimelineField";
 import { CustomTextField } from "@/components/userView/form/CustomTextField";
 import { CustomTextareaField } from "@/components/userView/form/CustomTextareaField";
-import { MultiSelect } from "@/components/userView/MultiSelect"; // Using userView/MultiSelect
+import { MultiSelect } from "@/components/userView/MultiSelect";
 import { categories, servicesByCategory } from "@/lib/categoriesAndServices";
 import { projectSchema } from "@/schemas/projectSchema";
 import { Images } from "@/lib/images";
@@ -80,7 +79,7 @@ export default function CreateProjectPage() {
     watch,
     trigger,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { isSubmitting },
   } = formMethods;
 
   const selectedCategory = watch("category");
@@ -91,33 +90,23 @@ export default function CreateProjectPage() {
       })) || []
     : [];
 
+  // UPDATED: Combined steps 1 and 2, reducing total steps to 3
   const steps = [
     {
       id: 0,
-      title: "Project Details",
-      fields: ["title", "description"],
+      title: "Core Project Details",
+      fields: ["title", "description", "category", "services"],
       icon: Briefcase,
       guidance:
-        "Let's start with the basics! Give your project a catchy title and a clear, detailed description.",
+        "Define your project's core. A clear title, description, and the right category will attract the best talent.",
       benefits: [
-        "Attracts the right talent",
-        "Sets clear expectations for talent",
+        "Attracts the right specialists",
+        "Sets clear expectations",
+        "Refines talent matching",
       ],
     },
     {
       id: 1,
-      title: "Category & Services",
-      fields: ["category", "services"],
-      icon: LayoutList,
-      guidance:
-        "Help us match you with experts by choosing the best category and specific services.",
-      benefits: [
-        "Connects you with specialists",
-        "Refines search results for talent",
-      ],
-    },
-    {
-      id: 2,
       title: "Budget & Timeline",
       fields: ["budget", "timeline"],
       icon: DollarSign,
@@ -129,7 +118,7 @@ export default function CreateProjectPage() {
       ],
     },
     {
-      id: 3,
+      id: 2,
       title: "Requirements & Files",
       fields: ["requirements", "files"],
       icon: Paperclip,
@@ -228,7 +217,6 @@ export default function CreateProjectPage() {
     }
   };
 
-  // Color scheme consistent with User role for non-UploadDropzone elements
   const colors = {
     labelIconColor: "text-[#4CAF50]",
     inputBgBorderFocus:
@@ -238,7 +226,6 @@ export default function CreateProjectPage() {
     buttonBgHover: "bg-[#2E7D32] hover:bg-[#4CAF50] text-white",
     progressBar: "bg-[#4CAF50]",
     progressBarBg: "bg-[#E8F5E9]",
-    // UploadDropzone-specific colors to match ProposalForm
     uploadButton: "bg-[#8DBCC7] hover:bg-[#90D1CA] text-white",
     uploadBorder: "border-dashed border-[#8DBCC7] hover:border-[#90D1CA]",
     uploadBg: "bg-[#90D1CA]/10",
@@ -281,7 +268,7 @@ export default function CreateProjectPage() {
       >
         <div className="relative z-10">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-8 text-center leading-tight">
-            Post Your Project in 4 Simple Steps
+            Post Your Project in 3 Simple Steps
           </h2>
 
           <div className="space-y-6">
@@ -336,7 +323,6 @@ export default function CreateProjectPage() {
         </div>
       </div>
 
-      {/* Right Section: Project Form */}
       <div
         className="lg:w-1/2 p-6 sm:p-8 bg-white max-w-4xl mx-auto lg:min-h-screen"
         style={{
@@ -353,7 +339,6 @@ export default function CreateProjectPage() {
         <h1 className="text-3xl sm:text-4xl font-bold text-[#212121] mb-6">
           Post a New Project
         </h1>
-        {/* Progress Bar */}
         <div className="mb-6">
           <div className="text-sm font-semibold text-[#212121] mb-2">
             Step {currentStep + 1} of {steps.length}: {currentStepData.title}
@@ -367,6 +352,7 @@ export default function CreateProjectPage() {
         </div>
         <FormProvider {...formMethods}>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* UPDATED: Step 0 now contains title, description, category, and services */}
             {currentStep === 0 && (
               <>
                 <CustomTextField
@@ -381,11 +367,6 @@ export default function CreateProjectPage() {
                   placeholder="Clearly describe what you need, key features, and your goals for this project."
                   icon={MessageSquareText}
                 />
-              </>
-            )}
-
-            {currentStep === 1 && (
-              <>
                 <FormField
                   control={formMethods.control}
                   name="category"
@@ -444,7 +425,8 @@ export default function CreateProjectPage() {
               </>
             )}
 
-            {currentStep === 2 && (
+            {/* UPDATED: Step 1 is now Budget & Timeline */}
+            {currentStep === 1 && (
               <>
                 <BudgetField
                   name="budget"
@@ -461,7 +443,8 @@ export default function CreateProjectPage() {
               </>
             )}
 
-            {currentStep === 3 && (
+            {/* UPDATED: Step 2 is now Requirements & Files */}
+            {currentStep === 2 && (
               <>
                 <CustomTextareaField
                   name="requirements"
@@ -535,7 +518,6 @@ export default function CreateProjectPage() {
               </>
             )}
 
-            {/* Navigation Buttons */}
             <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
               {currentStep > 0 && (
                 <Button

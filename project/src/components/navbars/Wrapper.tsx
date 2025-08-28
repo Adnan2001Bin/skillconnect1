@@ -38,7 +38,7 @@ export default function Wrapper({ children }: { children: React.ReactNode }) {
       case "user":
         return (
           <>
-            {pathname === "/home" ? <UserNavbar1 /> : <UserNavbar />}
+            {pathname === "/home" || pathname === "/talentList" || pathname === "/projects" || pathname === "/orders" ? <UserNavbar1 /> : <UserNavbar />}
             <main>{children}</main>
             <Footer />
           </>

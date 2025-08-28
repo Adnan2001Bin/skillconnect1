@@ -13,8 +13,8 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   const router = useRouter();
   const colors = {
     accentColor: "#17B169",
-    activeTextColor: "#FFFFFF", // Changed to white
-    neutralTextColor: "#FFFFFF", // Changed to white
+    activeTextColor: "#1C352D", // Changed to white
+    neutralTextColor: "#41644A", // Changed to white
     primary: "#FFFFFF", // Changed to white
   };
 

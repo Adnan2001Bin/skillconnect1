@@ -6,8 +6,9 @@ import workspaceBackground from "../../public/backgrounds/StockCake-Modern Offic
 import talentProfileBackground from "../../public/backgrounds/3514723.jpg";
 import workspaceBackgroundMobailView from "../../public/backgrounds/annie-spratt-hCb3lIB8L8E-unsplash.jpg"
 import adminViewbackground from "../../public/backgrounds/vecteezy_geometric-lines-pattern-on-black-background_.jpg"
-import userViewbackground from "../../public/backgrounds/vector-JUL-2020-92.jpg"
+import userViewbackground from "../../public/backgrounds/dark-green-abstract-background-w.jpg"
 import userViewbackground1 from "../../public/backgrounds/vector-JUL-2020-92.jpg"
+import userViewbackground2 from "../../public/backgrounds/depositphotos_662668672-stock-il.jpg"
 import findExpertcom from "../../public/backgrounds/OR68VI0.jpg"
 import allcategories from "../../public/catagoryPage/pexels-shkrabaanthony-4348401.jpg"
 import postjob from "../../public/backgrounds/StockCake-Modern Office Life_1752923098.jpg"
@@ -29,6 +30,7 @@ export const Images = {
   adminViewbackground,
   userViewbackground,
   userViewbackground1,
+  userViewbackground2,
   allcategories,
   findExpertcom,
   postjob,

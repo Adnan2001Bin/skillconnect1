@@ -1,7 +1,7 @@
 import { TalentProfileInput } from "@/schemas/profileSchema";
-import { MapPin, Briefcase, Mail, User, Star } from "lucide-react"; // Import relevant icons
-// Make sure to import your categories data
-import { categories } from "@/lib/categoriesAndServices"; // Adjust path if necessary
+import { MapPin } from "lucide-react";
+import { categories } from "@/lib/categoriesAndServices";
+import { useRouter } from "next/navigation";
 
 interface Talent extends TalentProfileInput {
   _id: string;
@@ -12,97 +12,108 @@ interface Talent extends TalentProfileInput {
 interface TalentCardProps {
   talent: Talent;
   accentColor: string;
-  activeTextColor: string;
-  neutralTextColor: string;
-  secondaryDarkGray: string;
+  activeTextColor: string; // Prop kept for signature consistency, but design uses Tailwind palette
+  neutralTextColor: string; // Prop kept for signature consistency, but design uses Tailwind palette
+  secondaryDarkGray: string; // Prop kept for signature consistency
 }
 
-export default function TalentCard({
-  talent,
-  accentColor,
-  activeTextColor,
-  neutralTextColor,
-  secondaryDarkGray,
-}: TalentCardProps) {
+export default function TalentCard({ talent, accentColor }: TalentCardProps) {
+  const router = useRouter();
   const defaultImage = "/images/default-avatar.png";
-  const primary = "#D3F1DF";
 
   const getCategoryLabel = (categoryValue: string | undefined) => {
-    if (!categoryValue) return "N/A"; // Or handle as desired
+    if (!categoryValue) return "N/A";
     const foundCategory = categories.find((cat) => cat.value === categoryValue);
     return foundCategory ? foundCategory.label : categoryValue;
   };
 
+  const handleViewProfile = () => {
+    router.push(`/talentList/${talent._id}`);
+  };
+
+  // Prepare snippets for consistent card height
+  const shortBio = talent.bio
+    ? talent.bio.length > 80
+      ? `${talent.bio.substring(0, 80)}...`
+      : talent.bio
+    : "This expert hasn't added a bio yet.";
+
+  const displayedSkills = talent.skills?.slice(0, 3) || [];
+
   return (
-    <div
-      className="rounded-xl shadow-sm shadow-[#16423C] border-1 border-[#16423C] overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-100 flex flex-col h-full"
-      style={{ backgroundColor: "rgba(163,209,198, 0.2)" }}
-    >
-      <div className="relative p-6 flex flex-col items-center text-center">
-        {/* Profile Image */}
-        <div
-          className="w-24 h-24 rounded-full overflow-hidden border-4 mb-4"
-          style={{ borderColor: accentColor }}
-        >
+    <div className="rounded-2xl shadow-lg border border-gray-200/80 overflow-hidden transition-all duration-300 ease-in-out hover:shadow-2xl hover:-translate-y-2 flex flex-col h-full bg-white group">
+      {/* Card Header Banner */}
+      <div
+        className="h-20"
+        style={{ backgroundColor: accentColor, opacity: 0.9 }}
+      ></div>
+
+      {/* Profile Picture & Main Info Container */}
+      <div className="relative px-6 pb-6 flex flex-col items-center text-center">
+        {/* Overlapping Profile Image */}
+        <div className="relative -mt-12">
           <img
             src={talent.profilePicture || defaultImage}
             alt={`${talent.userName}'s profile`}
-            className="w-full h-full object-cover"
+            className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
           />
         </div>
 
         {/* User Name */}
         <h3
-          className="text-xl font-bold mb-2"
-          style={{ color: activeTextColor }}
+          className="text-xl font-bold mt-4 text-gray-800"
+          title={talent.userName}
         >
           {talent.userName}
         </h3>
 
-        {/* Category */}
+        {/* Category Pill */}
         {talent.category && (
-          <p
-            className="text-sm font-semibold mb-1 px-3 py-1 rounded-full"
-            style={{ backgroundColor: accentColor, color: primary }}
-          >
+          <p className="mt-1 text-sm font-semibold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
             {getCategoryLabel(talent.category)}
           </p>
         )}
 
         {/* Location */}
         {talent.location && (
-          <div
-            className="flex items-center text-sm"
-            style={{ color: neutralTextColor }}
-          >
-            <MapPin className="h-4 w-4 mr-1" style={{ color: accentColor }} />
-            <span>{talent.location}</span>
+          <div className="flex items-center text-sm mt-3 text-gray-500">
+            <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0" />
+            <span className="truncate" title={talent.location}>
+              {talent.location}
+            </span>
           </div>
         )}
       </div>
-      {/* Footer / Contact Info and View Profile Button */}
-      <div
-        className="p-6 border-t mt-auto flex flex-col items-center gap-4"
-        style={{ borderColor: accentColor + "30" }}
-      >
-        <div
-          className="flex items-center text-sm"
-          style={{ color: neutralTextColor }}
-        >
-          <Mail className="h-4 w-4 mr-2" style={{ color: accentColor }} />
-          <a
-            href={`mailto:${talent.email}`}
-            className="hover:underline"
-            style={{ color: neutralTextColor }}
-          >
-            {talent.email}
-          </a>
+
+      {/* Short Bio */}
+      <p className="text-gray-600 text-sm h-14 px-6 text-center">{shortBio}</p>
+
+      {/* Skills Section */}
+      <div className="px-6 pt-4 pb-6">
+        <div className="flex flex-wrap justify-center items-center gap-2 min-h-[2rem]">
+          {displayedSkills.length > 0 ? (
+            displayedSkills.map((skill, index) => (
+              <span
+                key={index}
+                className="bg-gray-100 text-gray-700 text-xs font-semibold px-2.5 py-1 rounded-full"
+              >
+                {skill}
+              </span>
+            ))
+          ) : (
+            <span className="text-xs text-gray-400 italic">
+              No skills listed
+            </span>
+          )}
         </div>
-        {/* View Profile Button */}
+      </div>
+
+      {/* Footer / CTA Button */}
+      <div className="mt-auto p-4 border-t border-gray-200/80 bg-gray-50/50">
         <button
-          className="px-6 py-2 rounded-full font-semibold transition-colors duration-300"
-          style={{ backgroundColor: accentColor, color: primary }}
-          onClick={() => (window.location.href = `/talentList/${talent._id}`)}
+          onClick={handleViewProfile}
+          className="w-full px-6 py-2.5 rounded-lg font-bold text-white transition-all duration-300 shadow-sm hover:shadow-md"
+          style={{ backgroundColor: accentColor }}
         >
           View Profile
         </button>
