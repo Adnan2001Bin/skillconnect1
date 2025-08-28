@@ -20,6 +20,16 @@ import p_icon8 from "../../public/popular-services/5686602.jpg";
 import p_icon9 from "../../public/popular-services/5396346.jpg";
 
 
+import c1 from "../../public/card/web-development_2210153.png"
+import c2 from "../../public/card/illustrator_552254.png"
+import c3 from "../../public/card/marketplace_2171363.png"
+import c4 from "../../public/card/3d-modeling_4661026.png"
+import c5 from "../../public/card/ai_6985703.png"
+import c6 from "../../public/card/content-creator_4698304.png"
+import c7 from "../../public/card/2d_5261290.png"
+import c8 from "../../public/card/ui_1260243.png"
+import c9 from "../../public/card/online-learning_16940069.png"
+
 
 export const categories = [
   { value: "programming_tech", label: "Programming & Tech",icon: c_icon1 },
@@ -85,6 +95,63 @@ export const popularServices = [
     id: "9",
     title: "Blog writing Illustration",
     icon: p_icon9,
+    value: "writing_translation",
+  },
+];
+
+export const card = [
+  {
+    id: "1",
+    title: "Web application development",
+    icon: c1,
+    value: "programming_tech",
+  },
+  {
+    id: "2",
+    title: "Logo Design",
+    icon: c2,
+    value: "graphics_design",
+  },
+  {
+    id: "3",
+    title: "E-Commerce Marketing",
+    icon: c3,
+    value: "digital_marketing",
+  },
+  {
+    id: "4",
+    title: "3D animation",
+    icon: c4,
+    value: "video_animation",
+  },
+  {
+    id: "5",
+    title: "AI model training and optimization",
+    icon: c5,
+    value: "ai_services",
+  },
+  {
+    id: "6",
+    title: "Article writing",
+    icon: c6,
+    value: "writing_translation",
+  },
+   {
+    id: "7",
+    title: "2D animation",
+    icon: c7,
+    value: "writing_translation",
+  },
+  {
+    id: "8",
+    title: "UI/UX design",
+    icon: c8,
+    value: "writing_translation",
+  },
+  {
+    id: "9",
+    title: "Blog writing Illustration",
+    icon: c9,
     value: "writing_translation",
   },
 ];

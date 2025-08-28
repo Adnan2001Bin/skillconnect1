@@ -23,7 +23,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import Notifications from "../userView/Notifications";
 
-export default function Navbar() {
+export default function UserNavbar() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -32,8 +32,25 @@ export default function Navbar() {
   const [profileData, setProfileData] = useState<UserProfileInput | null>(
     null
   );
+  const [isScrolled, setIsScrolled] = useState(false); // State to track scroll position
+
   const lightAccentColor = "#67AE6E";
   const primaryColor = "#328E6E";
+
+  // Effect to handle scroll event
+  useEffect(() => {
+    const handleScroll = () => {
+      // Set isScrolled to true if user has scrolled more than 10px
+      setIsScrolled(window.scrollY > 10);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+
+    // Cleanup function to remove the event listener
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "user") {
@@ -78,15 +95,28 @@ export default function Navbar() {
     router.push("/home");
   };
 
+  // Conditionally set class names based on isScrolled state
+  const navClass = isScrolled
+    ? "bg-white shadow-md text-gray-700"
+    : "bg-transparent text-white";
+  const linkClass = isScrolled
+    ? "text-gray-700 hover:text-[#4CAF50]"
+    : "text-white hover:text-gray-200";
+  const signInButtonClass = isScrolled
+    ? "border-[#4CAF50] text-[#4CAF50] hover:bg-[#4CAF50] hover:text-white"
+    : "border-white text-white hover:bg-white hover:text-gray-900";
+
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50">
+    <nav
+      className={`fixed w-full top-0 z-50 transition-all duration-300 ${navClass}`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         <div className="flex items-center justify-between h-16">
           {/* Left Section: Logo */}
           <div className="flex-shrink-0">
             <Link href="/home">
               <Image
-                src={Images.logoUser1}
+                src={isScrolled ? Images.logoUser1 : Images.logoUser} // Conditionally change logo
                 alt="Logo"
                 width={100}
                 height={40}
@@ -100,21 +130,21 @@ export default function Navbar() {
           <div className="hidden md:flex items-center space-x-4">
             <Link
               href="/talentList"
-              className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+              className={`${linkClass} px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2`}
             >
               <Users size={18} />
               <span>Find Talents</span>
             </Link>
             <Link
               href="/projects"
-              className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+              className={`${linkClass} px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2`}
             >
               <Briefcase size={18} />
               <span>Projects</span>
             </Link>
             <Link
               href="/messages"
-              className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+              className={`${linkClass} px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2`}
             >
               <MessageSquare size={18} />
               <span>Messages</span>
@@ -151,40 +181,40 @@ export default function Navbar() {
                   )}
                   <ChevronDown
                     size={16}
-                    className={`text-gray-600 transition-transform duration-200 ${
+                    className={`transition-transform duration-200 ${
                       isProfileDropdownOpen ? "rotate-180" : ""
                     }`}
                   />
                 </button>
                 {isProfileDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200 text-gray-700">
                     <Link
                       href="/orders"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
+                      className="block px-4 py-2 text-sm hover:bg-[#4CAF50] hover:text-white"
                     >
                       My Orders
                     </Link>
                     <Link
                       href="/client/profile"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
+                      className="block px-4 py-2 text-sm hover:bg-[#4CAF50] hover:text-white"
                     >
                       My Profile
                     </Link>
                     <Link
                       href="/payments"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
+                      className="block px-4 py-2 text-sm hover:bg-[#4CAF50] hover:text-white"
                     >
                       Wallet/Payments
                     </Link>
                     <Link
                       href="/support"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
+                      className="block px-4 py-2 text-sm hover:bg-[#4CAF50] hover:text-white"
                     >
                       Help/Support
                     </Link>
                     <button
                       onClick={handleSignOut}
-                      className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
+                      className="w-full text-left block px-4 py-2 text-sm hover:bg-[#4CAF50] hover:text-white"
                     >
                       Sign Out
                     </button>
@@ -194,10 +224,7 @@ export default function Navbar() {
             ) : (
               <div className="flex space-x-2">
                 <Link href="/sign-in">
-                  <Button
-                    variant="outline"
-                    className="border-[#4CAF50] text-[#4CAF50] hover:bg-[#4CAF50] hover:text-white"
-                  >
+                  <Button variant="outline" className={signInButtonClass}>
                     Sign In
                   </Button>
                 </Link>
@@ -219,19 +246,16 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center">
-            <button
-              onClick={toggleMenu}
-              className="text-gray-700 focus:outline-none"
-            >
+            <button onClick={toggleMenu} className="focus:outline-none">
               {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu (now has a solid bg regardless of scroll) */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-200">
+        <div className="md:hidden bg-white text-gray-700 border-t border-gray-200">
           <div className="px-4 py-3 space-y-1">
             <form onSubmit={handleSearch} className="mb-4">
               <div className="relative">
@@ -248,7 +272,7 @@ export default function Navbar() {
                 />
               </div>
             </form>
-
+            {/* Mobile links now use gray text by default */}
             <Link
               href="/talentList"
               className="flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-[#4CAF50] hover:text-white rounded-md"
@@ -281,7 +305,6 @@ export default function Navbar() {
               toggleMenu={toggleMenu}
               isMobile={true}
             />
-
             {status === "authenticated" ? (
               <>
                 <Link
@@ -345,7 +368,7 @@ export default function Navbar() {
                 >
                   Sign Up
                 </Link>
-              </div>
+                </div>
             )}
           </div>
         </div>
@@ -353,3 +376,5 @@ export default function Navbar() {
     </nav>
   );
 }
+
+

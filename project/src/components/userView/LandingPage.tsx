@@ -89,7 +89,10 @@ export default function App() {
               </div>
             </div>
 
-            <button className="bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-5 sm:py-3 sm:px-6 rounded-lg shadow-md transition duration-300 ease-in-out self-start">
+            <button
+              onClick={() => (window.location.href = `/freelance-banner`)}
+              className="bg-gray-800 hover:bg-gray-900 text-white font-semibold py-2 px-5 sm:py-3 sm:px-6 rounded-lg shadow-md transition duration-300 ease-in-out self-start"
+            >
               View More
             </button>
           </div>
@@ -114,9 +117,7 @@ export default function App() {
                     style={{ width: "80%" }}
                   ></div>
                 </div>
-                <p className="text-xs mt-0.5">
-                  80% | 4 steps out of 5
-                </p>
+                <p className="text-xs mt-0.5">80% | 4 steps out of 5</p>
               </div>
             </div>
 
@@ -134,4 +135,3 @@ export default function App() {
     </div>
   );
 }
-

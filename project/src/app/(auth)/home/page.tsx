@@ -3,6 +3,7 @@
 import Banner from "@/components/userView/banner";
 import Categories from "@/components/userView/Catagories";
 import ExpertMatchComponent from "@/components/userView/FindAnExpert";
+import JoinSkillConnect from "@/components/userView/JoinSkillConnect";
 import LandingPage from "@/components/userView/LandingPage";
 import PopularServices from "@/components/userView/PopularServices";
 
@@ -15,6 +16,7 @@ function page() {
       <PopularServices />
       <LandingPage />
       <ExpertMatchComponent />
+      <JoinSkillConnect />
     </div>
   )
 }

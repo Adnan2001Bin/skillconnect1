@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { useState, useRef, useEffect } from "react";
-import { Search, ChevronRight } from "lucide-react";
+import { Search, Play, Pause } from "lucide-react";
 import { Images } from "@/lib/images";
-import { useRouter } from "next/navigation";
 
 export default function Banner() {
   const videoFiles = [
@@ -18,26 +17,23 @@ export default function Banner() {
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const router = useRouter();
 
-  const commonServices = [
-    {id: "1", title: "Full-stack development", value: "programming_tech", },
-    {id: "2", title: "Logo design", value: "graphics_design", },
-    {id: "3", title: "Blog management", value: "digital_marketing", },
-    {id: "4", title: "2D animation", value: "video_animation", },
-    {id: "5", title: "Article writing", value: "writing_translation", },
+  const popularServices = [
+    { title: "Full-stack development", value: "programming_tech" },
+    { title: "Logo design", value: "graphics_design" },
+    { title: "Blog management", value: "digital_marketing" },
+    { title: "2D animation", value: "video_animation" },
   ];
 
   const handleVideoEnded = () => {
-    const nextIndex = (currentVideoIndex + 1) % videoFiles.length;
-    setCurrentVideoIndex(nextIndex);
+    setCurrentVideoIndex((prevIndex) => (prevIndex + 1) % videoFiles.length);
   };
 
   useEffect(() => {
     if (videoRef.current) {
       if (isPlaying) {
-        videoRef.current
-          .play()
-          .catch((error) => console.error("Video play failed:", error));
+        videoRef.current.play().catch((error) => console.error("Video play failed:", error));
       } else {
         videoRef.current.pause();
       }
@@ -45,19 +41,8 @@ export default function Banner() {
   }, [currentVideoIndex, isPlaying]);
 
   const togglePlayPause = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current
-          .play()
-          .catch((error) => console.error("Video play failed:", error));
-      }
-      setIsPlaying(!isPlaying);
-    }
+    setIsPlaying(!isPlaying);
   };
-
-  const router = useRouter();
 
   const handleServiceClick = (service: { value: string; title: string }) => {
     router.push(
@@ -66,126 +51,103 @@ export default function Banner() {
       )}&services=${encodeURIComponent(service.title)}`
     );
   };
+  
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const searchQuery = formData.get("search") as string;
+    if (searchQuery.trim()) {
+      router.push(`/talentList?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
 
   return (
-    <section className="relative bg-[#F5F5F5] min-h-[400px] sm:min-h-[650px] flex items-center overflow-hidden">
+    <section className="relative min-h-[500px] sm:min-h-[650px] flex items-center justify-center overflow-hidden font-sans">
       {/* Background Video/Image Container */}
-      <div className="absolute inset-0 z-0 w-full h-full">
-        {/* Image for small screens */}
+      <div className="absolute inset-0 z-0">
+        {/* Fallback Image for Small Screens */}
         <div className="block sm:hidden w-full h-full">
           <Image
             src={Images.workspaceBackgroundMobailView}
-            alt="Banner background"
+            alt="Workspace background"
             fill
             className="object-cover"
             priority
           />
         </div>
-        {/* Video for sm and larger screens */}
+        {/* Video for Larger Screens */}
         <div className="hidden sm:block w-full h-full">
           <video
             key={currentVideoIndex}
             ref={videoRef}
             src={videoFiles[currentVideoIndex]}
             autoPlay
-            loop={false}
             muted
             playsInline
             onEnded={handleVideoEnded}
             className="w-full h-full object-cover"
           >
-            <source src={videoFiles[currentVideoIndex]} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
         </div>
       </div>
 
-      {/* Semi-transparent Overlay for Text Readability */}
-      <div className="absolute inset-0 z-10 bg-black opacity-50"></div>
+      {/* Gradient Overlay */}
+      <div className="absolute inset-0 z-10 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
 
-      {/* Content Section (Text and Button) - Aligned Left */}
-      <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 text-left text-white w-full">
-        <div className="w-full sm:w-[75%] lg:w-[70%]">
-          <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-sans mb-4 leading-tight drop-shadow-lg">
-            Discover Top Talent for Your Projects
-          </h1>
-          <p className="text-sm sm:text-base md:text-lg mb-6 drop-shadow-md">
-            Connect with skilled professionals or showcase your services today.
-            Find the perfect match for your next big idea.
-          </p>
-          {/* Search Bar */}
-          <form className="w-full max-w-4xl mb-6">
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                placeholder="Search for services or talent..."
-                className="w-full px-4 py-2 sm:py-3 pr-12 text-black bg-white bg-opacity-90 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#67AE6E] shadow-md text-sm sm:text-base"
-                aria-label="Search for services or talent"
-              />
-              <button
-                type="submit"
-                className="absolute right-3 text-gray-600 hover:text-[#67AE6E] focus:outline-none"
-                aria-label="Submit search"
-              >
-                <Search className="h-4 w-4 sm:h-5 sm:w-5" />
-              </button>
-            </div>
-          </form>
-          {/* Common Services Buttons */}
-          <div className="flex flex-wrap gap-2 sm:gap-4">
-            {commonServices.map((service) => (
-              
-              <Button
-              key={service.id}
-                onClick={() => handleServiceClick(service)}
-                variant="outline"
-                className="bg-transparent border-white text-white hover:bg-white hover:text-[#67AE6E] px-3 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm md:text-base rounded-lg transition-all duration-300 flex items-center space-x-1"
-              >
-                <span>{service.title}</span>
-                <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
-              </Button>
-            ))}
+      {/* Content Section */}
+      <div className="relative z-20 max-w-4xl mx-auto px-4 text-center text-white w-full">
+        <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-4 tracking-tight drop-shadow-2xl bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-300">
+          Find the Perfect Freelance Services for Your Business
+        </h1>
+        <p className="text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 text-gray-200 drop-shadow-lg">
+          Connect with a community of top-tier freelancers from around the world.
+        </p>
+
+        {/* Enhanced Search Bar */}
+        <form onSubmit={handleSearchSubmit} className="w-full max-w-2xl mx-auto mb-6">
+          <div className="relative flex items-center bg-white/10 backdrop-blur-md border border-white/20 rounded-full shadow-lg overflow-hidden">
+            <Search className="h-5 w-5 absolute left-4 text-gray-300" />
+            <input
+              type="text"
+              name="search"
+              placeholder='Try "web developer" or "logo animation"'
+              className="w-full pl-12 pr-32 sm:pr-36 py-3 text-white bg-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-[#67AE6E]/50 placeholder:text-gray-400"
+              aria-label="Search for services or talent"
+            />
+            <Button
+              type="submit"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[#17B169] hover:bg-green-400 rounded-full px-4 sm:px-6 py-2 text-sm h-auto"
+            >
+              Search
+            </Button>
           </div>
+        </form>
+
+        {/* Popular Services Pills */}
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+          <span className="text-sm font-semibold mr-2">Popular:</span>
+          {popularServices.map((service) => (
+            <Button
+              key={service.title}
+              onClick={() => handleServiceClick(service)}
+              variant="outline"
+              className="text-xs sm:text-sm bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20 hover:text-white rounded-full transition-all duration-300"
+            >
+              {service.title}
+            </Button>
+          ))}
         </div>
       </div>
-      {/* Pause/Play Button - Only for sm and larger screens */}
+
+      {/* Pause/Play Button */}
       <button
         onClick={togglePlayPause}
-        className="hidden sm:block absolute bottom-4 right-4 z-30 bg-gray-800 bg-opacity-70 text-white p-2 sm:p-3 rounded-full shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white"
+        className="hidden sm:block absolute bottom-5 right-5 z-30 bg-black/20 backdrop-blur-sm text-white p-3 rounded-full shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-white/50"
         aria-label={isPlaying ? "Pause video" : "Play video"}
       >
-        {isPlaying ? (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-4 h-4 sm:w-5 sm:h-5"
-          >
-            <rect x="6" y="4" width="4" height="16" />
-            <rect x="14" y="4" width="4" height="16" />
-          </svg>
-        ) : (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="w-4 h-4 sm:w-5 sm:h-5"
-          >
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-        )}
+        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
       </button>
     </section>
   );

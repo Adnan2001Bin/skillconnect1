@@ -279,7 +279,7 @@ export default function Notifications({
     <div className="relative">
       <button
         onClick={toggleNotifications}
-        className="text-gray-700 hover:text-[#4CAF50] px-3 py-2 rounded-md relative"
+        className="text-green-700 hover:text-[#4CAF50] px-3 py-2 rounded-md relative"
       >
         <Bell size={20} />
         {unreadCount > 0 && (
