@@ -26,7 +26,7 @@ const updateProjectSchema = z.object({
     .optional(),
   requirements: z.string().min(10).max(1000).optional(),
   files: z.array(z.string()).optional(),
-  status: z.enum(["completed", "cancelled", "open"]).optional(),
+  status: z.enum(["completed", "cancelled", "open","delivered"]).optional(),
 });
 
 export async function GET(
@@ -53,7 +53,11 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { success: true, data: project, message: "Project fetched successfully" },
+      { 
+        success: true, 
+        data: project, 
+        message: "Project fetched successfully" 
+      },
       { status: 200 }
     );
   } catch (error) {
@@ -119,17 +123,9 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     // 8. Handle project updates
     Object.assign(project, validatedData);
     project.updatedAt = new Date();
-    await project.save();
 
     // 9. Handle status-specific logic
-    if (validatedData.status === "cancelled") {
-      await ProposalModel.deleteMany({ projectId });
-      socket.emit("projectStatusUpdated", {
-        projectId,
-        status: "cancelled",
-        message: `Project ${project.title} has been cancelled and all proposals deleted.`,
-      });
-    } else if (validatedData.status === "completed") {
+    if (validatedData.status === "delivered") {
       const acceptedProposal = await ProposalModel.findOne({ projectId, proposalStatus: "accepted" });
       if (!acceptedProposal) {
         socket.disconnect();
@@ -141,11 +137,40 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           { status: 400 }
         );
       }
+      if (project.paymentStatus !== "funded") {
+        socket.disconnect();
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Cannot mark project as completed without a funded payment.",
+          },
+          { status: 400 }
+        );
+      }
+      project.paymentStatus = "completed";
       await ProposalModel.deleteMany({ projectId, proposalStatus: "pending" });
       socket.emit("projectStatusUpdated", {
         projectId,
         status: "completed",
         message: `Project ${project.title} has been marked as completed.`,
+      });
+      socket.emit("paymentStatusUpdated", {
+        projectId,
+        paymentStatus: "completed",
+        message: `Payment for project ${project.title} has been marked as completed.`,
+      });
+    } else if (validatedData.status === "cancelled") {
+      await ProposalModel.deleteMany({ projectId });
+      project.paymentStatus = "failed";
+      socket.emit("projectStatusUpdated", {
+        projectId,
+        status: "cancelled",
+        message: `Project ${project.title} has been cancelled and all proposals deleted.`,
+      });
+      socket.emit("paymentStatusUpdated", {
+        projectId,
+        paymentStatus: "failed",
+        message: `Payment for project ${project.title} has been marked as failed.`,
       });
     } else if (validatedData.status === "open") {
       socket.emit("projectStatusUpdated", {
@@ -155,6 +180,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       });
     }
 
+    await project.save();
     socket.disconnect();
     return NextResponse.json(
       {

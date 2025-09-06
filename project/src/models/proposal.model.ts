@@ -4,6 +4,7 @@ export interface IProposal extends Document {
   _id: string;
   projectId: string;
   talentId: string;
+  clientId:string
   bid: number;
   coverLetter: string;
   files?: string[];
@@ -20,6 +21,7 @@ export interface IProposal extends Document {
 }
 
 const ProposalSchema: Schema = new Schema({
+  clientId: { type: String, required: true },
   projectId: { type: String, required: true },
   talentId: { type: String, required: true },
   bid: { type: Number, required: true, min: 10 },

@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
+import ProposalModel from "@/models/proposal.model";
 import UserModel from "@/models/user.model";
+import ProjectModel from "@/models/projects.model"; // Import Project model
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 interface TransactionResponse {
@@ -16,6 +18,7 @@ interface TransactionResponse {
     status: "pending" | "completed" | "failed" | "cancelled";
     createdAt: string;
     clientName: string;
+    relatedTo: "order" | "project";
   }[];
   error?: string;
 }
@@ -32,27 +35,71 @@ export async function GET(req: NextRequest): Promise<NextResponse<TransactionRes
 
     await connectDB();
 
+    // Fetch order-related transactions
     const orders = await OrderModel.find({ talentId: session.user._id }).lean();
-    const transactions = await Promise.all(
+    const orderTransactions = await Promise.all(
       orders.map(async (order: any) => {
         const client = await UserModel.findById(order.clientId).select("userName").lean();
         return {
           _id: order._id.toString(),
           orderId: order._id.toString(),
           amount: order.ratePlan.price,
-          currency: "USD", // Adjust based on your payment system
-          status: order.paymentStatus,
+          currency: "USD",
+          status: order.paymentStatus as "pending" | "completed" | "failed" | "cancelled" || "pending",
           createdAt: order.createdAt.toISOString(),
           clientName: client?.userName || "Unknown",
+          relatedTo: "order" as const,
         };
       })
     );
+
+    // Fetch project-related transactions (based on accepted proposals)
+    const acceptedProposals = await ProposalModel.find({
+      talentId: session.user._id,
+      proposalStatus: { $in: ["accepted", "delivered", "revision-requested"] },
+    })
+    .populate({
+      path: "projectId",
+      select: "clientId title", // Select only needed fields
+      model: ProjectModel // Explicitly specify the model
+    })
+    .lean();
+
+    const projectTransactions = await Promise.all(
+      acceptedProposals.map(async (proposal: any) => {
+        // Get client info from the project
+        let clientName = "Unknown";
+        if (proposal.projectId && proposal.projectId.clientId) {
+          const client = await UserModel.findById(proposal.projectId.clientId)
+            .select("userName")
+            .lean();
+          clientName = client?.userName || "Unknown";
+        }
+
+        // Derive payment status from proposalStatus
+        let status: "pending" | "completed" | "failed" | "cancelled" = "pending";
+        if (proposal.proposalStatus === "delivered") status = "completed";
+
+        return {
+          _id: proposal._id.toString(),
+          orderId: proposal.projectId?._id?.toString() || "Unknown Project",
+          amount: proposal.bid,
+          currency: "USD",
+          status,
+          createdAt: proposal.updatedAt.toISOString(),
+          clientName,
+          relatedTo: "project" as const,
+        };
+      })
+    );
+
+    const allTransactions = [...orderTransactions, ...projectTransactions];
 
     return NextResponse.json(
       {
         success: true,
         message: "Transactions fetched successfully",
-        data: transactions,
+        data: allTransactions,
       },
       { status: 200 }
     );

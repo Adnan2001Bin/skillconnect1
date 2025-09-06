@@ -12,13 +12,15 @@ import Image from "next/image";
 import { Images } from "@/lib/images";
 import Loader from "@/components/Loader";
 import { io } from "socket.io-client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function TalentProjectsListPage() {
-  const { status, data: session } = useSession();
+  const { status: sessionStatus, data: session } = useSession();
   const router = useRouter();
   const [projects, setProjects] = useState<IProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string>("all"); // Default filter is "all"
 
   const colors = {
     accentColor: "#8DBCC7",
@@ -51,6 +53,21 @@ export default function TalentProjectsListPage() {
       }
     });
 
+    socket.on("paymentStatusUpdated", (data: { projectId: string; paymentStatus: "pending" | "completed" | "failed" }) => {
+      setProjects((prev) =>
+        prev.map((project) =>
+          project._id === data.projectId
+            ? { ...project, paymentStatus: data.paymentStatus } as IProject
+            : project
+        )
+      );
+      toast.success("Payment Status Updated", {
+        description: `Payment status updated to ${data.paymentStatus} for a project.`,
+        className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+        duration: 4000,
+      });
+    });
+
     socket.on("disconnect", () => {
       console.log("Disconnected from Socket.IO server");
     });
@@ -61,17 +78,19 @@ export default function TalentProjectsListPage() {
   }, [session?.user?._id]);
 
   useEffect(() => {
-    if (status === "authenticated" && session?.user?.role === "talent") {
+    if (sessionStatus === "authenticated" && session?.user?.role === "talent") {
       const fetchProjects = async () => {
         try {
           setLoading(true);
           const response = await axios.get("/api/talent/projects");
           if (response.data.success) {
-            setProjects(response.data.data);
+            const projectsWithPaymentStatus = response.data.data.map((project: IProject) => ({
+              ...project,
+              paymentStatus: project.status === "completed" ? "completed" : project.paymentStatus || "pending",
+            }));
+            setProjects(projectsWithPaymentStatus);
           } else {
-            throw new Error(
-              response.data.message || "Failed to fetch projects"
-            );
+            throw new Error(response.data.message || "Failed to fetch projects");
           }
         } catch (err) {
           setError("Failed to load projects. Please try again later.");
@@ -87,12 +106,17 @@ export default function TalentProjectsListPage() {
       };
       fetchProjects();
     }
-  }, [status, session]);
+  }, [sessionStatus, session]);
 
-  if (status === "loading") {
+  // Filter projects based on the selected status
+  const filteredProjects = filter === "all"
+    ? projects
+    : projects.filter((project) => project.status === filter);
+
+  if (sessionStatus === "loading") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-blue-50">
-        <Loader text="Loading projects..." color="#000000" bgColor="#90D1CA" size='large'/>
+        <Loader text="Loading projects..." color="#000000" bgColor="#90D1CA" size="large" />
       </div>
     );
   }
@@ -111,27 +135,37 @@ export default function TalentProjectsListPage() {
     <div
       className="min-h-screen py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8 font-sans relative mt-15"
       style={{
-        backgroundImage: `url(${
-          Images.talentProfileBackground
-            ? Images.talentProfileBackground.src
-            : ""
-        })`,
+        backgroundImage: `url(${Images.talentProfileBackground ? Images.talentProfileBackground.src : ""})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
     >
       <div className="relative z-10 max-w-7xl mx-auto">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#212121] mb-6 sm:mb-8 text-center sm:text-left">
-          Available Projects
-        </h1>
-        {projects.length === 0 ? (
+        <div className="flex justify-between items-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#212121] text-center sm:text-left">
+            Available Projects
+          </h1>
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-[180px] border-gray-300">
+              <SelectValue placeholder="Filter by Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {filteredProjects.length === 0 ? (
           <p className="text-[#757575] text-base sm:text-lg text-center">
-            No open or in-progress projects available at the moment.
+            No projects available for the selected status.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {projects.map((project) => (
+            {filteredProjects.map((project) => (
               <ProjectCard key={project._id} project={project} />
             ))}
           </div>

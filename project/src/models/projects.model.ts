@@ -1,7 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IProject extends Document {
-  proposals: any;
   _id: string;
   title: string;
   description: string;
@@ -13,6 +12,7 @@ export interface IProject extends Document {
   files?: string[];
   clientId: string;
   status: "open" | "in-progress" | "completed" | "cancelled";
+  paymentStatus: "pending" | "funded" | "completed" | "failed";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +31,11 @@ const ProjectSchema: Schema = new Schema({
     type: String,
     enum: ["open", "in-progress", "completed", "cancelled"],
     default: "open",
+  },
+  paymentStatus: {
+    type: String,
+    enum: ["pending", "funded", "completed", "failed"],
+    default: "pending",
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

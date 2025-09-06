@@ -37,18 +37,18 @@ interface Transaction {
   paymentStatus: "pending" | "completed" | "failed" | "cancelled";
   createdAt: string;
   updatedAt: string;
+  relatedTo: "order" | "project";
 }
 
 export default function AdminTransactionsPage() {
   const { status, data: session } = useSession();
   const router = useRouter();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<{ orderTransactions: Transaction[]; projectTransactions: Transaction[] } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [timeRange, setTimeRange] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
-  // Consistent color theme
   const primaryDarkGray = "#2D3748";
   const secondaryDarkGray = "rgba(58, 71, 80, 0.6)";
   const accentColor = "#A5BFCC";
@@ -114,13 +114,21 @@ export default function AdminTransactionsPage() {
     }
   };
 
-  const filteredTransactions = transactions.filter((transaction) =>
+  const filteredOrderTransactions = transactions?.orderTransactions.filter((transaction) =>
     searchQuery
       ? (transaction.clientUserName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         transaction.talentUserName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         transaction.orderId.toLowerCase().includes(searchQuery.toLowerCase()))
       : true
-  );
+  ) || [];
+
+  const filteredProjectTransactions = transactions?.projectTransactions.filter((transaction) =>
+    searchQuery
+      ? (transaction.clientUserName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        transaction.talentUserName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        transaction.orderId.toLowerCase().includes(searchQuery.toLowerCase()))
+      : true
+  ) || [];
 
   if (status === "loading" || isLoading) {
     return (
@@ -236,7 +244,7 @@ export default function AdminTransactionsPage() {
             </label>
             <Input
               id="search"
-              placeholder="Search by user, talent, or order ID"
+              placeholder="Search by user, talent, or order/project ID"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === "Enter" && fetchTransactions()}
@@ -246,71 +254,149 @@ export default function AdminTransactionsPage() {
           </div>
         </div>
 
-        {filteredTransactions.length === 0 ? (
-          <div
-            className="rounded-lg shadow-md border p-6 text-center"
-            style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}
-          >
-            <p className="text-lg" style={{ color: neutralTextColor }}>
-              No transactions found.
-            </p>
-          </div>
-        ) : (
-          <div
-            className="rounded-lg shadow-md border overflow-x-auto"
-            style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}
-          >
-            <Table className="min-w-full divide-y divide-gray-700">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Transaction ID</TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Client</TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Talent</TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Order ID</TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Payment Status</TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Created At</TableHead>
-                  <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Updated At</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="bg-gray-800 divide-y divide-gray-700">
-                {filteredTransactions.map((transaction) => (
-                  <TableRow key={transaction._id}>
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-300 truncate">
-                      {transaction._id}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {transaction.clientUserName || "Unknown"}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {transaction.talentUserName || "Unknown"}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 truncate">
-                      {transaction.orderId}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      ${transaction.amount.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      <Badge
-                        style={getPaymentStatusBadgeColor(transaction.paymentStatus)}
-                        className="px-3 py-1 rounded-full text-sm font-medium"
-                      >
-                        {transaction.paymentStatus.charAt(0).toUpperCase() + transaction.paymentStatus.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {new Date(transaction.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                      {new Date(transaction.updatedAt).toLocaleDateString()}
-                    </TableCell>
+        {/* Order Transactions Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4" style={{ color: activeTextColor }}>
+            Order-Related Transactions
+          </h2>
+          {filteredOrderTransactions.length === 0 ? (
+            <div
+              className="rounded-lg shadow-md border p-6 text-center"
+              style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}
+            >
+              <p className="text-lg" style={{ color: neutralTextColor }}>
+                No order-related transactions found.
+              </p>
+            </div>
+          ) : (
+            <div
+              className="rounded-lg shadow-md border overflow-x-auto"
+              style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}
+            >
+              <Table className="min-w-full divide-y divide-gray-700">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Transaction ID</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Client</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Talent</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Order ID</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Payment Status</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Created At</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Updated At</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                </TableHeader>
+                <TableBody className="bg-gray-800 divide-y divide-gray-700">
+                  {filteredOrderTransactions.map((transaction) => (
+                    <TableRow key={transaction._id}>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-300 truncate">
+                        {transaction._id}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {transaction.clientUserName || "Unknown"}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {transaction.talentUserName || "Unknown"}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 truncate">
+                        {transaction.orderId}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        ${transaction.amount.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        <Badge
+                          style={getPaymentStatusBadgeColor(transaction.paymentStatus)}
+                          className="px-3 py-1 rounded-full text-sm font-medium"
+                        >
+                          {transaction.paymentStatus.charAt(0).toUpperCase() + transaction.paymentStatus.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {new Date(transaction.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {new Date(transaction.updatedAt).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+
+        {/* Project Transactions Section */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4" style={{ color: activeTextColor }}>
+            Project-Related Transactions
+          </h2>
+          {filteredProjectTransactions.length === 0 ? (
+            <div
+              className="rounded-lg shadow-md border p-6 text-center"
+              style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}
+            >
+              <p className="text-lg" style={{ color: neutralTextColor }}>
+                No project-related transactions found.
+              </p>
+            </div>
+          ) : (
+            <div
+              className="rounded-lg shadow-md border overflow-x-auto"
+              style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}
+            >
+              <Table className="min-w-full divide-y divide-gray-700">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Transaction ID</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Client</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Talent</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Project ID</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Amount</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Payment Status</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Created At</TableHead>
+                    <TableHead className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Updated At</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="bg-gray-800 divide-y divide-gray-700">
+                  {filteredProjectTransactions.map((transaction) => (
+                    <TableRow key={transaction._id}>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-300 truncate">
+                        {transaction._id}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {transaction.clientUserName || "Unknown"}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {transaction.talentUserName || "Unknown"}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 truncate">
+                        {transaction.orderId} {/* Using orderId as Project ID */}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        ${transaction.amount.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        <Badge
+                          style={getPaymentStatusBadgeColor(transaction.paymentStatus)}
+                          className="px-3 py-1 rounded-full text-sm font-medium"
+                        >
+                          {transaction.paymentStatus.charAt(0).toUpperCase() + transaction.paymentStatus.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {new Date(transaction.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                        {new Date(transaction.updatedAt).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

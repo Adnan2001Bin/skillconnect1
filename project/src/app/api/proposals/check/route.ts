@@ -4,6 +4,7 @@ import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import ProposalModel from "@/models/proposal.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import projectsModel from "@/models/projects.model";
 
 const checkProposalSchema = z.object({
   projectId: z.string().nonempty({ message: "Project ID is required" }),
@@ -12,7 +13,6 @@ const checkProposalSchema = z.object({
 
 export async function GET(req: NextRequest) {
   try {
-    // 1. Authenticate user session
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "talent") {
       return NextResponse.json(
@@ -21,18 +21,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // 2. Parse query parameters
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId");
     const talentId = searchParams.get("talentId");
 
-    // 3. Validate query parameters
     const validatedData = checkProposalSchema.parse({ projectId, talentId });
 
-    // 4. Connect to the database
     await connectDB();
 
-    // 5. Check for the latest proposal
     const existingProposal = await ProposalModel.findOne({
       projectId: validatedData.projectId,
       talentId: validatedData.talentId,
@@ -40,7 +36,6 @@ export async function GET(req: NextRequest) {
       .sort({ updatedAt: -1 })
       .exec();
 
-    // 6. Return response
     if (!existingProposal || existingProposal.proposalStatus === "rejected") {
       return NextResponse.json(
         {
@@ -55,6 +50,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // For talent view, set paymentStatus to "completed" if project status is "completed"
+    const project = await projectsModel.findById(validatedData.projectId);
+    const paymentStatus = project?.status === "completed" ? "completed" : existingProposal.paymentStatus || "pending";
+
     return NextResponse.json(
       {
         success: true,
@@ -63,6 +62,7 @@ export async function GET(req: NextRequest) {
         proposalId: existingProposal._id.toString(),
         revisionCount: existingProposal.revisionCount || 0,
         revisionNote: existingProposal.revisionNote || null,
+        paymentStatus: paymentStatus,
         message: "Proposal found for this project.",
       },
       { status: 200 }

@@ -1,8 +1,9 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import connectDB from "@/lib/connectDB";
+import ProjectModel from "@/models/projects.model";
 import OrderModel from "@/models/order.model";
+import { io } from "socket.io-client";
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
@@ -39,34 +40,71 @@ export async function POST(req: NextRequest) {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      // Retrieve the order ID or clientId/talentId from metadata to find the order
-      const { clientId, talentId } = session.metadata || {};
-      if (!clientId || !talentId) {
-        return NextResponse.json(
-          { success: false, message: "Missing required metadata (clientId or talentId)" },
-          { status: 400 }
-        );
-      }
+      // Retrieve metadata
+      const { projectId, proposalId, clientId, orderId } = session.metadata || {};
 
       await connectDB();
 
-      // Find the existing order based on clientId and talentId
-      const order = await OrderModel.findOne({ clientId, talentId, status: "pending" }).exec();
-      if (!order) {
+      if (orderId) {
+        // Handle Order payment
+        const order = await OrderModel.findById(orderId);
+        if (!order) {
+          return NextResponse.json(
+            { success: false, message: "Order not found" },
+            { status: 404 }
+          );
+        }
+
+        // Update order payment status
+        order.paymentStatus = "completed";
+        await order.save();
+
+        // Emit Socket.IO event for order
+        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+        socket.emit("paymentStatusUpdated", {
+          orderId,
+          paymentStatus: "completed",
+          message: `Payment for order ${order.projectDetails.title} has been completed.`,
+        });
+        socket.disconnect();
+
         return NextResponse.json(
-          { success: false, message: "Order not found" },
-          { status: 404 }
+          { success: true, message: "Order payment status updated successfully" },
+          { status: 200 }
+        );
+      } else if (projectId && proposalId && clientId) {
+        // Handle Project payment
+        const project = await ProjectModel.findById(projectId);
+        if (!project) {
+          return NextResponse.json(
+            { success: false, message: "Project not found" },
+            { status: 404 }
+          );
+        }
+
+        // Update project payment status
+        project.paymentStatus = "funded";
+        await project.save();
+
+        // Emit Socket.IO event for project
+        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+        socket.emit("paymentStatusUpdated", {
+          projectId,
+          paymentStatus: "funded",
+          message: `Payment for project ${project.title} has been funded.`,
+        });
+        socket.disconnect();
+
+        return NextResponse.json(
+          { success: true, message: "Project payment status updated successfully" },
+          { status: 200 }
+        );
+      } else {
+        return NextResponse.json(
+          { success: false, message: "Missing required metadata (projectId, proposalId, clientId, or orderId)" },
+          { status: 400 }
         );
       }
-
-      // Update the order with payment status
-      order.paymentStatus = "completed"; // Set to "completed" on successful payment
-      await order.save();
-
-      return NextResponse.json(
-        { success: true, message: "Order payment status updated successfully" },
-        { status: 200 }
-      );
     }
 
     return NextResponse.json(
@@ -86,7 +124,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Disable body parsing to get raw body for webhook signature verification
 export const config = {
   api: {
     bodyParser: false,

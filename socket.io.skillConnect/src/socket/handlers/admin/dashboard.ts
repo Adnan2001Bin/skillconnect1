@@ -1,6 +1,7 @@
 import OrderModel from "@/src/models/order.model";
 import ProjectModel from "@/src/models/projects.model";
 import UserModel from "@/src/models/user.model";
+import ProposalModel from "@/src/models/proposal.model";
 import { DashboardData } from "../../../type";
 
 export const getDashboardData = async (timeRange: string): Promise<DashboardData> => {
@@ -64,18 +65,25 @@ export const getDashboardData = async (timeRange: string): Promise<DashboardData
     return acc;
   }, {} as { [key: string]: number });
 
-  // Total revenue from completed orders
-  const revenueAggregation = await OrderModel.aggregate([
+  // Total revenue from completed orders and delivered proposals
+  const revenueFromOrdersAggregation = await OrderModel.aggregate([
     { $match: { ...query, status: "completed" } },
     { $group: { _id: null, total: { $sum: "$ratePlan.price" } } },
   ]);
-  const totalRevenue = revenueAggregation[0]?.total || 0;
+  const revenueFromOrders = revenueFromOrdersAggregation[0]?.total || 0;
 
-  // Transaction metrics
-  const totalTransactions = await OrderModel.countDocuments(query); // Assuming each order has a transaction
+  const revenueFromProposalsAggregation = await ProposalModel.aggregate([
+    { $match: { ...query, proposalStatus: "delivered" } },
+    { $group: { _id: null, total: { $sum: "$bid" } } },
+  ]);
+  const revenueFromProposals = revenueFromProposalsAggregation[0]?.total || 0;
+  const totalRevenue = revenueFromOrders + revenueFromProposals;
+
+  // Transaction metrics (including orders and proposals)
+  const totalTransactions = await OrderModel.countDocuments(query) + await ProposalModel.countDocuments({ ...query, proposalStatus: { $in: ["accepted", "delivered", "revision-requested"] } });
   const transactionsByStatus = {
-    pending: await OrderModel.countDocuments({ ...query, paymentStatus: "pending" }),
-    completed: await OrderModel.countDocuments({ ...query, paymentStatus: "completed" }),
+    pending: await OrderModel.countDocuments({ ...query, paymentStatus: "pending" }) + await ProposalModel.countDocuments({ ...query, proposalStatus: "pending" }),
+    completed: await OrderModel.countDocuments({ ...query, paymentStatus: "completed" }) + await ProposalModel.countDocuments({ ...query, proposalStatus: "delivered" }),
     failed: await OrderModel.countDocuments({ ...query, paymentStatus: "failed" }),
     cancelled: await OrderModel.countDocuments({ ...query, paymentStatus: "cancelled" }),
   };
@@ -123,13 +131,23 @@ export const getDashboardData = async (timeRange: string): Promise<DashboardData
     })
   );
 
-  // Recent transactions (derived from recent orders)
-  const recentTransactions = await OrderModel.find(query)
+  // Recent transactions (from both orders and proposals)
+  const recentOrderTransactions = await OrderModel.find(query)
     .sort({ createdAt: -1 })
-    .limit(5)
+    .limit(3)
     .lean();
-  const recentTransactionsWithUserNames = await Promise.all(
-    recentTransactions.map(async (order: any) => {
+
+  const recentProposalTransactions = await ProposalModel.find({ 
+    ...query, 
+    proposalStatus: { $in: ["accepted", "delivered", "revision-requested"] } 
+  })
+    .sort({ createdAt: -1 })
+    .limit(2)
+    .lean();
+
+  // Process order transactions
+  const orderTransactionsWithUsers = await Promise.all(
+    recentOrderTransactions.map(async (order: any) => {
       const client = await UserModel.findById(order.clientId).select("userName").lean();
       const talent = await UserModel.findById(order.talentId).select("userName").lean();
       return {
@@ -143,9 +161,41 @@ export const getDashboardData = async (timeRange: string): Promise<DashboardData
         paymentStatus: order.paymentStatus || "pending",
         createdAt: order.createdAt.toISOString(),
         updatedAt: order.updatedAt.toISOString(),
+        relatedTo: "order" as const,
       };
     })
   );
+
+  // Process proposal transactions
+  const proposalTransactionsWithUsers = await Promise.all(
+    recentProposalTransactions.map(async (proposal: any) => {
+      const client = await UserModel.findById(proposal.clientId).select("userName").lean();
+      const talent = await UserModel.findById(proposal.talentId).select("userName").lean();
+      let paymentStatus: "pending" | "completed" | "failed" | "cancelled" = "pending";
+      if (proposal.proposalStatus === "delivered") paymentStatus = "completed";
+      return {
+        _id: proposal._id,
+        orderId: proposal.projectId,
+        clientId: proposal.clientId || "unknown",
+        clientUserName: client?.userName || "Unknown",
+        talentId: proposal.talentId,
+        talentUserName: talent?.userName || "Unknown",
+        amount: proposal.bid || 0,
+        paymentStatus,
+        createdAt: proposal.createdAt.toISOString(),
+        updatedAt: proposal.updatedAt.toISOString(),
+        relatedTo: "project" as const,
+      };
+    })
+  );
+
+  // Combine and sort all transactions
+  const recentTransactionsWithUserNames = [
+    ...orderTransactionsWithUsers,
+    ...proposalTransactionsWithUsers
+  ]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
 
   // Recent projects
   const recentProjects = await ProjectModel.find(query)

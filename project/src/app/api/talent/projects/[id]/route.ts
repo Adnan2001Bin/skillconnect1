@@ -31,7 +31,6 @@ export async function GET(
       );
     }
 
-    // Allow access to "open" or "in-progress" projects, or "completed" projects if the talent has a relevant proposal
     if (!["open", "in-progress"].includes(project.status)) {
       const hasRelevantProposal = await ProposalModel.findOne({
         projectId: id,
@@ -46,8 +45,19 @@ export async function GET(
       }
     }
 
+    // Fetch latest proposal for payment status
+    const latestProposal = await ProposalModel.findOne({
+      projectId: id,
+      talentId: session.user._id,
+    }).sort({ updatedAt: -1 });
+
     return NextResponse.json(
-      { success: true, data: project, message: "Project fetched successfully" },
+      {
+        success: true,
+        data: project,
+        paymentStatus: latestProposal?.paymentStatus || "pending",
+        message: "Project fetched successfully",
+      },
       { status: 200 }
     );
   } catch (error) {

@@ -77,6 +77,7 @@ interface Transaction {
   currency: string;
   status: "pending" | "completed" | "failed" | "cancelled";
   createdAt: string;
+  relatedTo: "order" | "project"; // Added to distinguish payment type
 }
 
 interface DashboardData {
@@ -97,7 +98,12 @@ interface DashboardData {
   recentProposals: Proposal[];
   totalEarnings: number;
   pendingPayments: number;
-  recentTransactions: Transaction[];
+  projectEarnings: number;
+  projectPendingPayments: number;
+  orderEarnings: number;
+  orderPendingPayments: number;
+  recentProjectTransactions: Transaction[];
+  recentOrderTransactions: Transaction[];
 }
 
 const getStatusBadgeColor = (status: string) => {
@@ -259,12 +265,25 @@ export default function TalentDashboardPage() {
 
       const relevantProjects = projectData.filter((p: Project) => acceptedProposalIds.includes(p._id));
 
-      const totalEarnings = paymentData
+      // Calculate order-related payments
+      const orderTransactions = paymentData.filter((t: Transaction) => t.relatedTo === "order");
+      const orderEarnings = orderTransactions
         .filter((t: Transaction) => t.status === "completed")
-        .reduce((sum: any, t: { amount: any; }) => sum + t.amount, 0);
-      const pendingPayments = paymentData
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
+      const orderPendingPayments = orderTransactions
         .filter((t: Transaction) => t.status === "pending")
-        .reduce((sum: any, t: { amount: any; }) => sum + t.amount, 0);
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
+      const recentOrderTransactions = orderTransactions.slice(0, 5);
+
+      // Calculate project-related payments
+      const projectTransactions = paymentData.filter((t: Transaction) => t.relatedTo === "project");
+      const projectEarnings = projectTransactions
+        .filter((t: Transaction) => t.status === "completed")
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
+      const projectPendingPayments = projectTransactions
+        .filter((t: Transaction) => t.status === "pending")
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
+      const recentProjectTransactions = projectTransactions.slice(0, 5);
 
       setDashboardData({
         totalOrders: orderData.totalOrders,
@@ -282,9 +301,14 @@ export default function TalentDashboardPage() {
         acceptedProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "accepted").length,
         deliveredProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "delivered").length,
         recentProposals: proposalData.slice(0, 5),
-        totalEarnings,
-        pendingPayments,
-        recentTransactions: paymentData.slice(0, 5),
+        totalEarnings: orderEarnings + projectEarnings, // Combined total
+        pendingPayments: orderPendingPayments + projectPendingPayments, // Combined pending
+        projectEarnings,
+        projectPendingPayments,
+        orderEarnings,
+        orderPendingPayments,
+        recentProjectTransactions,
+        recentOrderTransactions,
       });
     } catch (err) {
       setError("Failed to load dashboard data. Please try again later.");
@@ -433,6 +457,148 @@ export default function TalentDashboardPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Project-Related Payments Section */}
+        <div className="mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4" style={{ color: colors.activeTextColor }}>
+            Project-Related Payments
+          </h2>
+          <div className="p-4 sm:p-6 rounded-lg shadow-md mb-4" style={{ backgroundColor: colors.headerBg }}>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-[#90D1CA]">Total Earnings</p>
+                <p className="text-2xl font-bold text-white">${dashboardData.projectEarnings.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Pending Payments</p>
+                <p className="text-2xl font-bold text-white">${dashboardData.projectPendingPayments.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+          {dashboardData.recentProjectTransactions.length === 0 ? (
+            <p className="text-[#757575] text-base sm:text-lg text-center">
+              No recent project-related transactions available.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#f8fafc]">
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Project ID
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Client
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Amount
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Status
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Date
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData.recentProjectTransactions.map((transaction) => (
+                    <TableRow key={transaction._id}>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {transaction.orderId}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {transaction.clientName}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        ${transaction.amount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        <Badge className={getStatusBadgeColor(transaction.status)}>
+                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {new Date(transaction.createdAt).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
+
+        {/* Order-Related Payments Section */}
+        <div className="mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4" style={{ color: colors.activeTextColor }}>
+            Order-Related Payments
+          </h2>
+          <div className="p-4 sm:p-6 rounded-lg shadow-md mb-4" style={{ backgroundColor: colors.headerBg }}>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-[#90D1CA]">Total Earnings</p>
+                <p className="text-2xl font-bold text-white">${dashboardData.orderEarnings.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-sm text-[#90D1CA]">Pending Payments</p>
+                <p className="text-2xl font-bold text-white">${dashboardData.orderPendingPayments.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+          {dashboardData.recentOrderTransactions.length === 0 ? (
+            <p className="text-[#757575] text-base sm:text-lg text-center">
+              No recent order-related transactions available.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#f8fafc]">
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Order ID
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Client
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Amount
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Status
+                    </TableHead>
+                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                      Date
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData.recentOrderTransactions.map((transaction) => (
+                    <TableRow key={transaction._id}>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {transaction.orderId}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {transaction.clientName}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        ${transaction.amount.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        <Badge className={getStatusBadgeColor(transaction.status)}>
+                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                        {new Date(transaction.createdAt).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
 
         {/* Recent Orders Table */}
@@ -627,65 +793,6 @@ export default function TalentDashboardPage() {
                         >
                           View Project
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
-
-        {/* Recent Transactions Table */}
-        <div className="mb-8">
-          <h2 className="text-xl sm:text-2xl font-semibold mb-4" style={{ color: colors.activeTextColor }}>
-            Recent Transactions
-          </h2>
-          {dashboardData.recentTransactions.length === 0 ? (
-            <p className="text-[#757575] text-base sm:text-lg text-center">
-              No recent transactions available.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-[#f8fafc]">
-                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      Order ID
-                    </TableHead>
-                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      Client
-                    </TableHead>
-                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      Amount
-                    </TableHead>
-                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      Status
-                    </TableHead>
-                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      Date
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {dashboardData.recentTransactions.map((transaction) => (
-                    <TableRow key={transaction._id}>
-                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
-                        {transaction.orderId}
-                      </TableCell>
-                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
-                        {transaction.clientName}
-                      </TableCell>
-                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
-                        ${transaction.amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
-                        <Badge className={getStatusBadgeColor(transaction.status)}>
-                          {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
-                        {new Date(transaction.createdAt).toLocaleDateString()}
                       </TableCell>
                     </TableRow>
                   ))}

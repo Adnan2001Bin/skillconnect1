@@ -14,6 +14,7 @@ import {
   Tag,
   AlertCircle,
   MessageSquareText,
+  CreditCard,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { IProject } from "@/models/projects.model";
@@ -21,7 +22,14 @@ import { Images } from "@/lib/images";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import ProposalForm from "@/components/talent/proposals/ProposalForm";
 import DeliverableForm from "@/components/talent/DeliverableForm";
 import Loader from "@/components/Loader";
@@ -38,16 +46,15 @@ interface ProposalStatus {
   proposalId?: string;
   revisionNote?: string | null;
   revisionCount?: number;
+  paymentStatus?: "pending" | "completed" | "failed";
 }
 
-// Helper function to get category label from value
 const getCategoryLabel = (categoryValue: string | undefined) => {
   if (!categoryValue) return "N/A";
   const foundCategory = categories.find((cat) => cat.value === categoryValue);
   return foundCategory ? foundCategory.label : categoryValue;
 };
 
-// Helper function to get status badge color
 const getStatusBadgeColor = (status: string) => {
   switch (status) {
     case "open":
@@ -63,7 +70,6 @@ const getStatusBadgeColor = (status: string) => {
   }
 };
 
-// Helper function to get proposal status badge color
 const getProposalStatusBadgeColor = (status?: string) => {
   switch (status) {
     case "pending":
@@ -105,54 +111,103 @@ export default function TalentProjectDetailsPage() {
     border: "#90D1CA30",
   };
 
-  // Initialize Socket.IO
   useEffect(() => {
     if (!session?.user?._id) return;
 
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
-      auth: { userId: session.user._id },
-    });
+    const socket = io(
+      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000",
+      {
+        auth: { userId: session.user._id },
+      }
+    );
 
     socket.on("connect", () => {
       console.log("Connected to Socket.IO server");
       socket.emit("join", session.user._id);
     });
 
-    socket.on("revisionRequested", (data: { proposalId: string; projectId: string; revisionCount: number; revisionNote: string }) => {
-      if (data.projectId === id) {
-        setProposalStatus((prev) => ({
-          ...prev,
-          status: "revision-requested",
-          revisionCount: data.revisionCount,
-          revisionNote: data.revisionNote,
-        }));
-        toast.info("Revision Requested", {
-          description: "The client has requested a revision for your deliverables.",
-          className: "bg-yellow-600 text-white border-yellow-700 bg-opacity-80",
-          duration: 4000,
-        });
+    socket.on(
+      "revisionRequested",
+      (data: {
+        proposalId: string;
+        projectId: string;
+        revisionCount: number;
+        revisionNote: string;
+      }) => {
+        if (data.projectId === id) {
+          setProposalStatus((prev) => ({
+            ...prev,
+            status: "revision-requested",
+            revisionCount: data.revisionCount,
+            revisionNote: data.revisionNote,
+          }));
+          toast.info("Revision Requested", {
+            description:
+              "The client has requested a revision for your deliverables.",
+            className:
+              "bg-yellow-600 text-white border-yellow-700 bg-opacity-80",
+            duration: 4000,
+          });
+        }
       }
-    });
+    );
 
-    socket.on("projectStatusUpdated", (data: { projectId: string; status: string }) => {
-      if (data.projectId === id) {
-        setProject((prev) => (prev ? { ...prev, status: data.status } as IProject : null));
-        if (data.status === "completed") {
-          toast.success("Project Completed", {
-            description: "The client has marked this project as completed.",
+    socket.on(
+      "projectStatusUpdated",
+      (data: { projectId: string; status: string }) => {
+        if (data.projectId === id) {
+          setProject((prev) =>
+            prev ? ({ ...prev, status: data.status } as IProject) : null
+          );
+          if (data.status === "completed") {
+            setProposalStatus((prev) => ({
+              ...prev,
+              paymentStatus: "completed",
+              hasApplied: prev.hasApplied,
+              status: prev.status,
+              proposalId: prev.proposalId,
+              revisionNote: prev.revisionNote,
+              revisionCount: prev.revisionCount,
+            }));
+            toast.success("Project Completed", {
+              description: "The client has marked this project as completed.",
+              className:
+                "bg-green-600 text-white border-green-700 bg-opacity-80",
+              duration: 4000,
+            });
+          } else if (data.status === "cancelled") {
+            toast.error("Project Cancelled", {
+              description: "The client has cancelled this project.",
+              className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+              duration: 4000,
+            });
+            setTimeout(() => router.push("/talent/projects"), 4000);
+          }
+        }
+      }
+    );
+
+    socket.on(
+      "paymentCompleted",
+      (data: { projectId: string; paymentStatus: "pending" | "completed" | "failed" }) => {
+        if (data.projectId === id) {
+          setProposalStatus((prev) => ({
+            ...prev,
+            paymentStatus: data.paymentStatus,
+            hasApplied: prev.hasApplied,
+            status: prev.status,
+            proposalId: prev.proposalId,
+            revisionNote: prev.revisionNote,
+            revisionCount: prev.revisionCount,
+          }));
+          toast.success("Payment Processed", {
+            description: `Payment status updated to ${data.paymentStatus}.`,
             className: "bg-green-600 text-white border-green-700 bg-opacity-80",
             duration: 4000,
           });
-        } else if (data.status === "cancelled") {
-          toast.error("Project Cancelled", {
-            description: "The client has cancelled this project.",
-            className: "bg-red-600 text-white border-red-700 bg-opacity-80",
-            duration: 4000,
-          });
-          setTimeout(() => router.push("/talent/projects"), 4000); // Redirect to projects list
         }
       }
-    });
+    );
 
     socket.on("disconnect", () => {
       console.log("Disconnected from Socket.IO server");
@@ -163,20 +218,24 @@ export default function TalentProjectDetailsPage() {
     };
   }, [session?.user?._id, id, router]);
 
-  // Fetch project details and proposal status
   const fetchProjectAndProposal = async () => {
     try {
       setLoading(true);
 
-      // Fetch project details
       const projectResponse = await axios.get(`/api/talent/projects/${id}`);
       if (projectResponse.status !== 200) {
         throw new Error("Failed to fetch project");
       }
       const projectData = projectResponse.data.data;
+      // Set paymentStatus to "completed" if project status is "completed"
+      if (projectData.status === "completed") {
+        setProposalStatus((prev) => ({
+          ...prev,
+          paymentStatus: "completed",
+        }));
+      }
       setProject(projectData);
 
-      // Fetch proposal status if user is authenticated
       if (session?.user?._id) {
         try {
           const proposalResponse = await axios.get(`/api/proposals/check`, {
@@ -188,6 +247,7 @@ export default function TalentProjectDetailsPage() {
             proposalId: proposalResponse.data.proposalId,
             revisionCount: proposalResponse.data.revisionCount || 0,
             revisionNote: proposalResponse.data.revisionNote || null,
+            paymentStatus: proposalResponse.data.status === "completed" ? "completed" : proposalResponse.data.paymentStatus || "pending",
           });
         } catch (err) {
           console.error("Error fetching proposal status:", err);
@@ -213,7 +273,6 @@ export default function TalentProjectDetailsPage() {
     }
   }, [id, session]);
 
-  // Handle file download
   const handleFileDownload = (file: ProjectFile) => {
     try {
       if (!file.url) {
@@ -229,12 +288,10 @@ export default function TalentProjectDetailsPage() {
     }
   };
 
-  // Handle proposal form cancellation
   const handleCancelProposal = () => {
     setIsApplying(false);
   };
 
-  // Handle successful proposal submission
   const handleProposalSuccess = () => {
     setIsApplying(false);
     setProposalStatus({ hasApplied: true, status: "pending" });
@@ -246,12 +303,10 @@ export default function TalentProjectDetailsPage() {
     fetchProjectAndProposal();
   };
 
-  // Handle deliverable form cancellation
   const handleCancelDeliverables = () => {
     setIsSubmittingDeliverables(false);
   };
 
-  // Handle successful deliverable submission
   const handleDeliverableSuccess = () => {
     setIsSubmittingDeliverables(false);
     setProposalStatus((prev) => ({ ...prev, status: "delivered" }));
@@ -266,7 +321,12 @@ export default function TalentProjectDetailsPage() {
   if (status === "loading" || loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-4">
-        <Loader text="Loading project..." color="#000000" bgColor="#90D1CA" size="large" />
+        <Loader
+          text="Loading project..."
+          color="#000000"
+          bgColor="#90D1CA"
+          size="large"
+        />
       </div>
     );
   }
@@ -284,12 +344,14 @@ export default function TalentProjectDetailsPage() {
     );
   }
 
-  // Format dates
-  const formattedCreatedAt = new Date(project.createdAt).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const formattedCreatedAt = new Date(project.createdAt).toLocaleDateString(
+    "en-US",
+    {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }
+  );
 
   const projectFiles: ProjectFile[] = (project.files || []).map((file) =>
     typeof file === "string" ? { url: file } : file
@@ -311,130 +373,252 @@ export default function TalentProjectDetailsPage() {
         className="relative z-10 max-w-4xl mx-auto rounded-lg shadow-md shadow-[#8DBCC7] overflow-hidden"
         style={{ backgroundColor: colors.containerBg }}
       >
-        {/* Header */}
         <div className="p-4 sm:p-6" style={{ backgroundColor: colors.headerBg }}>
           <h1 className="text-2xl sm:text-3xl font-bold text-white line-clamp-2">
             {project.title}
           </h1>
           <div className="flex flex-col sm:flex-row items-start sm:items-center mt-2 gap-2 sm:gap-4">
-            <p className="text-[#90D1CA] text-sm sm:text-base">{getCategoryLabel(project.category)}</p>
+            <p className="text-[#90D1CA] text-sm sm:text-base">
+              {getCategoryLabel(project.category)}
+            </p>
             <Badge className={getStatusBadgeColor(project.status)}>
               {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
             </Badge>
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-4 sm:p-6 md:p-8">
-          {/* Description */}
           <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ color: colors.activeTextColor }}>
+            <h2
+              className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+              style={{ color: colors.activeTextColor }}
+            >
               Description
             </h2>
-            <p className="leading-relaxed text-sm sm:text-base" style={{ color: colors.neutralTextColor }}>
+            <p
+              className="leading-relaxed text-sm sm:text-base"
+              style={{ color: colors.neutralTextColor }}
+            >
               {project.description}
             </p>
           </div>
 
-          {/* Details Table */}
           <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ color: colors.activeTextColor }}>
+            <h2
+              className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+              style={{ color: colors.activeTextColor }}
+            >
               Project Details
             </h2>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[#f8fafc]">
-                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                    <TableHead
+                      className="text-sm font-semibold"
+                      style={{ color: colors.activeTextColor }}
+                    >
                       Attribute
                     </TableHead>
-                    <TableHead className="text-sm font-semibold" style={{ color: colors.activeTextColor }}>
+                    <TableHead
+                      className="text-sm font-semibold"
+                      style={{ color: colors.activeTextColor }}
+                    >
                       Details
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="flex items-center gap-2 text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      <DollarSign className="h-5 w-5" style={{ color: colors.iconColor }} />
+                    <TableCell
+                      className="flex items-center gap-2 text-sm font-semibold"
+                      style={{ color: colors.activeTextColor }}
+                    >
+                      <DollarSign
+                        className="h-5 w-5"
+                        style={{ color: colors.iconColor }}
+                      />
                       Budget
                     </TableCell>
-                    <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                    <TableCell
+                      className="text-sm"
+                      style={{ color: colors.neutralTextColor }}
+                    >
                       ${project.budget.toLocaleString()}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="flex items-center gap-2 text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      <Clock className="h-5 w-5" style={{ color: colors.iconColor }} />
+                    <TableCell
+                      className="flex items-center gap-2 text-sm font-semibold"
+                      style={{ color: colors.activeTextColor }}
+                    >
+                      <Clock
+                        className="h-5 w-5"
+                        style={{ color: colors.iconColor }}
+                      />
                       Timeline
                     </TableCell>
-                    <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                    <TableCell
+                      className="text-sm"
+                      style={{ color: colors.neutralTextColor }}
+                    >
                       {project.timeline} days
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="flex items-center gap-2 text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      <Briefcase className="h-5 w-5" style={{ color: colors.iconColor }} />
+                    <TableCell
+                      className="flex items-center gap-2 text-sm font-semibold"
+                      style={{ color: colors.activeTextColor }}
+                    >
+                      <Briefcase
+                        className="h-5 w-5"
+                        style={{ color: colors.iconColor }}
+                      />
                       Category
                     </TableCell>
-                    <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                    <TableCell
+                      className="text-sm"
+                      style={{ color: colors.neutralTextColor }}
+                    >
                       {getCategoryLabel(project.category)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="flex items-center gap-2 text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      <CalendarDays className="h-5 w-5" style={{ color: colors.iconColor }} />
+                    <TableCell
+                      className="flex items-center gap-2 text-sm font-semibold"
+                      style={{ color: colors.activeTextColor }}
+                    >
+                      <CalendarDays
+                        className="h-5 w-5"
+                        style={{ color: colors.iconColor }}
+                      />
                       Posted On
                     </TableCell>
-                    <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                    <TableCell
+                      className="text-sm"
+                      style={{ color: colors.neutralTextColor }}
+                    >
                       {formattedCreatedAt}
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="flex items-center gap-2 text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                      <Tag className="h-5 w-5" style={{ color: colors.iconColor }} />
+                    <TableCell
+                      className="flex items-center gap-2 text-sm font-semibold"
+                      style={{ color: colors.activeTextColor }}
+                    >
+                      <Tag
+                        className="h-5 w-5"
+                        style={{ color: colors.iconColor }}
+                      />
                       Project Status
                     </TableCell>
-                    <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
+                    <TableCell
+                      className="text-sm"
+                      style={{ color: colors.neutralTextColor }}
+                    >
                       <Badge className={getStatusBadgeColor(project.status)}>
-                        {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                        {project.status.charAt(0).toUpperCase() +
+                          project.status.slice(1)}
                       </Badge>
                     </TableCell>
                   </TableRow>
                   {proposalStatus.status && (
                     <TableRow>
-                      <TableCell className="flex items-center gap-2 text-sm font-semibold" style={{ color: colors.activeTextColor }}>
-                        <FileText className="h-5 w-5" style={{ color: colors.iconColor }} />
+                      <TableCell
+                        className="flex items-center gap-2 text-sm font-semibold"
+                        style={{ color: colors.activeTextColor }}
+                      >
+                        <FileText
+                          className="h-5 w-5"
+                          style={{ color: colors.iconColor }}
+                        />
                         Your Proposal Status
                       </TableCell>
-                      <TableCell className="text-sm" style={{ color: colors.neutralTextColor }}>
-                        <Badge className={getProposalStatusBadgeColor(proposalStatus.status)}>
-                          {proposalStatus.status.charAt(0).toUpperCase() + proposalStatus.status.slice(1)}
+                      <TableCell
+                        className="text-sm"
+                        style={{ color: colors.neutralTextColor }}
+                      >
+                        <Badge
+                          className={getProposalStatusBadgeColor(
+                            proposalStatus.status
+                          )}
+                        >
+                          {proposalStatus.status.charAt(0).toUpperCase() +
+                            proposalStatus.status.slice(1)}
                         </Badge>
                         {proposalStatus.status === "rejected" && (
-                          <p className="text-sm mt-1" style={{ color: colors.neutralTextColor }}>
-                            Your previous proposal was rejected. You can submit a new proposal.
+                          <p
+                            className="text-sm mt-1"
+                            style={{ color: colors.neutralTextColor }}
+                          >
+                            Your previous proposal was rejected. You can submit
+                            a new proposal.
                           </p>
                         )}
                         {proposalStatus.status === "delivered" && (
-                          <p className="text-sm mt-1" style={{ color: colors.neutralTextColor }}>
+                          <p
+                            className="text-sm mt-1"
+                            style={{ color: colors.neutralTextColor }}
+                          >
                             Your deliverables have been submitted.
                           </p>
                         )}
                         {proposalStatus.status === "revision-requested" && (
                           <div className="mt-2">
-                            <p className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.activeTextColor }}>
-                              <MessageSquareText className="h-5 w-5" style={{ color: colors.iconColor }} />
+                            <p
+                              className="text-sm font-semibold flex items-center gap-2"
+                              style={{ color: colors.activeTextColor }}
+                            >
+                              <MessageSquareText
+                                className="h-5 w-5"
+                                style={{ color: colors.iconColor }}
+                              />
                               Revision Request Note
                             </p>
                             <blockquote className="border-l-4 border-yellow-500 pl-4 py-2 mt-1 bg-gray-100 rounded-r-md">
-                              <p className="text-sm italic" style={{ color: colors.neutralTextColor }}>
-                                &ldquo;{proposalStatus.revisionNote || "No note provided"}&rdquo;
+                              <p
+                                className="text-sm italic"
+                                style={{ color: colors.neutralTextColor }}
+                              >
+                                &ldquo;
+                                {proposalStatus.revisionNote ||
+                                  "No note provided"}
+                                &rdquo;
                               </p>
                             </blockquote>
-                            <p className="text-sm mt-1" style={{ color: colors.neutralTextColor }}>
-                              Revision attempt {proposalStatus.revisionCount} of 2
+                            <p
+                              className="text-sm mt-1"
+                              style={{ color: colors.neutralTextColor }}
+                            >
+                              Revision attempt {proposalStatus.revisionCount} of
+                              2
                             </p>
+                          </div>
+                        )}
+                        {proposalStatus.paymentStatus && (
+                          <div className="mt-2">
+                            <p
+                              className="text-sm font-semibold flex items-center gap-2"
+                              style={{ color: colors.activeTextColor }}
+                            >
+                              <CreditCard
+                                className="h-5 w-5"
+                                style={{ color: colors.iconColor }}
+                              />
+                              Payment Status
+                            </p>
+                            <Badge
+                              className={
+                                proposalStatus.paymentStatus === "completed"
+                                  ? "bg-green-600 text-white"
+                                  : proposalStatus.paymentStatus === "failed"
+                                  ? "bg-red-600 text-white"
+                                  : "bg-yellow-600 text-white"
+                              }
+                            >
+                              {proposalStatus.paymentStatus.charAt(0).toUpperCase() +
+                                proposalStatus.paymentStatus.slice(1)}
+                            </Badge>
                           </div>
                         )}
                       </TableCell>
@@ -445,32 +629,44 @@ export default function TalentProjectDetailsPage() {
             </div>
           </div>
 
-          {/* Services */}
           <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ color: colors.activeTextColor }}>
+            <h2
+              className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+              style={{ color: colors.activeTextColor }}
+            >
               Services Required
             </h2>
-            <ul className="list-disc list-inside text-sm sm:text-base" style={{ color: colors.neutralTextColor }}>
+            <ul
+              className="list-disc list-inside text-sm sm:text-base"
+              style={{ color: colors.neutralTextColor }}
+            >
               {project.services.map((service, index) => (
                 <li key={index}>{service}</li>
               ))}
             </ul>
           </div>
 
-          {/* Requirements */}
           <div className="mb-6 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ color: colors.activeTextColor }}>
+            <h2
+              className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+              style={{ color: colors.activeTextColor }}
+            >
               Requirements
             </h2>
-            <p className="leading-relaxed text-sm sm:text-base" style={{ color: colors.neutralTextColor }}>
+            <p
+              className="leading-relaxed text-sm sm:text-base"
+              style={{ color: colors.neutralTextColor }}
+            >
               {project.requirements}
             </p>
           </div>
 
-          {/* Files */}
           {projectFiles.length > 0 && (
             <div className="mb-6 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4" style={{ color: colors.activeTextColor }}>
+              <h2
+                className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4"
+                style={{ color: colors.activeTextColor }}
+              >
                 Attached Files
               </h2>
               <div className="flex flex-wrap gap-3 sm:gap-4">
@@ -482,26 +678,42 @@ export default function TalentProjectDetailsPage() {
                     style={{ backgroundColor: colors.accentColor }}
                   >
                     <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                    <span className="line-clamp-1">{file.name || `File ${index + 1}`}</span>
+                    <span className="line-clamp-1">
+                      {file.name || `File ${index + 1}`}
+                    </span>
                   </Button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-            
-            {isTalent && (proposalStatus.status === "accepted" || proposalStatus.status === "revision-requested") && proposalStatus.proposalId && (
-              <Button
-                onClick={() => setIsSubmittingDeliverables(true)}
-                className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
-                style={{ backgroundColor: colors.accentColor }}
-                disabled={project.status !== "in-progress"}
-              >
-                {proposalStatus.status === "revision-requested" ? "Resubmit Deliverables" : "Submit Deliverables"}
-              </Button>
-            )}
+            {isTalent &&
+              project.status === "open" &&
+              !proposalStatus.hasApplied && (
+                <Button
+                  onClick={() => setIsApplying(true)}
+                  className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
+                  style={{ backgroundColor: colors.accentColor }}
+                >
+                  Submit Proposal
+                </Button>
+              )}
+            {isTalent &&
+              (proposalStatus.status === "accepted" ||
+                proposalStatus.status === "revision-requested") &&
+              proposalStatus.proposalId && (
+                <Button
+                  onClick={() => setIsSubmittingDeliverables(true)}
+                  className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
+                  style={{ backgroundColor: colors.accentColor }}
+                  disabled={project.status !== "in-progress"}
+                >
+                  {proposalStatus.status === "revision-requested"
+                    ? "Resubmit Deliverables"
+                    : "Submit Deliverables"}
+                </Button>
+              )}
             <Button
               onClick={() => router.push("/talent/projects")}
               className={`px-4 py-2 sm:px-6 sm:py-2 rounded-full font-semibold text-white text-sm sm:text-base ${colors.buttonHover}`}
@@ -513,7 +725,6 @@ export default function TalentProjectDetailsPage() {
         </div>
       </div>
 
-      {/* Proposal Form Modal */}
       {isApplying && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 sm:mx-6 lg:mx-8 p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
@@ -526,7 +737,6 @@ export default function TalentProjectDetailsPage() {
         </div>
       )}
 
-      {/* Deliverable Form Modal */}
       {isSubmittingDeliverables && proposalStatus.proposalId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 sm:mx-6 lg:mx-8 p-6 sm:p-8 max-h-[90vh] overflow-y-auto">

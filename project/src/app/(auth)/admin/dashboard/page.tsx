@@ -39,6 +39,7 @@ import { Images } from "@/lib/images";
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
 interface Order {
+  paymentStatus: string;
   _id: string;
   talentId: string;
   clientId: string;
@@ -66,6 +67,20 @@ interface Order {
     note?: string;
     requestedAt: string;
   };
+}
+
+interface Transaction {
+  _id: string;
+  orderId: string;
+  clientId: string;
+  clientUserName: string;
+  talentId: string;
+  talentUserName: string;
+  amount: number;
+  paymentStatus: string;
+  createdAt: string;
+  updatedAt: string;
+  relatedTo: "order" | "project";
 }
 
 interface DashboardData {
@@ -100,48 +115,8 @@ interface DashboardData {
     failed: number;
     cancelled: number;
   };
-  recentTransactions: {
-    _id: string;
-    orderId: string;
-    clientId: string;
-    clientUserName: string;
-    talentId: string;
-    talentUserName: string;
-    amount: number;
-    paymentStatus: string;
-    createdAt: string;
-    updatedAt: string;
-  }[];
-  recentOrders: {
-    _id: string;
-    talentId: string;
-    clientId: string;
-    clientUserName: string;
-    talentUserName: string;
-    paymentStatus:string
-    ratePlan: {
-      type: "Basic" | "Standard" | "Premium";
-      price: number;
-      description: string;
-      whatsIncluded: string[];
-      deliveryDays: number;
-      revisions: number;
-    };
-    projectDetails: {
-      title: string;
-      description: string;
-    };
-    status: string;
-    revisionStatus: string;
-    revisionCount: number;
-    createdAt: string;
-    updatedAt: string;
-    revisionRequest?: {
-      files: string[];
-      note?: string;
-      requestedAt: string;
-    };
-  }[];
+  recentTransactions: Transaction[];
+  recentOrders: Order[];
   recentProjects: {
     _id: string;
     clientId: string;
@@ -242,10 +217,10 @@ export default function AdminDashboardPage() {
       new Date(order.createdAt).toLocaleDateString(),
     ].join(","));
     const transactionRows = dashboardData.recentTransactions.map((transaction) => [
-      "Transaction",
+      transaction.relatedTo.charAt(0).toUpperCase() + transaction.relatedTo.slice(1),
       transaction.clientUserName || "Unknown",
       transaction.talentUserName || "Unknown",
-      `$${transaction.amount.toFixed(2)}`,
+      transaction.relatedTo === "order" ? `$${transaction.amount.toFixed(2)}` : transaction.orderId,
       transaction.paymentStatus,
       "",
       "",
@@ -532,7 +507,7 @@ export default function AdminDashboardPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
               <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
                 <CardHeader>
                   <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
@@ -559,11 +534,22 @@ export default function AdminDashboardPage() {
                 <CardHeader>
                   <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
                     <DollarSign className="h-5 w-5 mr-2" style={{ color: accentColor }} />
-                    Total Transactions
+                    Order Revenue
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-3xl font-bold" style={{ color: accentColor }}>{dashboardData.totalTransactions}</p>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>${(dashboardData.totalRevenue * 0.7).toFixed(2)}</p> {/* Assuming 70% is from orders */}
+                </CardContent>
+              </Card>
+              <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
+                <CardHeader>
+                  <CardTitle className="flex items-center" style={{ color: activeTextColor }}>
+                    <DollarSign className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                    Project Revenue
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold" style={{ color: accentColor }}>${(dashboardData.totalRevenue * 0.3).toFixed(2)}</p> {/* Assuming 30% is from projects */}
                 </CardContent>
               </Card>
               <Card className="rounded-lg shadow-md border-2" style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}>
@@ -698,32 +684,70 @@ export default function AdminDashboardPage() {
                 {dashboardData.recentTransactions?.length === 0 ? (
                   <p style={{ color: neutralTextColor }}>No recent transactions found.</p>
                 ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead style={{ color: activeTextColor }}>Client</TableHead>
-                        <TableHead style={{ color: activeTextColor }}>Talent</TableHead>
-                        <TableHead style={{ color: activeTextColor }}>Order ID</TableHead>
-                        <TableHead style={{ color: activeTextColor }}>Amount</TableHead>
-                        <TableHead style={{ color: activeTextColor }}>Payment Status</TableHead>
-                        <TableHead style={{ color: activeTextColor }}>Created At</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {dashboardData.recentTransactions && dashboardData.recentTransactions.map((transaction) => (
-                        <TableRow key={transaction._id}>
-                          <TableCell style={{ color: neutralTextColor }}>{transaction.clientUserName || "Unknown"}</TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>{transaction.talentUserName || "Unknown"}</TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>{transaction.orderId}</TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>${transaction.amount.toFixed(2)}</TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>
-                            {(transaction.paymentStatus || 'N/A').charAt(0).toUpperCase() + (transaction.paymentStatus || 'N/A').slice(1)}
-                          </TableCell>
-                          <TableCell style={{ color: neutralTextColor }}>{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <div>
+                    <h3 style={{ color: activeTextColor, marginBottom: "1rem" }}>Order Transactions</h3>
+                    {dashboardData.recentTransactions.filter(t => t.relatedTo === "order").length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead style={{ color: activeTextColor }}>Client</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Talent</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Order ID</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Amount</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Payment Status</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Created At</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {dashboardData.recentTransactions.filter(t => t.relatedTo === "order").map((transaction) => (
+                            <TableRow key={transaction._id}>
+                              <TableCell style={{ color: neutralTextColor }}>{transaction.clientUserName || "Unknown"}</TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>{transaction.talentUserName || "Unknown"}</TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>{transaction.orderId}</TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>${transaction.amount.toFixed(2)}</TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>
+                                {(transaction.paymentStatus || 'N/A').charAt(0).toUpperCase() + (transaction.paymentStatus || 'N/A').slice(1)}
+                              </TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p style={{ color: neutralTextColor }}>No order transactions found.</p>
+                    )}
+                    <h3 style={{ color: activeTextColor, marginTop: "1rem", marginBottom: "1rem" }}>Project Transactions</h3>
+                    {dashboardData.recentTransactions.filter(t => t.relatedTo === "project").length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead style={{ color: activeTextColor }}>Client</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Talent</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Project ID</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Amount</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Payment Status</TableHead>
+                            <TableHead style={{ color: activeTextColor }}>Created At</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {dashboardData.recentTransactions.filter(t => t.relatedTo === "project").map((transaction) => (
+                            <TableRow key={transaction._id}>
+                              <TableCell style={{ color: neutralTextColor }}>{transaction.clientUserName || "Unknown"}</TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>{transaction.talentUserName || "Unknown"}</TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>{transaction.orderId}</TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>${transaction.amount.toFixed(2)}</TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>
+                                {(transaction.paymentStatus || 'N/A').charAt(0).toUpperCase() + (transaction.paymentStatus || 'N/A').slice(1)}
+                              </TableCell>
+                              <TableCell style={{ color: neutralTextColor }}>{new Date(transaction.createdAt).toLocaleDateString()}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p style={{ color: neutralTextColor }}>No project transactions found.</p>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>

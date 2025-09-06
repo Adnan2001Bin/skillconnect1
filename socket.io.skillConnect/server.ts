@@ -33,29 +33,17 @@ io.use(authMiddleware);
 
 async function getTalentDashboardData(talentId: string) {
   const totalOrders = await OrderModel.countDocuments({ talentId });
-  const pendingOrders = await OrderModel.countDocuments({
-    talentId,
-    status: "pending",
-  });
-  const inProgressOrders = await OrderModel.countDocuments({
-    talentId,
-    status: "in-progress",
-  });
-  const completedOrders = await OrderModel.countDocuments({
-    talentId,
-    status: "completed",
-  });
+  const pendingOrders = await OrderModel.countDocuments({ talentId, status: "pending" });
+  const inProgressOrders = await OrderModel.countDocuments({ talentId, status: "in-progress" });
+  const completedOrders = await OrderModel.countDocuments({ talentId, status: "completed" });
 
   const recentOrders = await OrderModel.find({ talentId })
     .sort({ createdAt: -1 })
     .limit(5)
     .lean();
-
   const recentOrdersWithUserNames = await Promise.all(
     recentOrders.map(async (order: any) => {
-      const client = await UserModel.findById(order.clientId)
-        .select("userName")
-        .lean();
+      const client = await UserModel.findById(order.clientId).select("userName").lean();
       return {
         _id: order._id.toString(),
         talentId: order.talentId,
@@ -82,10 +70,55 @@ async function getTalentDashboardData(talentId: string) {
           ? {
               files: order.revisionRequest.files || [],
               note: order.revisionRequest.note || undefined,
-              requestedAt:
-                order.revisionRequest.requestedAt?.toISOString() || "",
+              requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
             }
           : undefined,
+      };
+    })
+  );
+
+  // Project-related data (based on accepted proposals)
+  const acceptedProposals = await ProposalModel.find({
+    talentId,
+    proposalStatus: { $in: ["accepted", "delivered", "revision-requested"] },
+  }).lean();
+  const relevantProjectIds = acceptedProposals.map((p) => p.projectId);
+  const relevantProjects = await ProjectModel.find({ _id: { $in: relevantProjectIds } }).lean();
+  const totalProjects = relevantProjects.length;
+  const openProjects = relevantProjects.filter((p) => p.status === "open").length;
+  const inProgressProjects = relevantProjects.filter((p) => p.status === "in-progress").length;
+  const completedProjects = relevantProjects.filter((p) => p.status === "completed").length;
+  const recentProjects = relevantProjects.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
+
+  // Proposal data
+  const totalProposals = await ProposalModel.countDocuments({ talentId });
+  const pendingProposals = await ProposalModel.countDocuments({ talentId, proposalStatus: "pending" });
+  const acceptedProposalsCount = await ProposalModel.countDocuments({ talentId, proposalStatus: "accepted" });
+  const deliveredProposals = await ProposalModel.countDocuments({ talentId, proposalStatus: "delivered" });
+  const recentProposals = await ProposalModel.find({ talentId })
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .lean();
+  const recentProposalsWithDetails = await Promise.all(
+    recentProposals.map(async (proposal: any) => {
+      const talent = await UserModel.findById(proposal.talentId).select("userName").lean();
+      const project = await ProjectModel.findById(proposal.projectId).select("title").lean();
+      return {
+        _id: proposal._id.toString(),
+        projectId: proposal.projectId,
+        talentId: proposal.talentId,
+        talentUserName: talent?.userName || "Unknown",
+        bid: proposal.bid,
+        proposalStatus: proposal.proposalStatus,
+        deliverables: proposal.deliverables
+          ? {
+              files: proposal.deliverables.files || [],
+              note: proposal.deliverables.note || null,
+              submittedAt: proposal.deliverables.submittedAt?.toISOString() || null,
+            }
+          : undefined,
+        createdAt: proposal.createdAt.toISOString(),
+        updatedAt: proposal.updatedAt.toISOString(),
       };
     })
   );
@@ -96,6 +129,16 @@ async function getTalentDashboardData(talentId: string) {
     inProgressOrders,
     completedOrders,
     recentOrders: recentOrdersWithUserNames,
+    totalProjects,
+    openProjects,
+    inProgressProjects,
+    completedProjects,
+    recentProjects,
+    totalProposals,
+    pendingProposals,
+    acceptedProposals: acceptedProposalsCount,
+    deliveredProposals,
+    recentProposals: recentProposalsWithDetails,
   };
 }
 
@@ -202,7 +245,10 @@ io.on("connection", (socket: Socket & { userId?: string; role?: string }) => {
   });
 
   socket.on("paymentStatusUpdated", async () => {
-    if (socket.role !== "talent") { // Only admin should receive full dashboard updates
+    if (socket.role === "talent") {
+      const data = await getTalentDashboardData(socket.userId!);
+      socket.emit("dashboardUpdate", data);
+    } else {
       const data = await getDashboardData("30");
       socket.emit("dashboardUpdate", data);
     }
@@ -387,49 +433,49 @@ connectDB().then(async () => {
     io.emit("dashboardUpdate", data);
   });
 
- orderChangeStream.on("change", async (change) => {
-  if (change.operationType === "insert") {
-    io.emit("orderCreated");
-    const order = await OrderModel.findById(change.documentKey._id).lean<IOrder | null>();
-    if (order && order.talentId) {
-      const data = await getTalentDashboardData(order.talentId.toString());
-      io.to(order.talentId.toString()).emit("dashboardUpdate", data);
-    }
-  } else if (
-    change.operationType === "update" &&
-    (change.updateDescription.updatedFields?.status || change.updateDescription.updatedFields?.paymentStatus)
-  ) {
-    io.emit("orderStatusUpdated");
-    const order = await OrderModel.findById(change.documentKey._id).lean<IOrder | null>();
-    if (order && order.talentId) {
-      const data = await getTalentDashboardData(order.talentId.toString());
-      io.to(order.talentId.toString()).emit("dashboardUpdate", data);
-    }
-    if (change.updateDescription.updatedFields?.paymentStatus) {
-      io.emit("paymentTransactionUpdated"); // New event for payment updates
-    }
-    if (
-      change.updateDescription.updatedFields?.status === "completed" &&
-      change.updateDescription.updatedFields?.deliverables
+  orderChangeStream.on("change", async (change) => {
+    if (change.operationType === "insert") {
+      io.emit("orderCreated");
+      const order = await OrderModel.findById(change.documentKey._id).lean<IOrder | null>();
+      if (order && order.talentId) {
+        const data = await getTalentDashboardData(order.talentId.toString());
+        io.to(order.talentId.toString()).emit("dashboardUpdate", data);
+      }
+    } else if (
+      change.operationType === "update" &&
+      (change.updateDescription.updatedFields?.status || change.updateDescription.updatedFields?.paymentStatus)
     ) {
-      if (order && order.clientId && order.projectDetails) {
-        const notification = new NotificationModel({
-          userId: order.clientId,
-          orderId: order._id,
-          message: `Deliverables submitted for order: ${order.projectDetails.title}`,
-          read: false,
-        });
-        await notification.save();
-        io.to(order.clientId.toString()).emit("deliverablesSubmitted", {
-          orderId: order._id.toString(),
-          message: `Deliverables submitted for order: ${order.projectDetails.title}`,
-        });
+      io.emit("orderStatusUpdated");
+      const order = await OrderModel.findById(change.documentKey._id).lean<IOrder | null>();
+      if (order && order.talentId) {
+        const data = await getTalentDashboardData(order.talentId.toString());
+        io.to(order.talentId.toString()).emit("dashboardUpdate", data);
+      }
+      if (change.updateDescription.updatedFields?.paymentStatus) {
+        io.emit("paymentStatusUpdated");
+      }
+      if (
+        change.updateDescription.updatedFields?.status === "completed" &&
+        change.updateDescription.updatedFields?.deliverables
+      ) {
+        if (order && order.clientId && order.projectDetails) {
+          const notification = new NotificationModel({
+            userId: order.clientId,
+            orderId: order._id,
+            message: `Deliverables submitted for order: ${order.projectDetails.title}`,
+            read: false,
+          });
+          await notification.save();
+          io.to(order.clientId.toString()).emit("deliverablesSubmitted", {
+            orderId: order._id.toString(),
+            message: `Deliverables submitted for order: ${order.projectDetails.title}`,
+          });
+        }
       }
     }
-  }
-  const data = await getDashboardData("30");
-  io.emit("dashboardUpdate", data);
-});
+    const data = await getDashboardData("30");
+    io.emit("dashboardUpdate", data);
+  });
 
   messageChangeStream.on("change", async (change) => {
     if (change.operationType === "insert") {

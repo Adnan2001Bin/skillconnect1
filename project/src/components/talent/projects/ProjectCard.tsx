@@ -1,84 +1,164 @@
-
 "use client";
 
 import { useRouter } from "next/navigation";
 import { IProject } from "@/models/projects.model";
-import { Briefcase, CalendarDays } from "lucide-react";
+import { Briefcase, CalendarDays, DollarSign, Clock } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface ProjectCardProps {
   project: IProject;
 }
 
+// Helper function to get category label
+const getCategoryLabel = (categoryValue: string | undefined) => {
+  if (!categoryValue) return "N/A";
+  const foundCategory = categories.find((cat) => cat.value === categoryValue);
+  return foundCategory ? foundCategory.label : categoryValue;
+};
+
+// Define the status badge configuration with explicit variant types
+type StatusBadgeConfig = {
+  variant: "default" | "destructive" | "secondary" | "outline";
+  className: string;
+  text: string;
+};
+
+const getStatusBadge = (status: string): StatusBadgeConfig => {
+  switch (status) {
+    case "open":
+      return {
+        variant: "default",
+        className: "bg-green-500 text-white",
+        text: "Open",
+      };
+    case "in-progress":
+      return {
+        variant: "default",
+        className: "bg-blue-500 text-white",
+        text: "In Progress",
+      };
+    case "completed":
+      return {
+        variant: "default",
+        className: "bg-emerald-600 text-white",
+        text: "Completed",
+      };
+    case "cancelled":
+      return {
+        variant: "destructive",
+        className: "bg-red-600 text-white",
+        text: "Cancelled",
+      };
+    default:
+      return {
+        variant: "secondary",
+        className: "bg-gray-500 text-white",
+        text: "Unknown",
+      };
+  }
+};
+
+const getPaymentStatusBadgeColor = (paymentStatus?: string) => {
+  switch (paymentStatus) {
+    case "completed":
+      return "bg-green-600 text-white";
+    case "failed":
+      return "bg-red-600 text-white";
+    case "pending":
+    default:
+      return "bg-yellow-600 text-white";
+  }
+};
+
 export default function ProjectCard({ project }: ProjectCardProps) {
   const router = useRouter();
-  const colors = {
-    accentColor: "#8DBCC7", // Primary button and icon color
-    activeTextColor: "#212121", // Main text color
-    neutralTextColor: "#757575", // Secondary text color
-    primary: "#90D1CA", // Button text and hover color
-    border: "#90D1CA30", // Border with opacity
-
-  };
 
   // Format the createdAt date
   const formattedDate = new Date(project.createdAt).toLocaleDateString("en-US", {
     year: "numeric",
-    month: "short",
+    month: "long",
     day: "numeric",
   });
 
-  const getCategoryLabel = (categoryValue: string | undefined) => {
-    if (!categoryValue) return "N/A";
-    const foundCategory = categories.find((cat) => cat.value === categoryValue);
-    return foundCategory ? foundCategory.label : categoryValue;
+  const handleCardClick = () => {
+    router.push(`/talent/projects/${project._id}`);
   };
+
+  const statusBadgeConfig = getStatusBadge(project.status);
+  const paymentStatusColor = getPaymentStatusBadgeColor(project.paymentStatus);
 
   return (
     <div
-      className="rounded-xl shadow-sm border overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-101 flex flex-col h-full"
-      style={{ backgroundColor: "rgba(141, 188, 199, 0.2)", borderColor: colors.border }}
+      className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition-shadow duration-300 cursor-pointer flex flex-col h-full"
+      onClick={handleCardClick}
     >
       <div className="p-6 flex flex-col flex-grow">
+        {/* Status Badge */}
+        <Badge
+          variant={statusBadgeConfig.variant}
+          className={`${statusBadgeConfig.className} mb-2`}
+        >
+          {statusBadgeConfig.text}
+        </Badge>
+
         {/* Title */}
-        <h3 className="text-xl font-bold mb-2" style={{ color: colors.activeTextColor }}>
+        <h3 className="text-xl font-semibold text-gray-800 mb-2">
           {project.title}
         </h3>
 
-        {/* Category */}
-        <div className="flex items-center text-sm mb-2" style={{ color: colors.neutralTextColor }}>
-          <Briefcase className="h-4 w-4 mr-1" style={{ color: colors.accentColor }} />
-          <span>{getCategoryLabel(project.category)}</span>
-        </div>
-
         {/* Description (truncated) */}
-        <p className="text-sm mb-4 flex-grow" style={{ color: colors.neutralTextColor }}>
-          {project.description.length > 100
-            ? `${project.description.substring(0, 100)}...`
-            : project.description}
+        <p className="text-sm text-gray-600 mb-4 line-clamp-2 flex-grow">
+          {project.description}
         </p>
 
-        {/* Budget and Posted Date */}
-        <div className="flex justify-between items-center text-sm mb-4">
-          <div className="flex items-center" style={{ color: colors.neutralTextColor }}>
-            <span>Budget: ${project.budget.toLocaleString()}</span>
+        {/* Project Details */}
+        <div className="space-y-3 text-sm text-gray-700 mt-auto">
+          <div className="flex items-center gap-2">
+            <Briefcase className="h-4 w-4 text-gray-500" />
+            <span className="font-medium">
+              {getCategoryLabel(project.category)}
+            </span>
           </div>
-          <div className="flex items-center" style={{ color: colors.neutralTextColor }}>
-            <CalendarDays className="h-4 w-4 mr-1" style={{ color: colors.accentColor }} />
-            <span>Posted: {formattedDate}</span>
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-gray-500" />
+            <span className="font-medium">
+              Budget: ${project.budget.toLocaleString()}
+            </span>
           </div>
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-gray-500" />
+            <span className="font-medium">
+              Timeline: {project.timeline} days
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-gray-500" />
+            <span className="font-medium">Posted: {formattedDate}</span>
+          </div>
+          {project.paymentStatus && (
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${paymentStatusColor}`}>
+                Payment {project.paymentStatus.charAt(0).toUpperCase() + project.paymentStatus.slice(1)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Footer with View Details Button */}
-      <div className="p-6 border-t mt-auto flex justify-center" style={{ borderColor: colors.border }}>
-        <button
-          className="px-6 py-2 rounded-full font-semibold transition-colors duration-300"
-          style={{ backgroundColor: colors.accentColor, color: "#FFFFFF" }}
-          onClick={() => router.push(`/talent/projects/${project._id}`)}
+      <div className="px-6 py-4 bg-gray-50">
+        <Button
+          variant="outline"
+          className="w-full text-gray-700 border-gray-300 hover:bg-gray-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            router.push(`/talent/projects/${project._id}`);
+          }}
         >
           View Details
-        </button>
+        </Button>
       </div>
     </div>
   );
