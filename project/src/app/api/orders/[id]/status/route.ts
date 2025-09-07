@@ -11,6 +11,13 @@ const updateOrderStatusSchema = z.object({
   revisionStatus: z.enum(["none", "requested", "submitted"]).optional(),
   revisionFiles: z.array(z.string().url()).optional().default([]),
   revisionNote: z.string().max(1000).optional(),
+  review: z
+    .object({
+      rating: z.number().min(1).max(5),
+      comment: z.string().max(1000).optional(),
+      reviewedAt: z.string().datetime().optional(),
+    })
+    .optional(),
 });
 
 export async function PATCH(
@@ -122,10 +129,21 @@ export async function PATCH(
         );
       }
 
+      if (validatedData.status === "completed" && !validatedData.review) {
+        return NextResponse.json(
+          { success: false, message: "Review is required to complete the project." },
+          { status: 400 }
+        );
+      }
+
       order.status = validatedData.status;
 
-      // Set paymentStatus to "completed" when status is updated to "completed"
-      if (validatedData.status === "completed") {
+      if (validatedData.status === "completed" && validatedData.review) {
+        order.review = {
+          rating: validatedData.review.rating,
+          comment: validatedData.review.comment || "",
+          reviewedAt: validatedData.review.reviewedAt || new Date().toISOString(),
+        };
         order.paymentStatus = "completed";
       }
     }
@@ -176,6 +194,13 @@ export async function PATCH(
                 files: order.revisionRequest.files,
                 note: order.revisionRequest.note,
                 requestedAt: order.revisionRequest.requestedAt?.toISOString(),
+              }
+            : undefined,
+          review: order.review
+            ? {
+                rating: order.review.rating,
+                comment: order.review.comment,
+                reviewedAt: order.review.reviewedAt,
               }
             : undefined,
         },

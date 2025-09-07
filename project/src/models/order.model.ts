@@ -17,7 +17,7 @@ export interface IOrder extends Document {
     description: string;
   };
   status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
-  paymentStatus: "pending" | "completed" | "failed" | "cancelled"; // Added
+  paymentStatus: "pending" | "completed" | "failed" | "cancelled";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   deliverables?: {
@@ -32,6 +32,12 @@ export interface IOrder extends Document {
   };
   createdAt: Date;
   updatedAt: Date;
+  review?: {
+    rating: number;
+    comment?: string;
+    reviewedAt: Date;
+  };
+  talentUserName?: string; // Add this field
 }
 
 const OrderSchema: Schema = new Schema(
@@ -55,7 +61,7 @@ const OrderSchema: Schema = new Schema(
       enum: ["pending", "in-progress", "accepted", "rejected", "delivered", "cancelled", "completed"],
       default: "pending",
     },
-    paymentStatus: { // Added
+    paymentStatus: {
       type: String,
       enum: ["pending", "completed", "failed", "cancelled"],
       default: "pending",
@@ -80,11 +86,16 @@ const OrderSchema: Schema = new Schema(
       note: { type: String, maxlength: 1000, default: null },
       requestedAt: { type: Date, default: null },
     },
+    review: {
+      rating: { type: Number, min: 1, max: 5, default: null },
+      comment: { type: String, maxlength: 1000, default: null },
+      reviewedAt: { type: Date, default: null },
+    },
+    talentUserName: { type: String, default: null }, // Add this to the schema
   },
   { timestamps: true }
 );
 
-// Prevent model redefinition
 const OrderModel = mongoose.models.Order || mongoose.model<IOrder>("Order", OrderSchema);
 
 export default OrderModel;

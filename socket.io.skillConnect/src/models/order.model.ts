@@ -17,7 +17,7 @@ export interface IOrder extends Document {
     description: string;
   };
   status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
-  paymentStatus: "pending" | "completed" | "failed" | "cancelled"; // Added
+  paymentStatus: "pending" | "completed" | "failed" | "cancelled";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   deliverables?: {
@@ -32,6 +32,11 @@ export interface IOrder extends Document {
   };
   createdAt: Date;
   updatedAt: Date;
+  review?: {
+    rating: number;
+    comment?: string;
+    reviewedAt: Date;
+  };
 }
 
 const OrderSchema: Schema = new Schema(
@@ -55,7 +60,7 @@ const OrderSchema: Schema = new Schema(
       enum: ["pending", "in-progress", "accepted", "rejected", "delivered", "cancelled", "completed"],
       default: "pending",
     },
-    paymentStatus: { // Added
+    paymentStatus: {
       type: String,
       enum: ["pending", "completed", "failed", "cancelled"],
       default: "pending",
@@ -79,6 +84,11 @@ const OrderSchema: Schema = new Schema(
       files: { type: [String], default: [] },
       note: { type: String, maxlength: 1000, default: null },
       requestedAt: { type: Date, default: null },
+    },
+    review: {
+      rating: { type: Number, min: 1, max: 5, default: null },
+      comment: { type: String, maxlength: 1000, default: null },
+      reviewedAt: { type: Date, default: null },
     },
   },
   { timestamps: true }

@@ -34,6 +34,7 @@ import {
   RefreshCcw,
   XCircle,
   CheckCircle,
+  Star,
 } from "lucide-react";
 
 // Utilities & Types
@@ -78,6 +79,11 @@ export interface Order {
   updatedAt: string;
   talentUserName?: string;
   deliverables?: Deliverables;
+  review?: {
+    rating: number;
+    comment: string;
+    reviewedAt: string;
+  };
 }
 
 // Zod Schema for Revision Form
@@ -86,7 +92,14 @@ const revisionRequestSchema = z.object({
   revisionFiles: z.array(z.string().url()).optional(),
 });
 
+// Zod Schema for Review Form
+const reviewSchema = z.object({
+  rating: z.number().min(1).max(5),
+  comment: z.string().max(1000).optional(),
+});
+
 type RevisionRequestFormData = z.infer<typeof revisionRequestSchema>;
+type ReviewFormData = z.infer<typeof reviewSchema>;
 
 // Component Props
 interface ViewDeliverablesDialogProps {
@@ -105,8 +118,10 @@ export default function ViewDeliverablesDialog({
   const [isApproving, setIsApproving] = useState(false);
   const [revisionFiles, setRevisionFiles] = useState<string[]>([]);
   const [openApproveDialog, setOpenApproveDialog] = useState(false);
+  const [openReviewDialog, setOpenReviewDialog] = useState(false);
+  const [hoverRating, setHoverRating] = useState<number | null>(null);
 
-  const form = useForm<RevisionRequestFormData>({
+  const revisionForm = useForm<RevisionRequestFormData>({
     resolver: zodResolver(revisionRequestSchema),
     defaultValues: {
       revisionNote: "",
@@ -114,12 +129,20 @@ export default function ViewDeliverablesDialog({
     },
   });
 
+  const reviewForm = useForm<ReviewFormData>({
+    resolver: zodResolver(reviewSchema),
+    defaultValues: {
+      rating: 5,
+      comment: "",
+    },
+  });
+
   useEffect(() => {
     if (order) {
-      form.reset();
+      revisionForm.reset();
       setRevisionFiles([]);
     }
-  }, [order, form]);
+  }, [order, revisionForm]);
 
   if (!order) return null;
 
@@ -128,7 +151,7 @@ export default function ViewDeliverablesDialog({
       const newFiles = res.map((file) => file.url);
       setRevisionFiles((prevFiles) => {
         const updatedFiles = [...prevFiles, ...newFiles];
-        form.setValue("revisionFiles", updatedFiles, { shouldValidate: true });
+        revisionForm.setValue("revisionFiles", updatedFiles, { shouldValidate: true });
         return updatedFiles;
       });
       toast.success("File Uploaded Successfully!");
@@ -139,7 +162,7 @@ export default function ViewDeliverablesDialog({
   const handleFileRemove = (index: number) => {
     setRevisionFiles((prevFiles) => {
       const updatedFiles = prevFiles.filter((_, i) => i !== index);
-      form.setValue("revisionFiles", updatedFiles, { shouldValidate: true });
+      revisionForm.setValue("revisionFiles", updatedFiles, { shouldValidate: true });
       return updatedFiles;
     });
   };
@@ -164,18 +187,26 @@ export default function ViewDeliverablesDialog({
     }
   };
 
-  const handleApproveProject = async () => {
+  const handleApproveProject = async (data: ReviewFormData) => {
     setIsApproving(true);
     try {
-      await axios.patch(`/api/orders/${order._id}/status`, {
+      const response = await axios.patch(`/api/orders/${order._id}/status`, {
         status: "completed",
+        review: {
+          rating: data.rating,
+          comment: data.comment || "",
+          reviewedAt: new Date().toISOString(),
+        },
       });
-      toast.success("Project approved successfully.");
-      setOpenApproveDialog(false);
-      onOrderUpdate();
+      if (response.data.success) {
+        toast.success("Project approved and review submitted successfully.");
+        setOpenApproveDialog(false);
+        setOpenReviewDialog(false);
+        onOrderUpdate();
+      }
     } catch (error) {
       console.error("Error approving project:", error);
-      toast.error("Failed to approve project. Please try again.");
+      toast.error("Failed to approve project or submit review. Please try again.");
     } finally {
       setIsApproving(false);
     }
@@ -186,13 +217,10 @@ export default function ViewDeliverablesDialog({
     let daysLeft = 0;
     let hoursLeft = 0;
 
-    // Timer for "delivered" project status
     if (order.status === "delivered" && order.deliverables?.submittedAt) {
       const deliveredAt = new Date(order.deliverables.submittedAt);
       deadline = new Date(deliveredAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
-    }
-    // Timer for "requested" revision status
-    else if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
+    } else if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
       const requestedAt = new Date(order.revisionRequest.requestedAt);
       deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
     }
@@ -300,13 +328,13 @@ export default function ViewDeliverablesDialog({
                 <DialogHeader>
                   <DialogTitle>Request Revision</DialogTitle>
                 </DialogHeader>
-                <Form {...form}>
+                <Form {...revisionForm}>
                   <form
-                    onSubmit={form.handleSubmit(handleRequestRevision)}
+                    onSubmit={revisionForm.handleSubmit(handleRequestRevision)}
                     className="space-y-4"
                   >
                     <FormField
-                      control={form.control}
+                      control={revisionForm.control}
                       name="revisionNote"
                       render={({ field }) => (
                         <FormItem>
@@ -410,35 +438,148 @@ export default function ViewDeliverablesDialog({
           </p>
         </div>
 
-        {/* Confirmation Dialog for Approval */}
+        {/* Confirmation Dialog for Approval with Review */}
         <Dialog open={openApproveDialog} onOpenChange={setOpenApproveDialog}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Confirm Project Approval</DialogTitle>
             </DialogHeader>
             <p>
-              Are you sure you want to approve this project? This will mark the
-              order as completed and cannot be undone.
+              Are you sure you want to approve this project? Please provide a review and rating before approving.
             </p>
-            <div className="flex justify-end gap-3 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => setOpenApproveDialog(false)}
+            <Button
+              onClick={() => setOpenReviewDialog(true)}
+              disabled={isApproving}
+              className="mt-4 bg-[#17B169] hover:bg-[#14995a] text-white"
+            >
+              {isApproving ? (
+                <Loader2 className="animate-spin h-5 w-5 mr-2" />
+              ) : (
+                <CheckCircle className="h-5 w-5 mr-2" />
+              )}
+              Proceed to Review
+            </Button>
+          </DialogContent>
+        </Dialog>
+
+        {/* Review Dialog */}
+        <Dialog open={openReviewDialog} onOpenChange={setOpenReviewDialog}>
+          <DialogContent className="sm:max-w-[450px]">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-white">
+                Rate & Review {order.talentUserName}
+              </DialogTitle>
+            </DialogHeader>
+            <Form {...reviewForm}>
+              <form
+                onSubmit={reviewForm.handleSubmit(handleApproveProject)}
+                className="space-y-6"
               >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleApproveProject}
-                disabled={isApproving}
-                className="bg-[#17B169] hover:bg-[#14995a]"
-              >
-                {isApproving ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  "Confirm Approval"
-                )}
-              </Button>
-            </div>
+                {/* Custom Star Rating */}
+                <FormField
+                  control={reviewForm.control}
+                  name="rating"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium text-gray-300">
+                        Your Rating
+                      </FormLabel>
+                      <FormControl>
+                        <div className="flex items-center gap-2">
+                          {Array(5)
+                            .fill(0)
+                            .map((_, index) => {
+                              const starValue = index + 1;
+                              const isFilled = hoverRating !== null
+                                ? starValue <= hoverRating
+                                : starValue <= field.value;
+                              return (
+                                <button
+                                  key={index}
+                                  type="button"
+                                  onClick={() => field.onChange(starValue)}
+                                  onMouseEnter={() => setHoverRating(starValue)}
+                                  onMouseLeave={() => setHoverRating(null)}
+                                  className="focus:outline-none"
+                                >
+                                  <Star
+                                    className="h-8 w-8 cursor-pointer transition-colors duration-200"
+                                    style={{
+                                      color: isFilled
+                                        ? "linear-gradient(90deg, #17B169, #D3F1DF)"
+                                        : "#D3ECCD",
+                                      fill: isFilled ? "#17B169" : "none",
+                                    }}
+                                  />
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </FormControl>
+                      <p className="text-sm text-gray-400">
+                        {hoverRating !== null
+                          ? `Rating: ${hoverRating} stars`
+                          : `Rating: ${field.value} stars`}
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Comment Section */}
+                <FormField
+                  control={reviewForm.control}
+                  name="comment"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium text-gray-300">
+                        Your Feedback (Optional)
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          placeholder="Share your thoughts about the talent's work..."
+                          className="resize-vertical min-h-[100px] bg-white/5 border border-gray-600 text-white placeholder-gray-400"
+                        />
+                      </FormControl>
+                      <p className="text-sm text-gray-400 text-right">
+                        {field.value?.length || 0}/1000 characters
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Preview Section */}
+                <div className="p-4 bg-white/10 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-300 mb-2">
+                    Review Preview
+                  </h4>
+                  <p className="text-sm">
+                    <strong>Rating:</strong>{" "}
+                    {hoverRating !== null ? hoverRating : reviewForm.getValues("rating")} stars
+                  </p>
+                  {reviewForm.getValues("comment") && (
+                    <p className="text-sm mt-1">
+                      <strong>Comment:</strong> {reviewForm.getValues("comment")}
+                    </p>
+                  )}
+                </div>
+
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  disabled={isApproving}
+                  className="w-full bg-gradient-to-r from-[#17B169] to-[#14995a] hover:from-[#14995a] hover:to-[#17B169] text-white font-semibold py-2 rounded-lg transition-all duration-200"
+                >
+                  {isApproving ? (
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                  ) : (
+                    "Submit Review & Approve"
+                  )}
+                </Button>
+              </form>
+            </Form>
           </DialogContent>
         </Dialog>
       </div>

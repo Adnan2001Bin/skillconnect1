@@ -165,7 +165,7 @@ export default function Navbar() {
                       My Orders
                     </Link>
                     <Link
-                      href="/client/profile"
+                      href="/profile"
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-[#4CAF50] hover:text-white"
                     >
                       My Profile
@@ -292,7 +292,7 @@ export default function Navbar() {
                   My Orders
                 </Link>
                 <Link
-                  href="/client/profile"
+                  href="/profile"
                   className="flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-[#4CAF50] hover:text-white rounded-md"
                   onClick={toggleMenu}
                 >
