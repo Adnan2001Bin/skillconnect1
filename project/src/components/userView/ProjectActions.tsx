@@ -14,6 +14,7 @@ import {
   AlertCircle,
   RefreshCcw,
   CreditCard,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import Image from "next/image";
 import { categories } from "@/lib/categoriesAndServices";
 import { IProject } from "@/models/projects.model";
@@ -63,7 +65,7 @@ interface PlainProposal {
     bio?: string | null;
     skills?: string[];
   };
-  paymentStatus?: "pending" | "completed" | "failed"; // Added payment status
+  paymentStatus?: "pending" | "completed" | "failed";
 }
 
 interface Deliverable {
@@ -87,7 +89,7 @@ interface ProjectActionsProps {
     neutralTextColor: string;
     white: string;
   };
-  handleStatusUpdate: (newStatus: "completed" | "cancelled") => Promise<void>;
+  handleStatusUpdate: (newStatus: "completed" | "cancelled", reviewData?: { rating: number; comment: string }) => Promise<void>;
 }
 
 // Helper function to get category label
@@ -177,6 +179,11 @@ export default function ProjectActions({
   const [proposals, setProposals] = useState<PlainProposal[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalsError, setProposalsError] = useState<string | null>(null);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [hoverRating, setHoverRating] = useState(0);
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   // Fetch proposals and talent details for the project
   const fetchProposals = async () => {
@@ -293,21 +300,137 @@ export default function ProjectActions({
     (deliverables.proposalStatus === "delivered" ||
       deliverables.proposalStatus === "revision-requested");
 
-      
+  const handleMarkAsCompletedWithReview = async () => {
+    if (comment.trim() && rating > 0) {
+      setIsSubmittingReview(true);
+      try {
+        // Call handleStatusUpdate with review data, which will also update paymentStatus to "completed"
+        await handleStatusUpdate("completed", { rating, comment });
+        // Fetch the accepted proposal to update its payment status
+        const proposalResponse = await axios.get(`/api/projects/${id}/proposals`);
+        const acceptedProposal = proposalResponse.data.data.find(
+          (proposal: PlainProposal) => proposal.proposalStatus === "accepted" || 
+          proposal.proposalStatus === "delivered" || 
+          proposal.proposalStatus === "revision-requested"
+        );
+        if (acceptedProposal) {
+          await axios.put(`/api/proposals/${acceptedProposal._id}`, {
+            paymentStatus: "completed",
+          });
+          setProposals((prev) =>
+            prev.map((p) =>
+              p._id === acceptedProposal._id ? { ...p, paymentStatus: "completed" } : p
+            )
+          );
+        }
+        setReviewDialogOpen(false);
+        setRating(5);
+        setComment("");
+        toast.success("Project completed and payment status updated.");
+      } catch (error) {
+        toast.error("Failed to submit review or update payment status. Please try again.");
+      } finally {
+        setIsSubmittingReview(false);
+      }
+    }
+  };
+
   return (
     <div className="flex flex-col sm:flex-row gap-4 justify-center">
       {isClient && (
-        <Button
-          onClick={() => handleStatusUpdate("completed")}
-          className={`px-6 py-2 rounded-full font-semibold transition-colors`}
-          style={{
-            backgroundColor: canMarkAsCompleted ? colors.accentColor : "#6B7280",
-            color: colors.white,
-          }}
-          disabled={!canMarkAsCompleted}
-        >
-          Mark as Completed
-        </Button>
+        <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              className={`px-6 py-2 rounded-full font-semibold transition-colors`}
+              style={{
+                backgroundColor: canMarkAsCompleted ? colors.accentColor : "#6B7280",
+                color: colors.white,
+              }}
+              disabled={!canMarkAsCompleted}
+            >
+              Mark as Completed
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center">Rate Your Experience</DialogTitle>
+              <DialogDescription className="text-center">
+                Please share your feedback about the talent's work
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 py-4">
+              {/* Star Rating */}
+              <div className="text-center">
+                <div className="flex justify-center gap-2 mb-4">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="focus:outline-none transition-transform hover:scale-110"
+                    >
+                      <Star
+                        className="h-8 w-8 cursor-pointer transition-colors"
+                        style={{
+                          color: star <= (hoverRating || rating) ? "#F59E0B" : "#D1D5DB",
+                          fill: star <= (hoverRating || rating) ? "#F59E0B" : "none",
+                        }}
+                      />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-sm text-gray-600">
+                  {rating} star{rating !== 1 ? 's' : ''}
+                </p>
+              </div>
+
+              {/* Comment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Your Feedback (Optional)
+                </label>
+                <Textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Share your experience working with this talent..."
+                  className="min-h-[100px] resize-vertical"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {comment.length}/500 characters
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setReviewDialogOpen(false);
+                    setRating(5);
+                    setComment("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleMarkAsCompletedWithReview}
+                  disabled={isSubmittingReview || rating === 0}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isSubmittingReview ? (
+                    <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
+                  Submit Review & Complete
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
       {isClient &&
         (project.status === "open" || project.status === "in-progress") && (

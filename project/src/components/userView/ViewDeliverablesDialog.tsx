@@ -539,7 +539,7 @@ export default function ViewDeliverablesDialog({
                         <Textarea
                           {...field}
                           placeholder="Share your thoughts about the talent's work..."
-                          className="resize-vertical min-h-[100px] bg-white/5 border border-gray-600 text-white placeholder-gray-400"
+                          className="resize-vertical min-h-[100px] bg-white/5 border border-gray-600 text-Black placeholder-gray-400"
                         />
                       </FormControl>
                       <p className="text-sm text-gray-400 text-right">

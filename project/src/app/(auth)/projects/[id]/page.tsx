@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
@@ -20,6 +20,7 @@ import {
   Download,
   RefreshCcw,
   CreditCard,
+  Star,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { IProject } from "@/models/projects.model";
@@ -46,6 +47,12 @@ interface Deliverable {
   revisionCount?: number;
   revisionNote?: string | null;
 }
+
+// Helper function to capitalize the first letter of a string
+const capitalize = (str: string) => {
+  if (!str) return "";
+  return str.charAt(0).toUpperCase() + str.slice(1);
+};
 
 // Helper function to get category label from value
 const getCategoryLabel = (categoryValue: string | undefined | null) => {
@@ -99,134 +106,168 @@ export default function ProjectDetailsPage() {
     errorRed: "#EF4444",
   };
 
-  // Initialize Socket.IO
+  // Initialize Socket.IO and fetch data on component mount
   useEffect(() => {
-    if (!session?.user?._id) return;
+    if (!id) return;
+    if (authStatus === "loading") return;
 
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
-      auth: { userId: session.user._id },
-    });
+    if (authStatus === "unauthenticated") {
+      router.replace("/sign-in");
+      return;
+    }
+
+    const socket = io(
+      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000",
+      {
+        auth: { userId: session?.user?._id },
+      }
+    );
 
     socket.on("connect", () => {
       console.log("Connected to Socket.IO server");
-      socket.emit("join", session.user._id);
+      socket.emit("join", session?.user?._id);
     });
 
-    socket.on("proposalDeliverablesSubmitted", (data: { proposalId: string; projectId: string; message: string; projectStatus: string }) => {
-      if (data.projectId === id) {
-        setProject((prev) =>
-          prev ? { ...prev, status: data.projectStatus } as IProject : null
-        );
-        toast.success("Project Status Updated", {
-          description: `The project has been marked as ${data.projectStatus}.`,
-          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
-          duration: 4000,
-        });
+    socket.on(
+      "proposalDeliverablesSubmitted",
+      (data: {
+        proposalId: string;
+        projectId: string;
+        message: string;
+        projectStatus: string;
+      }) => {
+        if (data.projectId === id) {
+          setProject((prev) =>
+            prev ? ({ ...prev, status: data.projectStatus } as IProject) : null
+          );
+          toast.success("Project Status Updated", {
+            description: `The project has been marked as ${data.projectStatus}.`,
+            className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+            duration: 4000,
+          });
+        }
       }
-    });
+    );
 
-    socket.on("revisionRequested", (data: { proposalId: string; projectId: string; revisionCount: number; revisionNote: string }) => {
-      if (data.projectId === id) {
-        setDeliverables((prev) =>
-          prev
-            ? {
-                ...prev,
-                proposalStatus: "revision-requested",
-                revisionCount: data.revisionCount,
-                revisionNote: data.revisionNote,
-              }
-            : null
-        );
-        toast.info("Revision Requested", {
-          description: "A revision has been requested for the deliverables.",
-          className: "bg-yellow-600 text-white border-yellow-700 bg-opacity-80",
-          duration: 4000,
-        });
+    socket.on(
+      "revisionRequested",
+      (data: {
+        proposalId: string;
+        projectId: string;
+        revisionCount: number;
+        revisionNote: string;
+      }) => {
+        if (data.projectId === id) {
+          setDeliverables((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  proposalStatus: "revision-requested",
+                  revisionCount: data.revisionCount,
+                  revisionNote: data.revisionNote,
+                }
+              : null
+          );
+          toast.info("Revision Requested", {
+            description: "A revision has been requested for the deliverables.",
+            className:
+              "bg-yellow-600 text-white border-yellow-700 bg-opacity-80",
+            duration: 4000,
+          });
+        }
       }
-    });
+    );
 
-    socket.on("projectStatusUpdated", (data: { projectId: string; status: string }) => {
-      if (data.projectId === id) {
-        setProject((prev) =>
-          prev ? { ...prev, status: data.status } as IProject : null
-        );
-        toast.success("Project Status Updated", {
-          description: `The project has been marked as ${data.status}.`,
-          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
-          duration: 4000,
-        });
+    socket.on(
+      "projectStatusUpdated",
+      (data: { projectId: string; status: string }) => {
+        if (data.projectId === id) {
+          setProject((prev) =>
+            prev ? ({ ...prev, status: data.status } as IProject) : null
+          );
+          toast.success("Project Status Updated", {
+            description: `The project has been marked as ${data.status}.`,
+            className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+            duration: 4000,
+          });
+        }
       }
-    });
+    );
 
-    socket.on("paymentStatusUpdated", (data: { projectId: string; paymentStatus: string }) => {
-      if (data.projectId === id) {
-        setProject((prev) =>
-          prev ? { ...prev, paymentStatus: data.paymentStatus } as IProject : null
-        );
-        toast.success("Payment Status Updated", {
-          description: `Payment status updated to ${data.paymentStatus}.`,
-          className: "bg-green-600 text-white border-green-700 bg-opacity-80",
-          duration: 4000,
-        });
+    socket.on(
+      "paymentStatusUpdated",
+      (data: { projectId: string; paymentStatus: string }) => {
+        if (data.projectId === id) {
+          setProject((prev) =>
+            prev
+              ? ({ ...prev, paymentStatus: data.paymentStatus } as IProject)
+              : null
+          );
+          toast.success("Payment Status Updated", {
+            description: `Payment status updated to ${data.paymentStatus}.`,
+            className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+            duration: 4000,
+          });
+        }
       }
-    });
+    );
 
     socket.on("disconnect", () => {
       console.log("Disconnected from Socket.IO server");
     });
 
+    const fetchProjectAndDeliverables = async () => {
+      try {
+        setLoading(true);
+        const [projectResponse, proposalResponse] = await Promise.all([
+          axios.get(`/api/projects/${id}`),
+          axios.get(`/api/projects/${id}/proposals`),
+        ]);
+
+        if (projectResponse.status !== 200) {
+          throw new Error("Failed to fetch project");
+        }
+        const projectData = projectResponse.data.data;
+        setProject(projectData);
+
+        if (proposalResponse.status === 200) {
+          const relevantProposal = proposalResponse.data.data.find(
+            (proposal: any) =>
+              proposal.proposalStatus === "delivered" ||
+              proposal.proposalStatus === "accepted" ||
+              proposal.proposalStatus === "revision-requested"
+          );
+          if (relevantProposal) {
+            setDeliverables({
+              files: relevantProposal.deliverables?.files || [],
+              note: relevantProposal.deliverables?.note || null,
+              submittedAt: relevantProposal.deliverables?.submittedAt || null,
+              proposalStatus: relevantProposal.proposalStatus || "unknown",
+              revisionCount: relevantProposal.revisionCount || 0,
+              revisionNote: relevantProposal.revisionNote || null,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError("Failed to load project details. Please try again later.");
+        toast.error("Error", {
+          description: "Failed to load project details.",
+          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+          duration: 4000,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjectAndDeliverables();
+
     return () => {
       socket.disconnect();
     };
-  }, [session?.user?._id, id]);
+  }, [id, authStatus, router, session?.user?._id]);
 
-  // Fetch project details and deliverables
-  useEffect(() => {
-  const fetchProjectAndDeliverables = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch project details
-      const projectResponse = await axios.get(`/api/projects/${id}`);
-      if (projectResponse.status !== 200) {
-        throw new Error("Failed to fetch project");
-      }
-      const projectData = projectResponse.data.data;
-      setProject(projectData); // This should now include paymentStatus if added to the backend
-
-      // Fetch deliverables
-      const proposalResponse = await axios.get(`/api/projects/${id}/proposals`);
-      if (proposalResponse.status === 200) {
-        const relevantProposal = proposalResponse.data.data.find(
-          (proposal: any) =>
-            proposal.proposalStatus === "delivered" ||
-            proposal.proposalStatus === "accepted" ||
-            proposal.proposalStatus === "revision-requested"
-        );
-        if (relevantProposal) {
-          setDeliverables({
-            files: relevantProposal.deliverables?.files || [],
-            note: relevantProposal.deliverables?.note || null,
-            submittedAt: relevantProposal.deliverables?.submittedAt || null,
-            proposalStatus: relevantProposal.proposalStatus || "unknown",
-            revisionCount: relevantProposal.revisionCount || 0,
-            revisionNote: relevantProposal.revisionNote || null,
-          });
-        }
-      }
-    } catch (err) {
-      setError("Failed to load project details. Please try again later.");
-      toast.error("Error", {
-        description: "Failed to load project details.",
-        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
-        duration: 4000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-  if (id) fetchProjectAndDeliverables();
-}, [id]);
   // Handle file download
   const handleFileDownload = (file: ProjectFile | string) => {
     try {
@@ -239,33 +280,58 @@ export default function ProjectDetailsPage() {
   };
 
   // Handle status update with validation
-  const handleStatusUpdate = async (newStatus: "completed" | "cancelled") => {
-  try {
-    if (newStatus === "completed" && (!deliverables || (deliverables.proposalStatus !== "delivered" && deliverables.proposalStatus !== "revision-requested"))) {
-      throw new Error("Cannot mark project as completed without delivered or revision-requested deliverables.");
-    }
+  const handleStatusUpdate = async (
+    newStatus: "completed" | "cancelled",
+    reviewData?: { rating: number; comment: string }
+  ) => {
+    try {
+      if (
+        newStatus === "completed" &&
+        (!deliverables ||
+          (deliverables.proposalStatus !== "delivered" &&
+            deliverables.proposalStatus !== "revision-requested"))
+      ) {
+        throw new Error(
+          "Cannot mark project as completed without delivered or revision-requested deliverables."
+        );
+      }
 
-    const response = await axios.put(`/api/projects/${id}`, {
-      status: newStatus,
-    });
-    if (response.data.success) {
-      setProject((prev) =>
-        prev
-          ? ({
-              ...prev,
-              status: newStatus,
-              paymentStatus: newStatus === "completed" ? "completed" : prev.paymentStatus,
-            } as IProject)
-          : null
+      const response = await axios.put(`/api/projects/${id}`, {
+        status: newStatus,
+        paymentStatus: newStatus === "completed" ? "completed" : undefined,
+        ...(reviewData && {
+          review: { ...reviewData, reviewedAt: new Date().toISOString() },
+        }),
+      });
+
+      if (response.data.success) {
+        setProject((prev) =>
+          prev
+            ? ({
+                ...prev,
+                status: newStatus,
+                paymentStatus:
+                  newStatus === "completed" ? "completed" : prev.paymentStatus,
+                review: reviewData
+                  ? { ...reviewData, reviewedAt: new Date().toISOString() }
+                  : prev.review,
+              } as unknown as IProject)
+            : null
+        );
+        toast.success(
+          `Project marked as ${newStatus}${reviewData ? " with review" : ""}.`
+        );
+      } else {
+        throw new Error(response.data.message || "Failed to update status");
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update project status."
       );
-      toast.success(`Project marked as ${newStatus}.`);
-    } else {
-      throw new Error(response.data.message || "Failed to update status");
     }
-  } catch (error) {
-    toast.error(error instanceof Error ? error.message : "Failed to update project status.");
-  }
-};
+  };
 
   // Handle payment initiation
   const handleInitiatePayment = async () => {
@@ -294,7 +360,9 @@ export default function ProjectDetailsPage() {
         throw new Error(response.data.message || "Failed to initiate payment");
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to initiate payment.");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to initiate payment."
+      );
     } finally {
       setIsInitiatingPayment(false);
     }
@@ -302,22 +370,32 @@ export default function ProjectDetailsPage() {
 
   // Handle revision request
   const handleRequestRevision = async () => {
-    if (!deliverables || !deliverables.proposalStatus || deliverables.revisionCount === undefined) return;
+    if (
+      !deliverables ||
+      !deliverables.proposalStatus ||
+      deliverables.revisionCount === undefined
+    )
+      return;
 
     try {
       setIsRequestingRevision(true);
       const proposalResponse = await axios.get(`/api/projects/${id}/proposals`);
       const relevantProposal = proposalResponse.data.data.find(
-        (proposal: any) => proposal.proposalStatus === "delivered" || proposal.proposalStatus === "revision-requested"
+        (proposal: any) =>
+          proposal.proposalStatus === "delivered" ||
+          proposal.proposalStatus === "revision-requested"
       );
 
       if (!relevantProposal) {
         throw new Error("No relevant proposal found for revision");
       }
 
-      const response = await axios.post(`/api/proposals/${relevantProposal._id}/request-revision`, {
-        revisionNote,
-      });
+      const response = await axios.post(
+        `/api/proposals/${relevantProposal._id}/request-revision`,
+        {
+          revisionNote,
+        }
+      );
 
       if (response.data.success) {
         setDeliverables((prev) =>
@@ -346,8 +424,6 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  
-  
   // Loading and authentication states
   if (authStatus === "loading" || loading) {
     return (
@@ -393,9 +469,6 @@ export default function ProjectDetailsPage() {
   const isClient =
     session?.user?.role === "user" && session?.user?._id === project.clientId;
 
-    console.log(project.paymentStatus);
-    
-
   return (
     <div
       className="min-h-screen py-6 md:py-10 px-4 font-sans"
@@ -410,7 +483,7 @@ export default function ProjectDetailsPage() {
     >
       <div
         className="max-w-5xl mx-auto rounded-lg shadow-2xl overflow-hidden
-                       border border-white/20 bg-black/20 backdrop-blur-sm"
+                           border border-white/20 bg-black/20 backdrop-blur-sm"
       >
         {/* Header */}
         <div className="bg-gradient-to-br from-[#16423C] to-[#1a534a] px-4 md:px-6 py-4 md:py-5 border-b border-white/20">
@@ -418,7 +491,7 @@ export default function ProjectDetailsPage() {
             variant="outline"
             className={getStatusBadgeColor(project.status)}
           >
-            {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+            {capitalize(project.status)}
           </Badge>
           <h1 className="text-2xl md:text-3xl font-bold text-white mt-3">
             {project.title}
@@ -441,7 +514,6 @@ export default function ProjectDetailsPage() {
                 {project.description}
               </p>
             </div>
-
             {/* Services */}
             <div>
               <h2 className="text-xl font-semibold mb-3 border-b-2 border-emerald-500 pb-2">
@@ -458,7 +530,6 @@ export default function ProjectDetailsPage() {
                 ))}
               </div>
             </div>
-
             {/* Requirements */}
             <div>
               <h2 className="text-xl font-semibold mb-3 border-b-2 border-emerald-500 pb-2">
@@ -468,7 +539,6 @@ export default function ProjectDetailsPage() {
                 {project.requirements}
               </p>
             </div>
-
             {/* Files */}
             {projectFiles.length > 0 && (
               <div>
@@ -491,7 +561,6 @@ export default function ProjectDetailsPage() {
                 </div>
               </div>
             )}
-
             {/* Deliverables and Payment */}
             {isClient && (
               <div>
@@ -503,38 +572,42 @@ export default function ProjectDetailsPage() {
                   {deliverables?.proposalStatus && (
                     <Badge
                       variant="outline"
-                      className={getStatusBadgeColor(deliverables.proposalStatus)}
+                      className={getStatusBadgeColor(
+                        deliverables.proposalStatus
+                      )}
                     >
-                      {deliverables.proposalStatus.charAt(0).toUpperCase() +
-                        deliverables.proposalStatus.slice(1)}
+                      {capitalize(deliverables.proposalStatus)}
                     </Badge>
                   )}
                 </div>
 
                 {/* Payment Initiation */}
-                {isClient && deliverables?.proposalStatus === "accepted" && project.paymentStatus === "pending" && (
-                  <div className="mt-4 p-5 rounded-lg bg-emerald-900/30 border border-emerald-500/50 shadow-lg">
-                    <h3 className="text-md font-semibold text-white mb-3 flex items-center gap-2">
-                      <CreditCard className="h-5 w-5 text-emerald-400" />
-                      Initiate Payment
-                    </h3>
-                    <p className="text-sm text-gray-300 mb-4">
-                      The proposal has been accepted. Please initiate the payment of ${project.budget.toLocaleString()} to proceed.
-                    </p>
-                    <Button
-                      onClick={handleInitiatePayment}
-                      disabled={isInitiatingPayment}
-                      className="bg-[#17B169] hover:bg-[#14995a] text-white"
-                    >
-                      {isInitiatingPayment ? (
-                        <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                      ) : (
-                        <CreditCard className="h-4 w-4 mr-2" />
-                      )}
-                      Pay Now
-                    </Button>
-                  </div>
-                )}
+                {isClient &&
+                  deliverables?.proposalStatus === "accepted" &&
+                  project.paymentStatus === "pending" && (
+                    <div className="mt-4 p-5 rounded-lg bg-emerald-900/30 border border-emerald-500/50 shadow-lg">
+                      <h3 className="text-md font-semibold text-white mb-3 flex items-center gap-2">
+                        <CreditCard className="h-5 w-5 text-emerald-400" />
+                        Initiate Payment
+                      </h3>
+                      <p className="text-sm text-gray-300 mb-4">
+                        The proposal has been accepted. Please initiate the
+                        payment of ${project.budget.toLocaleString()} to proceed.
+                      </p>
+                      <Button
+                        onClick={handleInitiatePayment}
+                        disabled={isInitiatingPayment}
+                        className="bg-[#17B169] hover:bg-[#14995a] text-white"
+                      >
+                        {isInitiatingPayment ? (
+                          <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                        ) : (
+                          <CreditCard className="h-4 w-4 mr-2" />
+                        )}
+                        Pay Now
+                      </Button>
+                    </div>
+                  )}
 
                 {deliverables && deliverables.files.length > 0 ? (
                   <div className="mt-4 p-5 rounded-lg bg-emerald-900/30 border border-emerald-500/50 shadow-lg space-y-6">
@@ -637,32 +710,38 @@ export default function ProjectDetailsPage() {
                     </div>
 
                     {/* Revision Request Section */}
-                    {isClient && deliverables.proposalStatus === "delivered" && (deliverables.revisionCount || 0) < 2 && (
-                      <div>
-                        <h3 className="text-md font-semibold text-white mb-3 flex items-center gap-2">
-                          <RefreshCcw className="h-5 w-5 text-yellow-400" />
-                          Request Revision ({2 - (deliverables.revisionCount || 0)} attempts remaining)
-                        </h3>
-                        <Textarea
-                          value={revisionNote}
-                          onChange={(e) => setRevisionNote(e.target.value)}
-                          placeholder="Provide feedback for the revision..."
-                          className="mb-3 bg-white/10 border-emerald-500/50 text-white placeholder-gray-400"
-                        />
-                        <Button
-                          onClick={handleRequestRevision}
-                          disabled={isRequestingRevision || !revisionNote.trim()}
-                          className="bg-yellow-600 hover:bg-yellow-700 text-white"
-                        >
-                          {isRequestingRevision ? (
-                            <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                          ) : (
-                            <RefreshCcw className="h-4 w-4 mr-2" />
-                          )}
-                          Request Revision
-                        </Button>
-                      </div>
-                    )}
+                    {isClient &&
+                      deliverables.proposalStatus === "delivered" &&
+                      (deliverables.revisionCount || 0) < 2 && (
+                        <div>
+                          <h3 className="text-md font-semibold text-white mb-3 flex items-center gap-2">
+                            <RefreshCcw className="h-5 w-5 text-yellow-400" />
+                            Request Revision (
+                            {2 - (deliverables.revisionCount || 0)} attempts
+                            remaining)
+                          </h3>
+                          <Textarea
+                            value={revisionNote}
+                            onChange={(e) => setRevisionNote(e.target.value)}
+                            placeholder="Provide feedback for the revision..."
+                            className="mb-3 bg-white/10 border-emerald-500/50 text-white placeholder-gray-400"
+                          />
+                          <Button
+                            onClick={handleRequestRevision}
+                            disabled={
+                              isRequestingRevision || !revisionNote.trim()
+                            }
+                            className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                          >
+                            {isRequestingRevision ? (
+                              <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                            ) : (
+                              <RefreshCcw className="h-4 w-4 mr-2" />
+                            )}
+                            Request Revision
+                          </Button>
+                        </div>
+                      )}
                   </div>
                 ) : (
                   <div className="mt-4 p-6 rounded-lg bg-white/5 border border-white/20 text-center">
@@ -671,6 +750,46 @@ export default function ProjectDetailsPage() {
                     </p>
                   </div>
                 )}
+              </div>
+            )}
+            {/* Review Section */}
+            {project.review && (
+              <div className="mt-6 p-6 rounded-lg bg-emerald-900/30 border border-emerald-500/50">
+                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+                  <Star className="h-6 w-6 text-yellow-400" />
+                  Client Review
+                </h3>
+                <div className="space-y-4">
+                  {/* Rating */}
+                  <div className="flex items-center gap-2">
+                    {Array.from({ length: 5 }, (_, index) => (
+                      <Star
+                        key={index}
+                        className={`h-5 w-5 ${
+                          index < (project.review?.rating ?? 0)
+                            ? "text-yellow-400 fill-yellow-400"
+                            : "text-gray-400"
+                        }`}
+                      />
+                    ))}
+                    <span className="text-white font-semibold">
+                      {project.review?.rating}/5
+                    </span>
+                  </div>
+                  {/* Comment */}
+                  {project.review?.comment && (
+                    <div>
+                      <p className="text-white text-sm italic">
+                        "{project.review.comment}"
+                      </p>
+                    </div>
+                  )}
+                  {/* Review Date */}
+                  <p className="text-emerald-300 text-xs">
+                    Reviewed on{" "}
+                    {new Date(project.review.reviewedAt).toLocaleDateString()}
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -709,7 +828,9 @@ export default function ProjectDetailsPage() {
                   <CreditCard className="h-4 w-4 text-emerald-400 mr-3 mt-1 flex-shrink-0" />
                   <div>
                     <span className="font-semibold">Payment Status</span>
-                    <p className="text-gray-300">{project.paymentStatus.charAt(0).toUpperCase() + project.paymentStatus.slice(1)}</p>
+                    <p className="text-gray-300">
+                      {project.paymentStatus ? capitalize(project.paymentStatus) : "N/A"}
+                    </p>
                   </div>
                 </li>
               </ul>

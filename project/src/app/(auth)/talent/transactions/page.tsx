@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Briefcase, ShoppingCart } from "lucide-react";
 
 interface Transaction {
   _id: string;
@@ -25,12 +25,14 @@ interface Transaction {
   status: "pending" | "completed" | "failed" | "cancelled";
   createdAt: string;
   clientName: string;
+  relatedTo: "order" | "project";
 }
 
 export default function TalentPaymentsPage() {
   const { status, data: session } = useSession();
   const router = useRouter();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [projectTransactions, setProjectTransactions] = useState<Transaction[]>([]);
+  const [orderTransactions, setOrderTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -40,7 +42,10 @@ export default function TalentPaymentsPage() {
         try {
           const response = await axios.get("/api/talent/payments");
           if (response.data.success) {
-            setTransactions(response.data.data);
+            // Separate transactions by type
+            const transactions = response.data.data;
+            setProjectTransactions(transactions.filter((t: Transaction) => t.relatedTo === "project"));
+            setOrderTransactions(transactions.filter((t: Transaction) => t.relatedTo === "order"));
           } else {
             toast.error("Failed to fetch transactions.");
           }
@@ -91,6 +96,56 @@ export default function TalentPaymentsPage() {
     );
   }
 
+  const renderTransactionTable = (transactions: Transaction[], title: string, icon: React.ReactNode) => (
+    <div className="bg-white rounded-lg shadow-md border border-gray-200 mb-8">
+      <h2 className="text-2xl font-semibold text-gray-800 mb-4 px-6 pt-6 flex items-center gap-2">
+        {icon}
+        {title}
+      </h2>
+      {transactions.length === 0 ? (
+        <div className="p-6 text-center">
+          <p className="text-lg text-gray-600">No {title.toLowerCase()} found.</p>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-gray-700">ID</TableHead>
+              <TableHead className="text-gray-700">Client</TableHead>
+              <TableHead className="text-gray-700">Amount</TableHead>
+              <TableHead className="text-gray-700">Currency</TableHead>
+              <TableHead className="text-gray-700">Status</TableHead>
+              <TableHead className="text-gray-700">Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {transactions.map((transaction) => (
+              <TableRow key={transaction._id}>
+                <TableCell className="text-gray-600">{transaction.orderId}</TableCell>
+                <TableCell className="text-gray-600">{transaction.clientName}</TableCell>
+                <TableCell className="text-gray-600">
+                  {transaction.amount.toFixed(2)}
+                </TableCell>
+                <TableCell className="text-gray-600">{transaction.currency}</TableCell>
+                <TableCell>
+                  <Badge
+                    style={getStatusBadgeColor(transaction.status)}
+                    className="px-3 py-1 rounded-full text-sm font-medium"
+                  >
+                    {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-gray-600">
+                  {new Date(transaction.createdAt).toLocaleDateString()}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-8 max-w-[94rem] mx-auto bg-gray-50 mt-17">
       <div className="relative z-10 mb-8">
@@ -106,48 +161,18 @@ export default function TalentPaymentsPage() {
           Your Payment Transactions
         </h1>
 
-        {transactions.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 text-center">
-            <p className="text-lg text-gray-600">No transactions found.</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-md border border-gray-200">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-gray-700">Order ID</TableHead>
-                  <TableHead className="text-gray-700">Client</TableHead>
-                  <TableHead className="text-gray-700">Amount</TableHead>
-                  <TableHead className="text-gray-700">Currency</TableHead>
-                  <TableHead className="text-gray-700">Status</TableHead>
-                  <TableHead className="text-gray-700">Date</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transactions.map((transaction) => (
-                  <TableRow key={transaction._id}>
-                    <TableCell className="text-gray-600">{transaction.orderId}</TableCell>
-                    <TableCell className="text-gray-600">{transaction.clientName}</TableCell>
-                    <TableCell className="text-gray-600">
-                      {transaction.amount.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-gray-600">{transaction.currency}</TableCell>
-                    <TableCell>
-                      <Badge
-                        style={getStatusBadgeColor(transaction.status)}
-                        className="px-3 py-1 rounded-full text-sm font-medium"
-                      >
-                        {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-gray-600">
-                      {new Date(transaction.createdAt).toLocaleDateString()}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+        {/* Project Payments Section */}
+        {renderTransactionTable(
+          projectTransactions,
+          "Project Payments",
+          <Briefcase className="h-6 w-6 text-blue-600" />
+        )}
+
+        {/* Order Payments Section */}
+        {renderTransactionTable(
+          orderTransactions,
+          "Order Payments",
+          <ShoppingCart className="h-6 w-6 text-blue-600" />
         )}
       </div>
     </div>

@@ -13,6 +13,11 @@ export interface IProject extends Document {
   clientId: string;
   status: "open" | "in-progress" | "completed" | "cancelled";
   paymentStatus: "pending" | "funded" | "completed" | "failed";
+  review?: {
+    rating: number;
+    comment: string;
+    reviewedAt: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,6 +41,11 @@ const ProjectSchema: Schema = new Schema({
     type: String,
     enum: ["pending", "funded", "completed", "failed"],
     default: "pending",
+  },
+  review: {
+    rating: { type: Number, min: 1, max: 5 },
+    comment: { type: String, maxlength: 500 },
+    reviewedAt: { type: Date },
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

@@ -5,11 +5,15 @@ import connectDB from "@/lib/connectDB";
 import ProposalModel from "@/models/proposal.model";
 import ProjectModel from "@/models/projects.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import { io } from "socket.io-client";
 
 const updateProposalSchema = z.object({
-  proposalStatus: z.enum(["accepted", "rejected"], {
-    message: "Proposal status must be either 'accepted' or 'rejected'",
-  }),
+  proposalStatus: z
+    .enum(["accepted", "rejected"])
+    .optional(),
+  paymentStatus: z
+    .enum(["pending", "completed", "failed"])
+    .optional(),
 });
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
@@ -63,54 +67,97 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       );
     }
 
-    // 7. Handle proposal status update
-    if (validatedData.proposalStatus === "accepted") {
-      // Check if another proposal is already accepted for this project
-      const existingAcceptedProposal = await ProposalModel.findOne({
-        projectId: proposal.projectId,
-        proposalStatus: "accepted",
-        _id: { $ne: proposalId },
-      });
-      if (existingAcceptedProposal) {
+    // 7. Initialize Socket.IO client
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+
+    // 8. Handle proposal status update
+    if (validatedData.proposalStatus) {
+      if (validatedData.proposalStatus === "accepted") {
+        // Check if another proposal is already accepted for this project
+        const existingAcceptedProposal = await ProposalModel.findOne({
+          projectId: proposal.projectId,
+          proposalStatus: "accepted",
+          _id: { $ne: proposalId },
+        });
+        if (existingAcceptedProposal) {
+          socket.disconnect();
+          return NextResponse.json(
+            { success: false, message: "Another proposal is already accepted for this project." },
+            { status: 400 }
+          );
+        }
+
+        // Update proposal status
+        proposal.proposalStatus = validatedData.proposalStatus;
+        proposal.updatedAt = new Date();
+        await proposal.save();
+
+        // Update project status to in-progress
+        project.status = "in-progress";
+        project.updatedAt = new Date();
+        await project.save();
+
+        socket.emit("projectStatusUpdated", {
+          projectId: project._id,
+          status: "in-progress",
+          message: `Project ${project.title} has been updated to in-progress.`,
+        });
+
+        socket.disconnect();
         return NextResponse.json(
-          { success: false, message: "Another proposal is already accepted for this project." },
-          { status: 400 }
+          {
+            success: true,
+            message: "Proposal accepted and project status updated to in-progress",
+            data: proposal,
+          },
+          { status: 200 }
+        );
+      } else if (validatedData.proposalStatus === "rejected") {
+        // Update proposal status without deleting
+        proposal.proposalStatus = validatedData.proposalStatus;
+        proposal.updatedAt = new Date();
+        await proposal.save();
+
+        socket.disconnect();
+        return NextResponse.json(
+          {
+            success: true,
+            message: "Proposal rejected successfully",
+            data: proposal,
+          },
+          { status: 200 }
         );
       }
+    }
 
-      // Update proposal status
-      proposal.proposalStatus = validatedData.proposalStatus;
+    // 9. Handle payment status update
+    if (validatedData.paymentStatus) {
+      proposal.paymentStatus = validatedData.paymentStatus;
       proposal.updatedAt = new Date();
       await proposal.save();
 
-      // Update project status to in-progress
-      project.status = "in-progress";
-      project.updatedAt = new Date();
-      await project.save();
+      socket.emit("paymentStatusUpdated", {
+        projectId: project._id,
+        paymentStatus: validatedData.paymentStatus,
+        message: `Payment status for proposal ${proposal._id} has been updated to ${validatedData.paymentStatus}.`,
+      });
 
+      socket.disconnect();
       return NextResponse.json(
         {
           success: true,
-          message: "Proposal accepted and project status updated to in-progress",
-          data: proposal,
-        },
-        { status: 200 }
-      );
-    } else if (validatedData.proposalStatus === "rejected") {
-      // Update proposal status without deleting
-      proposal.proposalStatus = validatedData.proposalStatus;
-      proposal.updatedAt = new Date();
-      await proposal.save();
-
-      return NextResponse.json(
-        {
-          success: true,
-          message: "Proposal rejected successfully",
+          message: `Proposal payment status updated to ${validatedData.paymentStatus}`,
           data: proposal,
         },
         { status: 200 }
       );
     }
+
+    socket.disconnect();
+    return NextResponse.json(
+      { success: false, message: "No valid fields provided for update" },
+      { status: 400 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -129,4 +176,3 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     );
   }
 }
-

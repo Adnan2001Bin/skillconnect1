@@ -146,7 +146,7 @@ export async function PATCH(
             description: order.projectDetails.description,
           },
           status: order.status,
-          paymentStatus: order.paymentStatus, // Include payment status in response
+          paymentStatus: order.paymentStatus,
           revisionStatus: order.revisionStatus,
           revisionCount: order.revisionCount,
           createdAt: order.createdAt.toISOString(),
@@ -156,6 +156,13 @@ export async function PATCH(
                 files: order.revisionRequest.files || [],
                 note: order.revisionRequest.note || undefined,
                 requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
+              }
+            : undefined,
+          review: order.review
+            ? {
+                rating: order.review.rating,
+                comment: order.review.comment,
+                reviewedAt: order.review.reviewedAt.toISOString(),
               }
             : undefined,
         },

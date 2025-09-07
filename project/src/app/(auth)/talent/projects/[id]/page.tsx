@@ -15,6 +15,7 @@ import {
   AlertCircle,
   MessageSquareText,
   CreditCard,
+  Star,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { IProject } from "@/models/projects.model";
@@ -683,6 +684,62 @@ export default function TalentProjectDetailsPage() {
                     </span>
                   </Button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Client Review Section */}
+          {project.review && (
+            <div className="mb-6 sm:mb-8 p-6 rounded-lg border"
+                 style={{ borderColor: colors.border, backgroundColor: `${colors.primary}10` }}>
+              <h2
+                className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 flex items-center gap-2"
+                style={{ color: colors.activeTextColor }}
+              >
+                <Star className="h-5 w-5" style={{ color: colors.iconColor }} />
+                Client Review
+              </h2>
+              <div className="space-y-4">
+                {/* Rating */}
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: 5 }, (_, index) => (
+                    <Star
+                      key={index}
+                      className={`h-5 w-5 ${
+                        index < (project.review?.rating ?? 0)
+                          ? "text-yellow-400 fill-yellow-400"
+                          : "text-gray-400"
+                      }`}
+                    />
+                  ))}
+                  <span
+                    className="text-sm font-semibold"
+                    style={{ color: colors.activeTextColor }}
+                  >
+                    {project.review?.rating}/5
+                  </span>
+                </div>
+                {/* Comment */}
+                {project.review?.comment && (
+                  <div>
+                    <blockquote className="border-l-4 border-yellow-500 pl-4 py-2 bg-gray-100 rounded-r-md">
+                      <p
+                        className="text-sm italic"
+                        style={{ color: colors.neutralTextColor }}
+                      >
+                        &ldquo;{project.review.comment}&rdquo;
+                      </p>
+                    </blockquote>
+                  </div>
+                )}
+                {/* Review Date */}
+                <p
+                  className="text-sm"
+                  style={{ color: colors.neutralTextColor }}
+                >
+                  Reviewed on{" "}
+                  {new Date(project.review.reviewedAt).toLocaleDateString()}
+                </p>
               </div>
             </div>
           )}

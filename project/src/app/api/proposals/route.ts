@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     // 3. Connect to the database
     await connectDB();
 
-    // 4. Verify project exists and is open
+    // 4. Verify project exists and is open, and get clientId
     const project = await ProjectModel.findById(validatedData.projectId);
     if (!project) {
       return NextResponse.json(
@@ -63,10 +63,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 6. Create new proposal
+    // 6. Create new proposal with clientId
     const newProposal = new ProposalModel({
       projectId: validatedData.projectId,
       talentId: validatedData.talentId,
+      clientId: project.clientId, // ADD THIS LINE - get clientId from the project
       bid: validatedData.bid,
       coverLetter: validatedData.coverLetter,
       files: validatedData.files || [],

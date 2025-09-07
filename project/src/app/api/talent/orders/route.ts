@@ -27,7 +27,7 @@ interface OrderResponse {
       description: string;
     };
     status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
-    paymentStatus: "pending" | "completed" | "failed" | "cancelled"; // Added payment status
+    paymentStatus: "pending" | "completed" | "failed" | "cancelled";
     revisionStatus: "none" | "requested" | "submitted";
     revisionCount: number;
     createdAt: string;
@@ -36,6 +36,11 @@ interface OrderResponse {
       files: string[];
       note?: string;
       requestedAt: string;
+    };
+    review?: {
+      rating: number;
+      comment?: string;
+      reviewedAt: string;
     };
   }[];
   error?: string;
@@ -53,7 +58,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
-    const paymentStatus = searchParams.get("paymentStatus"); // New filter param
+    const paymentStatus = searchParams.get("paymentStatus");
 
     await connectDB();
 
@@ -88,16 +93,23 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
             description: order.projectDetails.description,
           },
           status: order.status,
-          paymentStatus: order.paymentStatus, // Include payment status
+          paymentStatus: order.paymentStatus,
           revisionStatus: order.revisionStatus || "none",
           revisionCount: order.revisionCount || 0,
-          createdAt: order.createdAt.toISOString(),
-          updatedAt: order.updatedAt.toISOString(),
+          createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString(),
+          updatedAt: order.updatedAt ? new Date(order.updatedAt).toISOString() : new Date().toISOString(),
           revisionRequest: order.revisionRequest
             ? {
                 files: order.revisionRequest.files || [],
                 note: order.revisionRequest.note || undefined,
-                requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
+                requestedAt: order.revisionRequest.requestedAt ? new Date(order.revisionRequest.requestedAt).toISOString() : "",
+              }
+            : undefined,
+          review: order.review
+            ? {
+                rating: order.review.rating,
+                comment: order.review.comment,
+                reviewedAt: order.review.reviewedAt ? new Date(order.review.reviewedAt).toISOString() : "",
               }
             : undefined,
         };

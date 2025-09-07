@@ -4,7 +4,7 @@ import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
 import ProposalModel from "@/models/proposal.model";
 import UserModel from "@/models/user.model";
-import ProjectModel from "@/models/projects.model"; // Import Project model
+import ProjectModel from "@/models/projects.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 interface TransactionResponse {
@@ -53,36 +53,37 @@ export async function GET(req: NextRequest): Promise<NextResponse<TransactionRes
       })
     );
 
-    // Fetch project-related transactions (based on accepted proposals)
+    // Fetch project-related transactions (based on accepted, delivered, or revision-requested proposals)
     const acceptedProposals = await ProposalModel.find({
       talentId: session.user._id,
       proposalStatus: { $in: ["accepted", "delivered", "revision-requested"] },
     })
-    .populate({
-      path: "projectId",
-      select: "clientId title", // Select only needed fields
-      model: ProjectModel // Explicitly specify the model
-    })
-    .lean();
+      .populate({
+        path: "projectId",
+        select: "clientId title paymentStatus",
+        model: ProjectModel,
+      })
+      .lean();
 
     const projectTransactions = await Promise.all(
       acceptedProposals.map(async (proposal: any) => {
         // Get client info from the project
         let clientName = "Unknown";
+        let status: "pending" | "completed" | "failed" | "cancelled" = "pending";
+        let projectId = "Unknown Project";
+
         if (proposal.projectId && proposal.projectId.clientId) {
           const client = await UserModel.findById(proposal.projectId.clientId)
             .select("userName")
             .lean();
           clientName = client?.userName || "Unknown";
+          status = proposal.projectId.paymentStatus || "pending";
+          projectId = proposal.projectId._id.toString();
         }
-
-        // Derive payment status from proposalStatus
-        let status: "pending" | "completed" | "failed" | "cancelled" = "pending";
-        if (proposal.proposalStatus === "delivered") status = "completed";
 
         return {
           _id: proposal._id.toString(),
-          orderId: proposal.projectId?._id?.toString() || "Unknown Project",
+          orderId: projectId,
           amount: proposal.bid,
           currency: "USD",
           status,
@@ -93,7 +94,10 @@ export async function GET(req: NextRequest): Promise<NextResponse<TransactionRes
       })
     );
 
-    const allTransactions = [...orderTransactions, ...projectTransactions];
+    // Combine and sort transactions by createdAt (descending)
+    const allTransactions = [...orderTransactions, ...projectTransactions].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     return NextResponse.json(
       {

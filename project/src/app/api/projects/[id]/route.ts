@@ -12,21 +12,31 @@ const updateProjectSchema = z.object({
   description: z.string().min(10).max(1000).optional(),
   category: z.string().nonempty().optional(),
   services: z.array(z.string()).min(1).optional(),
-  budget: z.union([z.number(), z.string()])
-    .transform(val => typeof val === 'string' ? Number(val) : val)
-    .refine(val => !isNaN(val) && val >= 10 && val <= 100000, {
-      message: "Budget must be a number between 10 and 100000"
+  budget: z
+    .union([z.number(), z.string()])
+    .transform((val) => (typeof val === "string" ? Number(val) : val))
+    .refine((val) => !isNaN(val) && val >= 10 && val <= 100000, {
+      message: "Budget must be a number between 10 and 100000",
     })
     .optional(),
-  timeline: z.union([z.number(), z.string()])
-    .transform(val => typeof val === 'string' ? Number(val) : val)
-    .refine(val => !isNaN(val) && val >= 1 && val <= 365, {
-      message: "Timeline must be a number between 1 and 365"
+  timeline: z
+    .union([z.number(), z.string()])
+    .transform((val) => (typeof val === "string" ? Number(val) : val))
+    .refine((val) => !isNaN(val) && val >= 1 && val <= 365, {
+      message: "Timeline must be a number between 1 and 365",
     })
     .optional(),
   requirements: z.string().min(10).max(1000).optional(),
   files: z.array(z.string()).optional(),
-  status: z.enum(["completed", "cancelled", "open","delivered"]).optional(),
+  status: z.enum(["completed", "cancelled", "open", "delivered"]).optional(),
+  paymentStatus: z.enum(["pending", "completed", "failed"]).optional(),
+  review: z
+    .object({
+      rating: z.number().min(1).max(5),
+      comment: z.string().max(500).optional(),
+      reviewedAt: z.string().optional(),
+    })
+    .optional(),
 });
 
 export async function GET(
@@ -53,10 +63,10 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { 
-        success: true, 
-        data: project, 
-        message: "Project fetched successfully" 
+      {
+        success: true,
+        data: project,
+        message: "Project fetched successfully",
       },
       { status: 200 }
     );
@@ -120,24 +130,42 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     // 7. Initialize Socket.IO client
     const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
 
-    // 8. Handle project updates
+    // 8. Handle review submission
+    if (validatedData.review) {
+      project.review = {
+        rating: validatedData.review.rating,
+        comment: validatedData.review.comment || "",
+        reviewedAt: new Date(validatedData.review.reviewedAt || Date.now()),
+      };
+      // Emit review event to socket
+      socket.emit("projectReviewSubmitted", {
+        projectId,
+        review: project.review,
+        message: `A review has been submitted for project ${project.title}`,
+      });
+    }
+
+    // 9. Handle project updates
     Object.assign(project, validatedData);
     project.updatedAt = new Date();
 
-    // 9. Handle status-specific logic
-    if (validatedData.status === "delivered") {
-      const acceptedProposal = await ProposalModel.findOne({ projectId, proposalStatus: "accepted" });
+    // 10. Handle status-specific logic
+    if (validatedData.status === "completed") {
+      const acceptedProposal = await ProposalModel.findOne({
+        projectId,
+        proposalStatus: { $in: ["accepted", "delivered", "revision-requested"] },
+      });
       if (!acceptedProposal) {
         socket.disconnect();
         return NextResponse.json(
           {
             success: false,
-            message: "Cannot mark project as completed without an accepted proposal.",
+            message: "Cannot mark project as completed without an accepted, delivered, or revision-requested proposal.",
           },
           { status: 400 }
         );
       }
-      if (project.paymentStatus !== "funded") {
+      if (project.paymentStatus !== "funded" && validatedData.paymentStatus !== "completed") {
         socket.disconnect();
         return NextResponse.json(
           {
@@ -147,7 +175,12 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
           { status: 400 }
         );
       }
-      project.paymentStatus = "completed";
+      project.status = "completed";
+      project.paymentStatus = "completed"; // Ensure paymentStatus is set to completed
+      await ProposalModel.updateOne(
+        { _id: acceptedProposal._id },
+        { paymentStatus: "completed", updatedAt: new Date() }
+      );
       await ProposalModel.deleteMany({ projectId, proposalStatus: "pending" });
       socket.emit("projectStatusUpdated", {
         projectId,
@@ -182,6 +215,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     await project.save();
     socket.disconnect();
+
     return NextResponse.json(
       {
         success: true,
