@@ -8,9 +8,9 @@ import mongoose from "mongoose";
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "user") {
+    if (!session || !["user", "talent", "admin"].includes(session.user.role)) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Only clients can view notifications." },
+        { success: false, message: "Unauthorized. Please sign in." },
         { status: 401 }
       );
     }
@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
           read: notif.read,
           createdAt: notif.createdAt.toISOString(),
         })),
+        message: "Notifications fetched successfully",
       },
       { status: 200 }
     );
@@ -54,9 +55,9 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "user") {
+    if (!session || !["user", "talent", "admin"].includes(session.user.role)) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Only clients can mark notifications as read." },
+        { success: false, message: "Unauthorized. Please sign in." },
         { status: 401 }
       );
     }
@@ -101,37 +102,34 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-// ✨ NEW DELETE FUNCTION ✨
 export async function DELETE(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "user") {
+    if (!session || !["user", "talent", "admin"].includes(session.user.role)) {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Only clients can delete notifications." },
+        { success: false, message: "Unauthorized. Please sign in." },
         { status: 401 }
       );
     }
 
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get("id");
-
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    const notificationId = req.nextUrl.searchParams.get("id");
+    if (!notificationId || !mongoose.Types.ObjectId.isValid(notificationId)) {
       return NextResponse.json(
-        { success: false, message: "Invalid or missing notification ID" },
+        { success: false, message: "Invalid notification ID" },
         { status: 400 }
       );
     }
 
     await connectDB();
 
-    const deletedNotification = await NotificationModel.findOneAndDelete({
-      _id: id,
-      userId: session.user._id, // Ensure user can only delete their own notifications
+    const notification = await NotificationModel.findOneAndDelete({
+      _id: new mongoose.Types.ObjectId(notificationId),
+      userId: new mongoose.Types.ObjectId(session.user._id),
     });
 
-    if (!deletedNotification) {
+    if (!notification) {
       return NextResponse.json(
-        { success: false, message: "Notification not found or you are not authorized to delete" },
+        { success: false, message: "Notification not found or not authorized" },
         { status: 404 }
       );
     }

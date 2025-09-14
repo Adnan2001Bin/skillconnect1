@@ -103,8 +103,8 @@ export default function UserNavbar() {
     ? "text-gray-700 hover:text-[#4CAF50]"
     : "text-white hover:text-gray-200";
   const signInButtonClass = isScrolled
-    ? "border-[#4CAF50] text-[#4CAF50] hover:bg-[#4CAF50] hover:text-white"
-    : "border-white text-white hover:bg-white hover:text-gray-900";
+    ? "border-[#4CAF50] text-[#004030] hover:bg-[#4CAF50] hover:text-white"
+    : "border-white text-[#004030] hover:bg-white hover:text-gray-900";
 
   return (
     <nav

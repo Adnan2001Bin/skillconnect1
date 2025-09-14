@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Session } from "next-auth";
 import Link from "next/link";
-import { Bell, Trash2 } from "lucide-react"; // Import Trash2 icon
+import { Bell, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import axios from "axios";
 import { toast } from "sonner";
@@ -22,9 +22,9 @@ interface Notification {
 interface NotificationsProps {
   session: Session | null;
   status: "loading" | "authenticated" | "unauthenticated";
-  isMenuOpen?: boolean; // Optional, for mobile menu
-  toggleMenu?: () => void; // Optional, for mobile menu
-  isMobile?: boolean; // To differentiate desktop vs mobile rendering
+  isMenuOpen?: boolean;
+  toggleMenu?: () => void;
+  isMobile?: boolean;
 }
 
 export default function Notifications({
@@ -48,6 +48,8 @@ export default function Notifications({
         const response = await axios.get("/api/notifications");
         if (response.data.success) {
           setNotifications(response.data.data);
+        } else {
+          throw new Error(response.data.message || "Failed to fetch notifications");
         }
       } catch (error) {
         console.error("Error fetching notifications:", error);
@@ -83,14 +85,14 @@ export default function Notifications({
       "deliverablesSubmitted",
       (data: { orderId: string; message: string }) => {
         setNotifications((prev) => {
+          // Check for duplicates by orderId and message
           const exists = prev.some(
-            (notif) =>
-              notif.orderId === data.orderId && notif.message === data.message
+            (notif) => notif.orderId === data.orderId && notif.message === data.message
           );
           if (exists) return prev;
           return [
             {
-              id: `${data.orderId}-${Date.now()}`,
+              id: `deliverables-${data.orderId}-${Date.now()}`,
               message: data.message,
               orderId: data.orderId,
               read: false,
@@ -115,15 +117,14 @@ export default function Notifications({
       "projectStatusUpdated",
       (data: { projectId: string; status: string; message: string }) => {
         setNotifications((prev) => {
+          // Check for duplicates by projectId and message
           const exists = prev.some(
-            (notif) =>
-              notif.projectId === data.projectId &&
-              notif.message === data.message
+            (notif) => notif.projectId === data.projectId && notif.message === data.message
           );
           if (exists) return prev;
           return [
             {
-              id: `${data.projectId}-${Date.now()}`,
+              id: `project-${data.projectId}-${Date.now()}`,
               message: data.message,
               projectId: data.projectId,
               read: false,
@@ -154,11 +155,14 @@ export default function Notifications({
   };
 
   const markNotificationAsRead = async (id: string) => {
-    setNotifications((prev) =>
-      prev.map((notif) => (notif.id === id ? { ...notif, read: true } : notif))
-    );
     try {
-      await axios.patch("/api/notifications", { id });
+      setNotifications((prev) =>
+        prev.map((notif) => (notif.id === id ? { ...notif, read: true } : notif))
+      );
+      const response = await axios.patch("/api/notifications", { id });
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Failed to mark notification as read");
+      }
     } catch (error) {
       console.error("Error marking notification as read:", error);
       toast.error("Error", {
@@ -166,27 +170,34 @@ export default function Notifications({
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",
         duration: 4000,
       });
+      // Optionally revert optimistic update
+      setNotifications((prev) =>
+        prev.map((notif) => (notif.id === id ? { ...notif, read: false } : notif))
+      );
     }
   };
 
-  // ✨ NEW DELETE HANDLER FUNCTION ✨
   const handleDeleteNotification = async (
     e: React.MouseEvent<HTMLButtonElement>,
     id: string
   ) => {
-    e.stopPropagation(); // Stop click from propagating to parent Link
+    e.stopPropagation();
     e.preventDefault();
 
     const originalNotifications = [...notifications];
-    // Optimistically update UI
     setNotifications((prev) => prev.filter((notif) => notif.id !== id));
 
     try {
-      await axios.delete(`/api/notifications?id=${id}`);
-      toast.success("Notification deleted.");
+      const response = await axios.delete(`/api/notifications?id=${id}`);
+      if (!response.data.success) {
+        throw new Error(response.data.message || "Failed to delete notification");
+      }
+      toast.success("Notification deleted", {
+        className: "bg-green-600 text-white border-green-700 bg-opacity-80",
+        duration: 4000,
+      });
     } catch (error) {
       console.error("Error deleting notification:", error);
-      // Revert UI change on failure
       setNotifications(originalNotifications);
       toast.error("Error", {
         description: "Failed to delete the notification.",
@@ -211,7 +222,6 @@ export default function Notifications({
     return null;
   }
 
-  // Helper component for rendering a single notification item
   const NotificationItem = ({ notif }: { notif: Notification }) => (
     <div className="flex justify-between items-center w-full">
       <div className="flex-1">

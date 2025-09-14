@@ -25,13 +25,13 @@ export interface DashboardData {
   };
   projectsByCategory: { [key: string]: number };
   totalRevenue: number;
-  totalTransactions: number; // New
+  totalTransactions: number;
   transactionsByStatus: {
     pending: number;
     completed: number;
     failed: number;
     cancelled: number;
-  }; // New
+  };
   recentTransactions: {
     _id: string;
     orderId: string;
@@ -41,7 +41,7 @@ export interface DashboardData {
     paymentStatus: "pending" | "completed" | "failed" | "cancelled";
     createdAt: string;
     updatedAt: string;
-  }[]; // New
+  }[];
   recentOrders: {
     _id: string;
     talentId: string;
@@ -85,12 +85,17 @@ export interface DashboardData {
 
 export interface LeanMessage {
   _id: string;
-  senderId: string;
+  senderId: { userName: string | null };
   receiverId: string;
   content: string;
   conversationId: string;
-  createdAt: Date;
-  updatedAt?: Date;
-  deletedAt?: Date;
+  createdAt: string;
+  updatedAt?: string;
+  deletedAt?: string;
   isRead: boolean;
+}
+
+export interface AuthenticatedSocket extends Socket {
+  userId?: string;
+  role?: string;
 }

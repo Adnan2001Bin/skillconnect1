@@ -42,6 +42,7 @@ export interface DashboardData {
   highPriorityIssues: { id: string; title: string; issue: string; type: "project" | "order" }[];
 }
 
+
 export interface AuthenticatedSocket extends Socket {
   userId: string;
 }

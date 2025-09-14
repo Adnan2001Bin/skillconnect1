@@ -85,7 +85,7 @@ export default function UserTalentView() {
   const fetchTalents = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get("/api/admin/talents");
+      const response = await axios.get("/api/talent");
       if (response.data.success) {
         setTalents(response.data.data);
         setFilteredTalents(response.data.data);

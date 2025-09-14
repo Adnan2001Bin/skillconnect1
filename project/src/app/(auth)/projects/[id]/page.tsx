@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import ProjectActions from "@/components/userView/ProjectActions";
 import { io } from "socket.io-client";
+import Loader from "@/components/Loader";
 
 // Define interface for project files
 interface ProjectFile {
@@ -424,15 +425,15 @@ export default function ProjectDetailsPage() {
     }
   };
 
-  // Loading and authentication states
   if (authStatus === "loading" || loading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center p-4"
-        style={{ backgroundColor: "rgba(22, 66, 60, 0.9)" }}
-      >
-        <Loader2 className="animate-spin h-10 w-10 text-[#17B169] mr-3" />
-        <p className="text-white text-lg font-semibold">Loading Project...</p>
+      <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
+        <Loader
+          text="Loading Project Details"
+          color="#000000"
+          bgColor="#90D1CA"
+          size="large"
+        />
       </div>
     );
   }

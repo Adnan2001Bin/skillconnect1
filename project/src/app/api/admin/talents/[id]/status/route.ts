@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/connectDB";
 import UserModel from "@/models/user.model";
+import ProposalModel from "@/models/proposal.model";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import { sendApprovalEmail } from "@/emails/ApprovalEmail";
 import { sendRejectionEmail } from "@/emails/RejectionEmail";
 import { sendDeletionEmail } from "@/emails/DeletionEmail";
 
-export async function GET(
+export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
-)  {
+) {
   try {
     // Check for admin authentication
     const session = await getServerSession(authOptions);
@@ -33,10 +34,10 @@ export async function GET(
       );
     }
 
-        const { id } = await context.params;
+    const { id } = await context.params;
 
     // Fetch talent
-    const talent = await UserModel.findOne({ _id:id, role: "talent" });
+    const talent = await UserModel.findOne({ _id: id, role: "talent" });
     if (!talent) {
       return NextResponse.json(
         { success: false, message: "Talent not found." },
@@ -104,7 +105,9 @@ export async function GET(
         );
       }
 
-    const { id } = await context.params;
+      // Delete associated proposals
+      await ProposalModel.deleteMany({ talentId: id });
+
       // Delete the talent account
       await UserModel.deleteOne({ _id: id });
 
@@ -123,14 +126,18 @@ export async function GET(
       }
 
       return NextResponse.json(
-        { success: true, message: "Talent account deleted successfully." },
+        { success: true, message: "Talent account and associated proposals deleted successfully." },
         { status: 200 }
       );
     }
   } catch (error) {
     console.error("Error updating talent status:", error);
     return NextResponse.json(
-      { success: false, message: "Internal server error." },
+      {
+        success: false,
+        message: "Internal server error.",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -23,13 +23,25 @@ import {
   MessagesSquare,
   MessageCircleMore,
   Search,
+  Send,
+  ImageIcon,
+  Paperclip,
+  MoreVertical,
 } from "lucide-react";
-import { Images } from "@/lib/images";
 import io, { Socket } from "socket.io-client";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Message {
   _id: string;
-  senderId: { userName: string | null };
+  senderId: { userName: string | null; _id: string };
   receiverId: string;
   content: string;
   conversationId: string;
@@ -42,15 +54,20 @@ interface Message {
 interface Conversation {
   conversationId: string;
   participants: string[];
+  lastMessage?: Message;
+  unreadCount?: number;
 }
 
 export default function UserChatAndMessagesPage() {
   const { status, data: session } = useSession();
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [selectedConversationId, setSelectedConversationId] = useState<
+    string | null
+  >(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -60,13 +77,13 @@ export default function UserChatAndMessagesPage() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const colors = {
-    primaryColor: "#006400", // Deep forest green
-    accentColor: "#3CB371", // Medium sea green
-    neutralTextColor: "#333333", // Soft black
-    lightAccentColor: "#E8F5E9", // Very light green
-    errorRed: "#B00020", // Deep red for errors
-    darkTextColor: "#FFFFFF", // White
-    cardBg: "#FFFFFF", // White
+    primaryColor: "#006400",
+    accentColor: "#3CB371",
+    neutralTextColor: "#333333",
+    lightAccentColor: "#E8F5E9",
+    errorRed: "#B00020",
+    darkTextColor: "#FFFFFF",
+    cardBg: "#FFFFFF",
   };
 
   useEffect(() => {
@@ -81,6 +98,7 @@ export default function UserChatAndMessagesPage() {
       setSocket(socketInstance);
 
       socketInstance.on("connect", () => {
+        console.log("Socket connected, fetching conversations");
         socketInstance.emit("getConversations");
       });
 
@@ -94,12 +112,17 @@ export default function UserChatAndMessagesPage() {
         setIsLoading(false);
       });
 
-      socketInstance.on("conversations", (fetchedConversations: Conversation[]) => {
-        setConversations(fetchedConversations);
-        setIsLoading(false);
-      });
+      socketInstance.on(
+        "conversations",
+        (fetchedConversations: Conversation[]) => {
+          console.log("Received conversations:", fetchedConversations);
+          setConversations(fetchedConversations);
+          setIsLoading(false);
+        }
+      );
 
       socketInstance.on("messages", (fetchedMessages: Message[]) => {
+        console.log("Received messages:", fetchedMessages);
         const uniqueMessages = Array.from(
           new Map(fetchedMessages.map((m) => [m._id, m])).values()
         ).sort(
@@ -107,9 +130,11 @@ export default function UserChatAndMessagesPage() {
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
         setMessages(uniqueMessages);
+        setIsMessagesLoading(false);
       });
 
       socketInstance.on("newMessage", (message: Message) => {
+        console.log("New message received:", message);
         if (message.conversationId === selectedConversationId) {
           setMessages((prev) => {
             if (prev.some((m) => m._id === message._id)) {
@@ -118,64 +143,103 @@ export default function UserChatAndMessagesPage() {
             }
             return [...prev, message].sort(
               (a, b) =>
-                new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                new Date(a.createdAt).getTime() -
+                new Date(b.createdAt).getTime()
             );
           });
+        } else {
+          setConversations((prev) =>
+            prev.map((conv) =>
+              conv.conversationId === message.conversationId
+                ? { ...conv, lastMessage: message }
+                : conv
+            )
+          );
         }
       });
 
       socketInstance.on("messageUpdated", (updatedMessage: Message) => {
+        console.log("Message updated:", updatedMessage);
         if (updatedMessage.conversationId === selectedConversationId) {
           setMessages((prev) =>
             prev
               .map((m) => (m._id === updatedMessage._id ? updatedMessage : m))
               .sort(
                 (a, b) =>
-                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                  new Date(a.createdAt).getTime() -
+                  new Date(b.createdAt).getTime()
               )
           );
         }
       });
 
-      socketInstance.on("messageDeleted", ({ messageId }: { messageId: string }) => {
-        setMessages((prev) =>
-          prev
-            .map((m) =>
-              m._id === messageId
-                ? {
-                    ...m,
-                    deletedAt: new Date().toISOString(),
-                    content: "[This message was deleted]",
-                  }
-                : m
-            )
-            .sort(
-              (a, b) =>
-                new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-            )
-        );
-      });
+      socketInstance.on(
+        "messageDeleted",
+        ({ messageId }: { messageId: string }) => {
+          console.log("Message deleted:", messageId);
+          setMessages((prev) =>
+            prev
+              .map((m) =>
+                m._id === messageId
+                  ? {
+                      ...m,
+                      deletedAt: new Date().toISOString(),
+                      content: "[This message was deleted]",
+                    }
+                  : m
+              )
+              .sort(
+                (a, b) =>
+                  new Date(a.createdAt).getTime() -
+                  new Date(b.createdAt).getTime()
+              )
+          );
+        }
+      );
 
       socketInstance.on("error", ({ message }) => {
+        console.error("Socket error:", message);
         toast.error("Error", {
           description: message,
           className: "bg-red-600 text-white border-red-700 bg-opacity-80",
           duration: 4000,
         });
-        if (message === "Failed to fetch conversations" || message === "Failed to fetch messages") {
+        if (
+          message === "Failed to fetch conversations" ||
+          message === "Failed to fetch messages"
+        ) {
           setIsLoading(false);
+          setIsMessagesLoading(false);
         }
       });
 
       return () => {
+        console.log("Disconnecting socket");
         socketInstance.disconnect();
       };
     }
-  }, [status, session, selectedConversationId]);
+  }, [status, session]);
+
+  useEffect(() => {
+    if (socket && selectedConversationId && session?.user) {
+      const otherUserId = selectedConversationId
+        .split("_")
+        .find((id) => id !== session.user._id);
+      if (otherUserId) {
+        console.log(
+          "Emitting getMessages for conversation:",
+          selectedConversationId
+        );
+        setIsMessagesLoading(true);
+        socket.emit("getMessages", { otherUserId });
+      }
+    }
+  }, [selectedConversationId, socket, session]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
@@ -185,9 +249,17 @@ export default function UserChatAndMessagesPage() {
         .split("_")
         .find((id) => id !== session.user._id);
       if (otherUserId) {
-        setMessages([]);
-        setSelectedConversationId(conversationId);
-        socket.emit("getMessages", { otherUserId });
+        if (conversationId !== selectedConversationId) {
+          console.log("Selecting conversation:", conversationId);
+          setSelectedConversationId(conversationId);
+          setConversations((prev) =>
+            prev.map((conv) =>
+              conv.conversationId === conversationId
+                ? { ...conv, unreadCount: 0 }
+                : conv
+            )
+          );
+        }
       } else {
         toast.error("Error", {
           description: "Invalid conversation ID.",
@@ -199,12 +271,18 @@ export default function UserChatAndMessagesPage() {
   };
 
   const handleSendMessage = () => {
-    if (!newMessage.trim() || !socket || !session?.user || !selectedConversationId)
+    if (
+      !newMessage.trim() ||
+      !socket ||
+      !session?.user ||
+      !selectedConversationId
+    )
       return;
     const otherUserId = selectedConversationId
       .split("_")
       .find((id) => id !== session.user._id);
     if (otherUserId) {
+      console.log("Sending message to:", otherUserId);
       socket.emit("sendMessage", {
         receiverId: otherUserId,
         content: newMessage,
@@ -221,6 +299,7 @@ export default function UserChatAndMessagesPage() {
 
   const handleEditMessage = () => {
     if (!editingMessage || !editedContent.trim() || !socket) return;
+    console.log("Editing message:", editingMessage._id);
     socket.emit("editMessage", {
       messageId: editingMessage._id,
       content: editedContent,
@@ -232,6 +311,7 @@ export default function UserChatAndMessagesPage() {
 
   const handleDeleteMessage = (messageId: string) => {
     if (!socket) return;
+    console.log("Deleting message:", messageId);
     socket.emit("deleteMessage", { messageId });
   };
 
@@ -240,247 +320,447 @@ export default function UserChatAndMessagesPage() {
       return conversations;
     }
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    return conversations.filter(conversation => {
-      const otherParticipant = conversation.participants.find(
-        (name) => name !== (session?.user?.userName || "")
-      ) || "Unknown User";
+    return conversations.filter((conversation) => {
+      const otherParticipant =
+        conversation.participants.find(
+          (name) => name !== (session?.user?.userName || "")
+        ) || "Unknown User";
       return otherParticipant.toLowerCase().includes(lowerCaseSearchTerm);
     });
   }, [conversations, searchTerm, session]);
 
+  const getOtherParticipant = (conversation: Conversation) => {
+    return (
+      conversation.participants.find(
+        (name) => name !== (session?.user?.userName || "")
+      ) || "Unknown User"
+    );
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 24) {
+      return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } else if (diffInHours < 48) {
+      return "Yesterday";
+    } else {
+      return date.toLocaleDateString([], { month: "short", day: "numeric" });
+    }
+  };
+
+  const isEdited = (message: Message) => {
+    if (!message.updatedAt || !message.createdAt) return false;
+    return (
+      new Date(message.updatedAt).getTime() >
+      new Date(message.createdAt).getTime()
+    );
+  };
+
   if (status === "loading" || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader className="animate-spin h-12 w-12 mr-4 text-green-800" />
-        <p className="text-2xl font-semibold text-gray-900">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100">
+        <div className="flex flex-col items-center">
+          <Loader className="animate-spin h-12 w-12 mr-4 text-green-600" />
+          <p className="text-xl font-semibold text-gray-700 mt-4">
+            Loading messages...
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen py-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 py-8 px-4 sm:px-6 lg:px-8">
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md bg-white rounded-2xl shadow-xl border" style={{ borderColor: colors.primaryColor }}>
+        <DialogContent className="sm:max-w-md bg-white rounded-xl shadow-xl border-0">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-gray-900">Edit Message</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-gray-900">
+              Edit Message
+            </DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <Input
               value={editedContent}
               onChange={(e) => setEditedContent(e.target.value)}
               placeholder="Edit your message"
-              className="border-gray-300 focus:border-green-800 focus:ring-green-800 text-gray-900"
+              className="border-gray-200 focus:border-green-500 focus:ring-green-500 text-gray-900 rounded-lg"
             />
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setIsEditDialogOpen(false)}
-              className="border-gray-300 text-gray-600 hover:bg-gray-100"
+              className="border-gray-200 text-gray-600 hover:bg-gray-100 rounded-lg"
             >
               Cancel
             </Button>
             <Button
               onClick={handleEditMessage}
               disabled={!editedContent.trim()}
-              className="bg-green-600 text-white hover:bg-green-700"
+              className="bg-green-600 text-white hover:bg-green-700 rounded-lg"
             >
-              Save
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Conversations List (Left Panel) */}
-        <div className="w-full md:w-1/3">
-          <div className="flex justify-between items-center mb-6">
-            <Button
-              onClick={() => router.push("/talentList")}
-              className="bg-green-800 text-white hover:bg-green-900 rounded-full flex items-center px-4 py-2 transition-all duration-300"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Talents
-            </Button>
-            <h1 className="text-3xl font-bold text-gray-900">Messages</h1>
-          </div>
-          <Card className="rounded-2xl shadow-lg bg-white/90 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                <MessagesSquare className="h-6 w-6 text-green-700" />
-                Conversations
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Search conversations..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-gray-300 focus:border-green-800 focus:ring-green-800 text-gray-900"
-                />
-              </div>
-              {filteredConversations.length === 0 ? (
-                <p className="text-center text-gray-500 italic">No conversations found.</p>
-              ) : (
-                <div className="space-y-3">
-                  {filteredConversations.map((conversation) => {
-                    const otherParticipant =
-                      conversation.participants.find(
-                        (name) => name !== (session?.user?.userName || "")
-                      ) || "Unknown User";
-                    const isSelected = conversation.conversationId === selectedConversationId;
-
-                    return (
-                      <div
-                        key={conversation.conversationId}
-                        onClick={() => handleSelectConversation(conversation.conversationId)}
-                        className={`flex items-center p-4 rounded-lg cursor-pointer transition-all duration-200 ${
-                          isSelected ? "bg-green-50" : "hover:bg-gray-100"
-                        }`}
-                      >
-                        <div className="flex-shrink-0 relative">
-                          <div className="h-12 w-12 rounded-full bg-green-800 text-white flex items-center justify-center font-bold text-lg">
-                            {otherParticipant.charAt(0).toUpperCase()}
-                          </div>
-                          <span className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full ring-2 ring-white"></span>
-                        </div>
-                        <div className="ml-4 flex-1">
-                          <p className="font-semibold text-gray-900 text-lg">{otherParticipant}</p>
-                          <p className="text-sm text-gray-500">Click to view messages</p>
-                        </div>
-                        <MessageSquare className="h-6 w-6 text-green-700" />
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <Button
+            onClick={() => router.push("/talentList")}
+            className="bg-white text-green-700 hover:bg-green-50 border border-green-200 rounded-full flex items-center px-4 py-2 transition-all duration-300 shadow-sm hover:shadow-md"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Talents
+          </Button>
+          <h1 className="text-3xl font-bold text-gray-800 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            Messages
+          </h1>
+          <div className="w-24"></div>
         </div>
 
-        {/* Chat Pane (Right Panel) */}
-        <div className="w-full md:w-2/3">
-          {!selectedConversationId ? (
-            <div className="h-full flex items-center justify-center">
-              <Card className="rounded-2xl shadow-lg bg-white/90 backdrop-blur-sm p-8 text-center min-h-[600px] flex flex-col items-center justify-center">
-                <MessagesSquare className="h-24 w-24 mb-4 text-green-300" />
-                <p className="text-xl text-gray-700 font-semibold">
-                  Select a conversation to start chatting.
-                </p>
-              </Card>
-            </div>
-          ) : (
-            <Card className="rounded-2xl shadow-lg bg-white/90 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-gray-900 font-semibold">
-                  <MessageCircleMore className="h-6 w-6 text-green-700" />
-                  Conversation
-                </CardTitle>
+        <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-180px)]">
+          <div className="w-full lg:w-1/3 flex flex-col">
+            <Card className="rounded-2xl shadow-lg bg-white/90 backdrop-blur-sm border-0 flex-1 flex flex-col overflow-hidden">
+              <CardHeader className="pb-3 border-b border-gray-100">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    <MessagesSquare className="h-5 w-5 text-green-600" />
+                    Conversations
+                  </CardTitle>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                      >
+                        <MoreVertical className="h-4 w-4 text-gray-500" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>Mark all as read</DropdownMenuItem>
+                      <DropdownMenuItem>Archived chats</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="relative mt-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search conversations..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500 text-gray-900 rounded-lg bg-gray-50"
+                  />
+                </div>
               </CardHeader>
-              <CardContent className="p-0">
-                <div
-                  className="max-h-[500px] overflow-y-auto p-4 border-t-2 border-gray-200"
-                  ref={chatContainerRef}
-                >
-                  {messages.length === 0 ? (
-                    <p className="text-gray-500">No messages in this conversation.</p>
-                  ) : (
-                    messages.map((message) => {
-                      const senderName = message.senderId.userName || "Unknown User";
-                      const isDeleted = !!message.deletedAt;
-                      const messageBgColor = isDeleted
-                        ? colors.neutralTextColor
-                        : senderName === session?.user?.userName
-                        ? colors.accentColor
-                        : colors.primaryColor;
-                      const messageTextColor = colors.darkTextColor;
+              <CardContent className="p-0 flex-1 overflow-y-auto">
+                {filteredConversations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-8">
+                    <MessageSquare className="h-12 w-12 text-gray-300 mb-4" />
+                    <p className="text-gray-500 font-medium">
+                      No conversations yet
+                    </p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Start a conversation with a talent
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredConversations.map((conversation) => {
+                      const otherParticipant = getOtherParticipant(conversation);
+                      const isSelected =
+                        conversation.conversationId === selectedConversationId;
+                      const lastMessage = conversation.lastMessage;
+                      const unreadCount = conversation.unreadCount || 0;
 
                       return (
                         <div
-                          key={message._id}
-                          className={`mb-4 flex ${
-                            senderName === session?.user?.userName
-                              ? "justify-end"
-                              : "justify-start"
-                          }`}
+                          key={conversation.conversationId}
+                          onClick={() =>
+                            handleSelectConversation(conversation.conversationId)
+                          }
+                          className={cn(
+                            "flex items-center p-4 cursor-pointer transition-all duration-200 group",
+                            isSelected ? "bg-green-50" : "hover:bg-gray-50"
+                          )}
                         >
-                          <div
-                            className="max-w-xs p-3 rounded-lg shadow-sm"
-                            style={{
-                              backgroundColor: messageBgColor,
-                              color: messageTextColor,
-                            }}
-                          >
-                            <div className="flex justify-between items-center">
-                              <p className="text-sm font-semibold">
-                                {senderName === session?.user?.userName ? "Me" : senderName}
-                                {isDeleted && (
-                                  <span className="ml-2 italic text-gray-300">
-                                    (Deleted)
-                                  </span>
-                                )}
+                          <div className="relative flex-shrink-0">
+                            <Avatar className="h-12 w-12 border-2 border-white shadow">
+                              <AvatarImage src="" />
+                              <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+                                {otherParticipant.charAt(0).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            {unreadCount > 0 && (
+                              <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-green-500 text-white">
+                                {unreadCount}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="ml-4 flex-1 min-w-0">
+                            <div className="flex justify-between items-start">
+                              <p className="font-semibold text-gray-900 truncate">
+                                {otherParticipant}
                               </p>
-                              {senderName === session?.user?.userName && !isDeleted && (
-                                <div className="flex gap-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleOpenEditDialog(message)}
-                                    className="text-white hover:bg-black/20"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteMessage(message._id)}
-                                    className="text-red-400 hover:bg-red-500/20"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
+                              {lastMessage && (
+                                <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
+                                  {formatTime(lastMessage.createdAt)}
+                                </span>
                               )}
                             </div>
-                            <p className="text-sm">{message.content}</p>
-                            <p className="text-xs mt-1 text-white opacity-70">
-                              {new Date(
-                                message.updatedAt || message.createdAt
-                              ).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                              {message.updatedAt &&
-                                message.updatedAt !== message.createdAt &&
-                                " (Edited)"}
-                            </p>
+                            {lastMessage ? (
+                              <p className="text-sm text-gray-500 truncate mt-1">
+                                {lastMessage.senderId.userName ===
+                                  session?.user?.userName && "You: "}
+                                {lastMessage.deletedAt
+                                  ? "[Message deleted]"
+                                  : lastMessage.content}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-400 italic mt-1">
+                                No messages yet
+                              </p>
+                            )}
                           </div>
                         </div>
                       );
-                    })
-                  )}
-                </div>
-                <div className="flex gap-2 p-4 bg-gray-50">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type a message..."
-                    className="border-gray-300 focus:border-green-800 focus:ring-green-800 text-gray-900"
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                  />
-                  <Button
-                    onClick={handleSendMessage}
-                    className="bg-green-600 text-white hover:bg-green-700"
-                    disabled={!newMessage.trim() || !selectedConversationId}
-                  >
-                    Send
-                  </Button>
-                </div>
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
+          </div>
+
+          <div className="w-full lg:w-2/3 flex flex-col">
+            {!selectedConversationId ? (
+              <Card className="rounded-2xl shadow-lg bg-transparent backdrop-blur-sm border-0 flex-1 flex flex-col items-center justify-center p-8">
+                <div className="text-center max-w-md mx-auto">
+                  <div className="bg-gradient-to-br from-green-100 to-emerald-100 p-6 rounded-2xl inline-block mb-6">
+                    <MessagesSquare className="h-12 w-12 text-green-500 mx-auto" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                    Your messages
+                  </h3>
+                  <p className="text-gray-500">
+                    Select a conversation from the list to start chatting or
+                    connect with talents to begin a conversation.
+                  </p>
+                </div>
+              </Card>
+            ) : (
+              <Card className="rounded-2xl shadow-lg bg-white/90 backdrop-blur-sm flex-1 flex flex-col overflow-hidden">
+                <CardHeader className=" border-b bg-white border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <Avatar className="h-10 w-10 border-2 border-white shadow mr-3">
+                        <AvatarImage src="" />
+                        <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+                          {getOtherParticipant(
+                            conversations.find(
+                              (c) => c.conversationId === selectedConversationId
+                            ) || { conversationId: "", participants: [] }
+                          )
+                            .charAt(0)
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <CardTitle className="text-lg font-semibold text-gray-800">
+                          {getOtherParticipant(
+                            conversations.find(
+                              (c) => c.conversationId === selectedConversationId
+                            ) || { conversationId: "", participants: [] }
+                          )}
+                        </CardTitle>
+                        <p className="text-xs text-gray-400">Online</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="rounded-full"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div
+                    className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-white to-green-50/30"
+                    ref={chatContainerRef}
+                    style={{
+                      maxHeight: "calc(100vh - 300px)",
+                      minHeight: "200px",
+                    }}
+                  >
+                    {isMessagesLoading ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <Loader className="animate-spin h-8 w-8 text-green-600" />
+                        <p className="text-gray-500 mt-2">Loading messages...</p>
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center">
+                        <MessageCircleMore className="h-12 w-12 text-gray-300 mb-4" />
+                        <p className="text-gray-500 font-medium">
+                          No messages yet
+                        </p>
+                        <p className="text-sm text-gray-400">
+                          Send a message to start the conversation
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {messages.map((message) => {
+                          const senderName =
+                            message.senderId.userName || "Unknown User";
+                          const isDeleted = !!message.deletedAt;
+                          const isOwnMessage =
+                            senderName === session?.user?.userName;
+
+                          return (
+                            <div
+                              key={message._id}
+                              className={cn(
+                                "flex",
+                                isOwnMessage ? "justify-end" : "justify-start"
+                              )}
+                            >
+                              <div className="max-w-xs lg:max-w-md group">
+                                <div
+                                  className={cn(
+                                    "flex",
+                                    isOwnMessage
+                                      ? "justify-end"
+                                      : "justify-start"
+                                  )}
+                                >
+                                  {!isOwnMessage && (
+                                    <Avatar className="h-6 w-6 mt-4 mr-2">
+                                      <AvatarFallback className="text-xs bg-gray-200 text-gray-700">
+                                        {senderName.charAt(0).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  )}
+                                  <div
+                                    className={cn(
+                                      "rounded-2xl px-4 py-2 shadow-sm",
+                                      isDeleted
+                                        ? "bg-gray-200 text-gray-700"
+                                        : isOwnMessage
+                                        ? "bg-gradient-to-br from-green-600 to-emerald-600 text-white"
+                                        : "bg-white border border-gray-200 text-gray-800"
+                                    )}
+                                  >
+                                    {!isOwnMessage && !isDeleted && (
+                                      <p className="text-xs font-medium mb-1">
+                                        {senderName}
+                                      </p>
+                                    )}
+                                    <p
+                                      className={cn(
+                                        "text-sm",
+                                        isDeleted && "italic"
+                                      )}
+                                    >
+                                      {message.content}
+                                    </p>
+                                    <div
+                                      className={cn(
+                                        "text-xs mt-1 flex justify-end",
+                                        isOwnMessage
+                                          ? "text-green-900"
+                                          : "text-gray-400"
+                                      )}
+                                    >
+                                      {formatTime(
+                                        message.updatedAt || message.createdAt
+                                      )}
+                                      {isEdited(message) && (
+                                        <span className="ml-1">• Edited</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                {isOwnMessage && !isDeleted && (
+                                  <div className="flex justify-end mt-1 space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleOpenEditDialog(message)
+                                      }
+                                      className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleDeleteMessage(message._id)
+                                      }
+                                      className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-4 border-t border-gray-100 bg-white">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 rounded-full text-gray-400"
+                      >
+                        <Paperclip className="h-5 w-5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 rounded-full text-gray-400"
+                      >
+                        <ImageIcon className="h-5 w-5" />
+                      </Button>
+                      <Input
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        className="flex-1 border-gray-200 focus:border-green-500 focus:ring-green-500 text-gray-900 rounded-full bg-gray-50"
+                        onKeyPress={(e) =>
+                          e.key === "Enter" && handleSendMessage()
+                        }
+                      />
+                      <Button
+                        onClick={handleSendMessage}
+                        className="h-10 w-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 text-white p-0 flex items-center justify-center"
+                        disabled={!newMessage.trim() || !selectedConversationId}
+                      >
+                        <Send className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { Images } from "@/lib/images";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import ProjectCard from "@/components/userView/ProjectCard"; // Make sure the import path is correct
+import Loader from "@/components/Loader";
 
 // Helper function to get category label from value
 const getCategoryLabel = (categoryValue: string | undefined) => {
@@ -51,8 +52,9 @@ export default function ProjectListingPage() {
       try {
         setLoading(true);
         const response = await axios.get("/api/projects");
-        if (response.status !== 200) throw new Error("Failed to fetch projects");
-        
+        if (response.status !== 200)
+          throw new Error("Failed to fetch projects");
+
         const projectsData = (response.data.data || []).map((project: any) => ({
           ...project,
           _id: project._id.toString(),
@@ -74,14 +76,18 @@ export default function ProjectListingPage() {
   // Filter projects based on selected criteria
   const filteredProjects = projects.filter((project) => {
     const matchesCategory =
-      selectedCategories.length === 0 || selectedCategories.includes(project.category);
+      selectedCategories.length === 0 ||
+      selectedCategories.includes(project.category);
     const matchesStatus =
-      selectedStatuses.length === 0 || selectedStatuses.includes(project.status);
+      selectedStatuses.length === 0 ||
+      selectedStatuses.includes(project.status);
     const matchesSearch =
       searchQuery === "" ||
       project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      getCategoryLabel(project.category).toLowerCase().includes(searchQuery.toLowerCase());
+      getCategoryLabel(project.category)
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
     const min = minPrice ? parseFloat(minPrice) : 0;
     const max = maxPrice ? parseFloat(maxPrice) : Infinity;
     const matchesPrice = project.budget >= min && project.budget <= max;
@@ -91,9 +97,13 @@ export default function ProjectListingPage() {
 
   if (authStatus === "loading") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-emerald-50">
-        <Loader2 className="animate-spin h-10 w-10 text-[#17B169] mr-3" />
-        <p className="text-[#16423C] text-xl font-semibold">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
+        <Loader
+          text="Loading All Projects.."
+          color="#000000"
+          bgColor="#90D1CA"
+          size="large"
+        />
       </div>
     );
   }
@@ -114,7 +124,9 @@ export default function ProjectListingPage() {
       <div
         className="min-h-[24rem] h-auto py-10 px-4 sm:px-6 lg:px-10 flex items-center justify-center text-center"
         style={{
-          backgroundImage: `url(${Images.userViewbackground2 ? Images.userViewbackground2.src : ""})`,
+          backgroundImage: `url(${
+            Images.userViewbackground2 ? Images.userViewbackground2.src : ""
+          })`,
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
@@ -139,10 +151,11 @@ export default function ProjectListingPage() {
                 Find Your Next Project ✨
               </h2>
               <p className="mt-2 text-lg text-gray-600 max-w-2xl mx-auto">
-                Use our advanced filters to search by keyword, category, status, and price.
+                Use our advanced filters to search by keyword, category, status,
+                and price.
               </p>
             </div>
-            
+
             <div className="max-w-5xl mx-auto">
               <div className="relative mb-4">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -160,7 +173,10 @@ export default function ProjectListingPage() {
                   name="categoryFilter"
                   label="Category"
                   placeholder="Filter by categories..."
-                  options={categories.map((cat) => ({ value: cat.value, label: cat.label }))}
+                  options={categories.map((cat) => ({
+                    value: cat.value,
+                    label: cat.label,
+                  }))}
                   Icon={Filter}
                   onChange={setSelectedCategories}
                   defaultValue={selectedCategories}
@@ -176,7 +192,10 @@ export default function ProjectListingPage() {
                 />
                 <div>
                   <Label className="text-sm font-semibold mb-2 flex items-center text-gray-700">
-                    <DollarSign className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                    <DollarSign
+                      className="h-5 w-5 mr-2"
+                      style={{ color: accentColor }}
+                    />
                     Price Range
                   </Label>
                   <div className="flex gap-2">
@@ -206,26 +225,42 @@ export default function ProjectListingPage() {
 
           <div className="flex justify-between items-center mb-8 px-2">
             <h3 className="text-xl font-semibold text-gray-700">
-              {loading ? "Searching for projects..." : `Showing ${filteredProjects.length} project${filteredProjects.length !== 1 ? 's' : ''}`}
+              {loading
+                ? "Searching for projects..."
+                : `Showing ${filteredProjects.length} project${
+                    filteredProjects.length !== 1 ? "s" : ""
+                  }`}
             </h3>
           </div>
 
           {/* Conditional Content */}
           {loading ? (
             <div className="flex flex-col justify-center items-center py-20 text-center">
-              <Loader2 className="animate-spin h-12 w-12 mb-4" style={{ color: accentColor }} />
-              <p className="text-xl font-medium text-gray-700">Loading projects... Hang tight!</p>
+              <Loader2
+                className="animate-spin h-12 w-12 mb-4"
+                style={{ color: accentColor }}
+              />
+              <p className="text-xl font-medium text-gray-700">
+                Loading projects... Hang tight!
+              </p>
             </div>
           ) : filteredProjects.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-xl border-2 border-dashed">
               <ScanSearch className="mx-auto h-16 w-16 text-gray-400" />
-              <h3 className="mt-4 text-2xl font-semibold text-gray-800">No Projects Found</h3>
-              <p className="mt-2 text-md text-gray-500">We couldn't find any projects matching your criteria.</p>
+              <h3 className="mt-4 text-2xl font-semibold text-gray-800">
+                No Projects Found
+              </h3>
+              <p className="mt-2 text-md text-gray-500">
+                We couldn't find any projects matching your criteria.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
               {filteredProjects.map((project) => (
-                <ProjectCard key={project._id as unknown as string} project={project} />
+                <ProjectCard
+                  key={project._id as unknown as string}
+                  project={project}
+                />
               ))}
             </div>
           )}

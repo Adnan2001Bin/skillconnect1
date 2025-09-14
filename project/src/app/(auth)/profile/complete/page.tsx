@@ -145,7 +145,7 @@ export default function UserProfileCompletionPage() {
           duration: 4000,
         });
         setTimeout(() => {
-          router.replace("/dashboard");
+          router.replace("/home");
         }, 2000);
       } else {
         toast.error("Error", {
@@ -378,10 +378,10 @@ export default function UserProfileCompletionPage() {
             <p className="text-[#757575] text-sm">
               Decide later?{" "}
               <a
-                href="/dashboard"
+                href="/home"
                 className="text-[#4CAF50] hover:text-[#2E7D32] font-semibold transition-colors duration-200"
               >
-                Go to Dashboard
+                Go to Home
               </a>
             </p>
           </div>

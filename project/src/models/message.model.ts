@@ -4,10 +4,16 @@ const messageSchema = new Schema({
   senderId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   receiverId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   content: { type: String, required: true },
-  conversationId: { type: String, required: true }, // Unique ID for conversation (e.g., sorted user IDs)
-  createdAt: { type: Date, default: Date.now },
+  conversationId: { type: String, required: true }, 
   isRead: { type: Boolean, default: false },
-  deletedAt: { type: Date },
+  deletedAt: { type: Date, default: null }, // Ensure default is null
+}, {
+  timestamps: true 
+});
+
+// Add a virtual for checking if message is deleted
+messageSchema.virtual("isDeleted").get(function() {
+  return this.deletedAt !== null;
 });
 
 export default mongoose.models.Message || mongoose.model("Message", messageSchema);
