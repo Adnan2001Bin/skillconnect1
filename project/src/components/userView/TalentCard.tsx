@@ -2,6 +2,7 @@ import { TalentProfileInput } from "@/schemas/profileSchema";
 import { MapPin } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface Talent extends TalentProfileInput {
   _id: string;
@@ -52,9 +53,11 @@ export default function TalentCard({ talent, accentColor }: TalentCardProps) {
       <div className="relative px-6 pb-6 flex flex-col items-center text-center">
         {/* Overlapping Profile Image */}
         <div className="relative -mt-12">
-          <img
+          <Image
             src={talent.profilePicture || defaultImage}
             alt={`${talent.userName}'s profile`}
+            width={20}
+            height={20}
             className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
           />
         </div>

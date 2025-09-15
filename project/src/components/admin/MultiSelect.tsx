@@ -15,8 +15,7 @@ interface MultiSelectProps {
 }
 
 export function MultiSelect({
-  name,
-  style,
+
   label,
   placeholder,
   options,
@@ -32,7 +31,6 @@ export function MultiSelect({
   const primaryDarkGray = "#2D3748";
   const activeTextColor = "#FFFFFF"; // Used for the label
   const white = "#FFFFFF"; // For the dropdown background and text
-  const hoverColor = "#A4CCD9"; // A slightly darker shade of accent for hover states
 
   const handleChange = (value: string, checked: boolean) => {
     const newValue = [...selectedValues];

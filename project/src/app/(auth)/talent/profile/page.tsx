@@ -16,28 +16,21 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 import {
   Edit,
   MapPin,
   Link2,
   Languages,
   Star,
-  User,
   Check,
   DollarSign,
   Info,
   Package,
   CalendarDays,
   Briefcase,
-  AlertCircle,
   Verified,
-  ArrowLeft,
+
 } from "lucide-react";
 import { toast } from "sonner";
 import { Images } from "@/lib/images";

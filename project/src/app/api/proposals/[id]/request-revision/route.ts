@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
-
 import { io } from "socket.io-client";
 import proposalModel from "@/models/proposal.model";
 
@@ -10,8 +9,8 @@ import proposalModel from "@/models/proposal.model";
 const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
 
 export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,8 +21,10 @@ export async function POST(
       );
     }
 
-    const { id } = params;
-    const { revisionNote } = await req.json();
+    // Extract proposalId from params (await the Promise)
+    const { id } = await params;
+    
+    const { revisionNote } = await request.json();
 
     if (!revisionNote || typeof revisionNote !== "string" || !revisionNote.trim()) {
       return NextResponse.json(

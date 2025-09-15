@@ -8,7 +8,6 @@ import {
   FileText,
   MessageSquareText,
   User,
-  Eye,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -89,7 +88,10 @@ interface ProjectActionsProps {
     neutralTextColor: string;
     white: string;
   };
-  handleStatusUpdate: (newStatus: "completed" | "cancelled", reviewData?: { rating: number; comment: string }) => Promise<void>;
+  handleStatusUpdate: (
+    newStatus: "completed" | "cancelled",
+    reviewData?: { rating: number; comment: string }
+  ) => Promise<void>;
 }
 
 // Helper function to get category label
@@ -227,6 +229,7 @@ export default function ProjectActions({
       if (!file) throw new Error("Invalid file URL");
       window.open(file, "_blank");
     } catch (err) {
+      console.log(err);
       toast.error("Failed to open file. The URL may be invalid.");
     }
   };
@@ -261,6 +264,7 @@ export default function ProjectActions({
         );
       }
     } catch (error) {
+      console.log(error);
       toast.error("Failed to update proposal status.");
     }
   };
@@ -279,7 +283,9 @@ export default function ProjectActions({
             p._id === proposalId ? { ...p, paymentStatus: "pending" } : p
           )
         );
-        toast.success("Payment initiation successful. Redirecting to payment gateway...");
+        toast.success(
+          "Payment initiation successful. Redirecting to payment gateway..."
+        );
         // Assuming the API returns a payment URL, redirect to it
         if (response.data.paymentUrl) {
           window.location.href = response.data.paymentUrl;
@@ -288,6 +294,7 @@ export default function ProjectActions({
         throw new Error(response.data.message || "Failed to initiate payment");
       }
     } catch (error) {
+      console.log(error);
       toast.error("Failed to initiate payment. Please try again.");
     }
   };
@@ -307,11 +314,14 @@ export default function ProjectActions({
         // Call handleStatusUpdate with review data, which will also update paymentStatus to "completed"
         await handleStatusUpdate("completed", { rating, comment });
         // Fetch the accepted proposal to update its payment status
-        const proposalResponse = await axios.get(`/api/projects/${id}/proposals`);
+        const proposalResponse = await axios.get(
+          `/api/projects/${id}/proposals`
+        );
         const acceptedProposal = proposalResponse.data.data.find(
-          (proposal: PlainProposal) => proposal.proposalStatus === "accepted" || 
-          proposal.proposalStatus === "delivered" || 
-          proposal.proposalStatus === "revision-requested"
+          (proposal: PlainProposal) =>
+            proposal.proposalStatus === "accepted" ||
+            proposal.proposalStatus === "delivered" ||
+            proposal.proposalStatus === "revision-requested"
         );
         if (acceptedProposal) {
           await axios.put(`/api/proposals/${acceptedProposal._id}`, {
@@ -319,7 +329,9 @@ export default function ProjectActions({
           });
           setProposals((prev) =>
             prev.map((p) =>
-              p._id === acceptedProposal._id ? { ...p, paymentStatus: "completed" } : p
+              p._id === acceptedProposal._id
+                ? { ...p, paymentStatus: "completed" }
+                : p
             )
           );
         }
@@ -328,7 +340,10 @@ export default function ProjectActions({
         setComment("");
         toast.success("Project completed and payment status updated.");
       } catch (error) {
-        toast.error("Failed to submit review or update payment status. Please try again.");
+        console.log(error);
+        toast.error(
+          "Failed to submit review or update payment status. Please try again."
+        );
       } finally {
         setIsSubmittingReview(false);
       }
@@ -343,7 +358,9 @@ export default function ProjectActions({
             <Button
               className={`px-6 py-2 rounded-full font-semibold transition-colors`}
               style={{
-                backgroundColor: canMarkAsCompleted ? colors.accentColor : "#6B7280",
+                backgroundColor: canMarkAsCompleted
+                  ? colors.accentColor
+                  : "#6B7280",
                 color: colors.white,
               }}
               disabled={!canMarkAsCompleted}
@@ -353,9 +370,11 @@ export default function ProjectActions({
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-center">Rate Your Experience</DialogTitle>
+              <DialogTitle className="text-center">
+                Rate Your Experience
+              </DialogTitle>
               <DialogDescription className="text-center">
-                Please share your feedback about the talent's work
+                Please share your feedback about the talent&apos;s work{" "}
               </DialogDescription>
             </DialogHeader>
 
@@ -375,15 +394,21 @@ export default function ProjectActions({
                       <Star
                         className="h-8 w-8 cursor-pointer transition-colors"
                         style={{
-                          color: star <= (hoverRating || rating) ? "#F59E0B" : "#D1D5DB",
-                          fill: star <= (hoverRating || rating) ? "#F59E0B" : "none",
+                          color:
+                            star <= (hoverRating || rating)
+                              ? "#F59E0B"
+                              : "#D1D5DB",
+                          fill:
+                            star <= (hoverRating || rating)
+                              ? "#F59E0B"
+                              : "none",
                         }}
                       />
                     </button>
                   ))}
                 </div>
                 <p className="text-sm text-gray-600">
-                  {rating} star{rating !== 1 ? 's' : ''}
+                  {rating} star{rating !== 1 ? "s" : ""}
                 </p>
               </div>
 
@@ -984,7 +1009,9 @@ export default function ProjectActions({
                                       handleInitiatePayment(proposal._id)
                                     }
                                     className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1.5"
-                                    style={{ backgroundColor: colors.accentColor }}
+                                    style={{
+                                      backgroundColor: colors.accentColor,
+                                    }}
                                   >
                                     <CreditCard className="h-4 w-4" />
                                     Initiate Payment

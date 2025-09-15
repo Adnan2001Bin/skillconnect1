@@ -11,14 +11,18 @@ interface ProfileResponse {
   };
 }
 
+
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<ProfileResponse>> {
   await connectDB();
 
   try {
+    // Await the params promise
+    const params = await context.params;
     const { id } = params;
+    
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, message: "Invalid user ID" },

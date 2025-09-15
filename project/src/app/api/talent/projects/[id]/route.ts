@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import ProjectModel from "@/models/projects.model";
 import ProposalModel from "@/models/proposal.model";

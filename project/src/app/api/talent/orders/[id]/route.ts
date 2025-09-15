@@ -125,47 +125,50 @@ export async function PATCH(
 
     await order.save();
 
+    // Safe date handling - check if dates exist before calling toISOString()
+    const responseData = {
+      _id: order._id.toString(),
+      talentId: order.talentId,
+      clientId: order.clientId,
+      ratePlan: {
+        type: order.ratePlan.type,
+        price: order.ratePlan.price,
+        description: order.ratePlan.description,
+        whatsIncluded: order.ratePlan.whatsIncluded,
+        deliveryDays: order.ratePlan.deliveryDays,
+        revisions: order.ratePlan.revisions,
+      },
+      projectDetails: {
+        title: order.projectDetails.title,
+        description: order.projectDetails.description,
+      },
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      revisionStatus: order.revisionStatus,
+      revisionCount: order.revisionCount,
+      createdAt: order.createdAt?.toISOString() || new Date().toISOString(),
+      updatedAt: order.updatedAt?.toISOString() || new Date().toISOString(),
+      revisionRequest: order.revisionRequest
+        ? {
+            files: order.revisionRequest.files || [],
+            note: order.revisionRequest.note || undefined,
+            requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
+          }
+        : undefined,
+      review: order.review
+        ? {
+            rating: order.review.rating,
+            comment: order.review.comment,
+            reviewedAt: order.review.reviewedAt?.toISOString() || null, // Safe access
+          }
+        : undefined,
+    };
+
     return NextResponse.json(
       {
         success: true,
         message: `Order updated successfully`,
-        data: {
-          _id: order._id.toString(),
-          talentId: order.talentId,
-          clientId: order.clientId,
-          ratePlan: {
-            type: order.ratePlan.type,
-            price: order.ratePlan.price,
-            description: order.ratePlan.description,
-            whatsIncluded: order.ratePlan.whatsIncluded,
-            deliveryDays: order.ratePlan.deliveryDays,
-            revisions: order.ratePlan.revisions,
-          },
-          projectDetails: {
-            title: order.projectDetails.title,
-            description: order.projectDetails.description,
-          },
-          status: order.status,
-          paymentStatus: order.paymentStatus,
-          revisionStatus: order.revisionStatus,
-          revisionCount: order.revisionCount,
-          createdAt: order.createdAt.toISOString(),
-          updatedAt: order.updatedAt.toISOString(),
-          revisionRequest: order.revisionRequest
-            ? {
-                files: order.revisionRequest.files || [],
-                note: order.revisionRequest.note || undefined,
-                requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
-              }
-            : undefined,
-          review: order.review
-            ? {
-                rating: order.review.rating,
-                comment: order.review.comment,
-                reviewedAt: order.review.reviewedAt.toISOString(),
-              }
-            : undefined,
-        },
+        data: responseData,
       },
       { status: 200 }
     );

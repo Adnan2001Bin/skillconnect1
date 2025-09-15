@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useForm, FormProvider } from "react-hook-form";
@@ -18,13 +18,12 @@ import { TextareaField } from "@/components/profile/TextareaField";
 import { TextField } from "@/components/profile/TextField";
 import { MultiSelect } from "@/components/talent/MultiSelect";
 import { Button } from "@/components/ui/button";
-import { Briefcase, MapPin, User, Book, Star, Link } from "lucide-react";
+import { Briefcase, MapPin, User, Book, Star } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Images } from "@/lib/images";
 import { categories, servicesByCategory } from "@/lib/categoriesAndServices";
 import { ProfilePictureField } from "@/components/profile/ProfilePictureField";
-import { Form } from "@/components/ui/form";
 import { ArrayField } from "@/components/profile/ArrayField";
 import Image from "next/image";
 
@@ -48,7 +47,7 @@ export default function TalentProfileCompletionPage() {
       description: string;
       whatsIncluded: string[];
       deliveryDays: number;
-      revisions: number; // Added revisions field
+      revisions: number;
     }[]
   >([]);
   const [socialLinks, setSocialLinks] = useState<{ platform: string; url: string }[]>([]);
@@ -74,7 +73,8 @@ export default function TalentProfileCompletionPage() {
     reValidateMode: "onBlur",
   });
 
-  const progressFields = [
+  // Use useMemo to memoize the progressFields array
+  const progressFields = useMemo(() => [
     "profilePicture",
     "bio",
     "location",
@@ -87,7 +87,7 @@ export default function TalentProfileCompletionPage() {
     "whatIOffer",
     "socialLinks",
     "languageProficiency",
-  ];
+  ], []);
 
   const fieldLabels: { [key: string]: string } = {
     profilePicture: "Profile Picture",
@@ -129,7 +129,7 @@ export default function TalentProfileCompletionPage() {
                 data = {
                   ...data,
                   ...Object.fromEntries(
-                    Object.entries(draft).filter(([_, value]) =>
+                    Object.entries(draft).filter(([, value]) =>
                       Array.isArray(value) ? value.length > 0 : !!value
                     )
                   ),
@@ -194,7 +194,7 @@ export default function TalentProfileCompletionPage() {
     calculateCompletion();
     const subscription = form.watch(() => calculateCompletion());
     return () => subscription.unsubscribe();
-  }, [form]);
+  }, [form, progressFields]); // Added progressFields to dependencies
 
   const handleNextStep = async () => {
     const currentFields = steps[currentStep].fields;

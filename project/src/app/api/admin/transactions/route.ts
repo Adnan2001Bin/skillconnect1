@@ -3,10 +3,11 @@ import connectDB from "@/lib/connectDB";
 import OrderModel, { IOrder } from "@/models/order.model";
 import ProposalModel from "@/models/proposal.model";
 import UserModel, { IUser } from "@/models/user.model";
-import ProjectModel, { IProject } from "@/models/projects.model"; // Import Project model
+import ProjectModel, { IProject } from "@/models/projects.model";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import mongoose from "mongoose";
 
 const querySchema = z.object({
   paymentStatus: z.enum(["pending", "completed", "failed", "cancelled"]).optional(),
@@ -14,28 +15,29 @@ const querySchema = z.object({
   search: z.string().optional(),
 });
 
-interface Transaction {
-  _id: string;
-  orderId: string;
-  clientId: string;
-  talentId: string;
-  clientUserName?: string;
-  talentUserName?: string;
-  amount: number;
-  paymentStatus: "pending" | "completed" | "failed" | "cancelled";
-  createdAt: string;
-  updatedAt: string;
-  relatedTo: "order" | "project";
+
+// Define proper filter interfaces
+interface OrderFilter {
+  paymentStatus?: "pending" | "completed" | "failed" | "cancelled";
+  createdAt?: { $gte: Date };
+  $or?: Array<{ [key: string]: { $regex: string; $options: string } }>;
 }
 
-interface TransactionsResponse {
-  success: boolean;
-  data: {
-    orderTransactions: Transaction[];
-    projectTransactions: Transaction[];
-  };
-  message?: string;
-  error?: string;
+interface ProposalFilter {
+  proposalStatus: { $in: string[] };
+  createdAt?: { $gte: Date };
+}
+
+// Define interface for proposal documents
+interface LeanProposal {
+  _id: mongoose.Types.ObjectId;
+  clientId?: mongoose.Types.ObjectId;
+  talentId: mongoose.Types.ObjectId;
+  projectId?: mongoose.Types.ObjectId;
+  bid: number;
+  proposalStatus: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export async function GET(req: NextRequest) {
@@ -54,7 +56,8 @@ export async function GET(req: NextRequest) {
     const query = Object.fromEntries(searchParams);
     const validatedQuery = querySchema.parse(query);
 
-    let filter: any = {};
+    // Use proper TypeScript types instead of 'any'
+    const filter: OrderFilter = {};
 
     // Apply payment status filter
     if (validatedQuery.paymentStatus) {
@@ -71,8 +74,8 @@ export async function GET(req: NextRequest) {
     // Apply search filter (case-insensitive search on client/talent usernames or order ID)
     if (validatedQuery.search) {
       filter.$or = [
-        { "clientId": { $regex: validatedQuery.search, $options: "i" } }, // Search by clientId
-        { "talentId": { $regex: validatedQuery.search, $options: "i" } }, // Search by talentId
+        { "clientId": { $regex: validatedQuery.search, $options: "i" } },
+        { "talentId": { $regex: validatedQuery.search, $options: "i" } },
         { _id: { $regex: validatedQuery.search, $options: "i" } },
       ];
     }
@@ -80,7 +83,7 @@ export async function GET(req: NextRequest) {
     // Fetch order-related transactions
     const orders = await OrderModel.find(filter)
       .select("_id clientId talentId ratePlan paymentStatus createdAt updatedAt")
-      .lean<IOrder[]>(); // Explicitly type as array of IOrder
+      .lean<IOrder[]>();
 
     const orderTransactions = await Promise.all(
       orders.map(async (order) => {
@@ -114,8 +117,8 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    // Create a separate filter for proposals
-    let proposalFilter: any = {
+    // Create a separate filter for proposals with proper typing
+    const proposalFilter: ProposalFilter = {
       proposalStatus: { $in: ["accepted", "delivered", "revision-requested"] }
     };
 
@@ -127,10 +130,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch project-related transactions (based on accepted proposals)
-    const acceptedProposals = await ProposalModel.find(proposalFilter).lean();
+    const acceptedProposals = await ProposalModel.find(proposalFilter).lean<LeanProposal[]>();
 
     const projectTransactions = await Promise.all(
-      acceptedProposals.map(async (proposal: any) => {
+      acceptedProposals.map(async (proposal) => {
         // Get client info - first try to get from proposal.clientId
         let clientName = "Unknown";
         if (proposal.clientId) {
@@ -162,9 +165,9 @@ export async function GET(req: NextRequest) {
 
         return {
           _id: proposal._id.toString(),
-          orderId: proposal.projectId, // Use projectId as a reference
-          clientId: proposal.clientId || "unknown", // Handle missing clientId
-          talentId: proposal.talentId,
+          orderId: proposal.projectId?.toString() || "unknown", // Use projectId as a reference
+          clientId: proposal.clientId?.toString() || "unknown",
+          talentId: proposal.talentId.toString(),
           clientUserName: clientName,
           talentUserName: talentName,
           amount: proposal.bid || 0,

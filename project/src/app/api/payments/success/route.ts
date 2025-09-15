@@ -3,13 +3,6 @@ import axios from "axios";
 import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
 
-interface PaymentValidationResponse {
-  success: boolean;
-  message: string;
-  data?: any;
-  error?: string;
-}
-
 export async function POST(req: NextRequest) {
   try {
     await connectDB();

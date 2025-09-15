@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import {  NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/options";
 import connectDB from "@/lib/connectDB";
 import ProjectModel, { IProject } from "@/models/projects.model";
 import UserModel from "@/models/user.model";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     // Authenticate user session
     const session = await getServerSession(authOptions);

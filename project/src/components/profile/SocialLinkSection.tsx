@@ -1,12 +1,15 @@
 "use client";
-import { FormLabel, FormMessage } from "@/components/ui/form";
+
+import { FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link, XCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useSession } from "next-auth/react"; // Import useSession
+import { useSession } from "next-auth/react";
+import { UseFormReturn } from "react-hook-form";
+import { TalentProfileInput } from "@/schemas/profileSchema";
 
 interface SocialLink {
   platform: string;
@@ -16,17 +19,19 @@ interface SocialLink {
 interface SocialLinkSectionProps {
   socialLinks: SocialLink[];
   setSocialLinks: (links: SocialLink[]) => void;
-  form: any; // Replace with proper form type if possible
+  form: UseFormReturn<TalentProfileInput>;
 }
 
 export function SocialLinkSection({ socialLinks, setSocialLinks, form }: SocialLinkSectionProps) {
   const [newSocialLink, setNewSocialLink] = useState<SocialLink>({ platform: "", url: "" });
-  const { data: session } = useSession(); // Use useSession
+  const { data: session } = useSession();
   const isTalent = session?.user?.role === "talent";
 
   // Define colors based on role
   const labelIconColor = isTalent ? "text-[#8DBCC7]" : "text-[#4CAF50]";
-  const sectionBgBorder = isTalent ? "rounded-lg border border-[#90D1CA] p-4 bg-[#A4CCD9]/10" : "rounded-lg border border-[#1B5E20] p-4 bg-[#A5D6A7]/10";
+  const sectionBgBorder = isTalent
+    ? "rounded-lg border border-[#90D1CA] p-4 bg-[#A4CCD9]/10"
+    : "rounded-lg border border-[#1B5E20] p-4 bg-[#A5D6A7]/10";
   const inputBgBorderFocus = isTalent
     ? "bg-white border-[#90D1CA]/50 focus:ring-[#8DBCC7] focus:border-[#8DBCC7]"
     : "bg-white border-[#1B5E20]/50 focus:ring-[#4CAF50] focus:border-[#4CAF50]";
@@ -40,8 +45,9 @@ export function SocialLinkSection({ socialLinks, setSocialLinks, form }: SocialL
 
   const addSocialLink = () => {
     if (newSocialLink.platform && newSocialLink.url) {
-      setSocialLinks([...socialLinks, { ...newSocialLink }]);
-      form.setValue("socialLinks", [...socialLinks, { ...newSocialLink }]);
+      const updatedLinks = [...socialLinks, { ...newSocialLink }];
+      setSocialLinks(updatedLinks);
+      form.setValue("socialLinks", updatedLinks);
       setNewSocialLink({ platform: "", url: "" });
     } else {
       toast.error("Error", {
@@ -53,8 +59,9 @@ export function SocialLinkSection({ socialLinks, setSocialLinks, form }: SocialL
   };
 
   const removeSocialLink = (indexToRemove: number) => {
-    setSocialLinks(socialLinks.filter((_, index) => index !== indexToRemove));
-    form.setValue("socialLinks", socialLinks.filter((_, index) => index !== indexToRemove));
+    const updatedLinks = socialLinks.filter((_, index) => index !== indexToRemove);
+    setSocialLinks(updatedLinks);
+    form.setValue("socialLinks", updatedLinks);
   };
 
   return (

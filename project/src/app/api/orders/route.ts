@@ -7,38 +7,102 @@ import { authOptions } from "../auth/[...nextauth]/options";
 import { createOrderSchema } from "@/schemas/createOrderSchema";
 import { z } from "zod";
 import Stripe from "stripe";
+import { FilterQuery } from "mongoose";
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
   apiVersion: "2025-07-30.basil",
 });
 
+// Define interfaces for proper typing
+interface LeanOrder {
+  _id: string;
+  talentId: string;
+  clientId: string;
+  ratePlan: {
+    type: "Basic" | "Standard" | "Premium";
+    description: string;
+    price: number;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
+  projectDetails: {
+    title: string;
+    description: string;
+  };
+  status: string;
+  paymentStatus: string;
+  revisionStatus: string;
+  revisionCount: number;
+  deliverables?: {
+    files: string[];
+    note: string | null;
+    submittedAt: Date;
+  };
+  revisionRequest?: {
+    files: string[];
+    note: string | null;
+    requestedAt: Date;
+  };
+  review?: {
+    rating: number;
+    comment: string;
+    reviewedAt: string;
+  };
+  createdAt: Date;
+}
+
+interface LeanUser {
+  _id: string;
+  userName: string;
+}
+
+interface OrderWithUserNames {
+  _id: string;
+  talentId: string;
+  clientId: string;
+  talentUserName: string;
+  clientUserName: string;
+  ratePlan: {
+    type: "Basic" | "Standard" | "Premium";
+    description: string;
+    price: number;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
+  projectDetails: {
+    title: string;
+    description: string;
+  };
+  status: string;
+  paymentStatus: string;
+  revisionStatus: string;
+  revisionCount: number;
+  deliverables?: {
+    files: string[];
+    note: string | null;
+    submittedAt: string;
+  };
+  revisionRequest?: {
+    files: string[];
+    note: string | null;
+    requestedAt: string;
+  };
+  review?: {
+    rating: number;
+    comment: string;
+    reviewedAt: string;
+  };
+  createdAt: string;
+}
+
 // Define response type for GET
 interface OrderResponse {
   success: boolean;
   message: string;
-  data?: {
-    _id: string;
-    talentId: string;
-    clientId: string;
-    talentUserName: string;
-    clientUserName: string;
-    ratePlan: {
-      type: "Basic" | "Standard" | "Premium";
-      description: string;
-      price: number;
-      whatsIncluded: string[];
-      deliveryDays: number;
-      revisions: number;
-    };
-    projectDetails: {
-      title: string;
-      description: string;
-    };
-    status: string;
-    paymentStatus: string; // Added to response type
-    createdAt: string;
-  }[];
+  data?: OrderWithUserNames[];
   error?: string;
 }
 
@@ -56,12 +120,14 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
     const talentId = searchParams.get("talentId");
     const clientId = searchParams.get("clientId");
     const status = searchParams.get("status");
+    const revisionStatus = searchParams.get("revisionStatus");
+    const paymentStatus = searchParams.get("paymentStatus");
     const timeRange = searchParams.get("timeRange");
     const search = searchParams.get("search");
 
     await connectDB();
 
-    const query: any = {};
+    const query: FilterQuery<LeanOrder> = {};
     if (session.user.role !== "admin") {
       if (session.user.role === "user") {
         query.clientId = session.user._id;
@@ -73,6 +139,8 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
     if (talentId) query.talentId = talentId;
     if (clientId) query.clientId = clientId;
     if (status) query.status = status;
+    if (revisionStatus) query.revisionStatus = revisionStatus;
+    if (paymentStatus) query.paymentStatus = paymentStatus;
 
     if (timeRange && timeRange !== "all") {
       const now = new Date();
@@ -100,19 +168,49 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
       ];
     }
 
-    const orders = await OrderModel.find(query).lean();
+    const orders = await OrderModel.find(query).lean<LeanOrder[]>();
 
     const ordersWithUserNames = await Promise.all(
-      orders.map(async (order: any) => {
+      orders.map(async (order) => {
         const [talent, client] = await Promise.all([
-          UserModel.findById(order.talentId).select("userName").lean(),
-          UserModel.findById(order.clientId).select("userName").lean(),
+          UserModel.findById(order.talentId).select("userName").lean<LeanUser>(),
+          UserModel.findById(order.clientId).select("userName").lean<LeanUser>(),
         ]);
         return {
-          ...order,
+          _id: order._id.toString(),
+          talentId: order.talentId,
+          clientId: order.clientId,
           talentUserName: talent?.userName || "Unknown",
           clientUserName: client?.userName || "Unknown",
-        };
+          ratePlan: order.ratePlan,
+          projectDetails: order.projectDetails,
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+          revisionStatus: order.revisionStatus,
+          revisionCount: order.revisionCount,
+          deliverables: order.deliverables
+            ? {
+                files: order.deliverables.files || [],
+                note: order.deliverables.note || null,
+                submittedAt: order.deliverables.submittedAt?.toISOString() || "",
+              }
+            : undefined,
+          revisionRequest: order.revisionRequest
+            ? {
+                files: order.revisionRequest.files || [],
+                note: order.revisionRequest.note || null,
+                requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
+              }
+            : undefined,
+          review: order.review
+            ? {
+                rating: order.review.rating,
+                comment: order.review.comment || "",
+                reviewedAt: order.review.reviewedAt || "",
+              }
+            : undefined,
+          createdAt: order.createdAt.toISOString(),
+        } as OrderWithUserNames;
       })
     );
 
@@ -137,6 +235,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
   }
 }
 
+// POST handler remains unchanged
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);

@@ -6,13 +6,11 @@ import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import axios from "axios";
 import { toast } from "sonner";
 import { UploadDropzone } from "@uploadthing/react";
-import { type OurFileRouter } from "@/app/api/uploadthing/core/route";
+import { OurFileRouter } from "@/lib/uploadthing";
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
@@ -27,14 +25,12 @@ import {
   ChevronLeft,
   ChevronRight,
   DollarSign,
-  FileText,
   MessageSquareText,
   Paperclip,
   XCircle,
   FileUp,
   AlertCircle,
 } from "lucide-react";
-import { Images } from "@/lib/images";
 import { Button } from "@/components/ui/button";
 
 const proposalSchema = z.object({
@@ -52,8 +48,7 @@ interface ProposalFormProps {
 }
 
 export default function ProposalForm({ projectId, onCancel, onSuccess }: ProposalFormProps) {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  const { data: session } = useSession();
   const [isUploading, setIsUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [files, setFiles] = useState<string[]>([]);

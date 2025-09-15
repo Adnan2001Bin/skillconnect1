@@ -11,11 +11,10 @@ import { sendDeletionEmail } from "@/emails/DeletionEmail";
 interface Response {
   success: boolean;
   message: string;
-  data?: any;
   error?: string;
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse<Response>> {
+export async function GET(): Promise<NextResponse<Response>> {
   try {
     // Authenticate user session
     const session = await getServerSession(authOptions);

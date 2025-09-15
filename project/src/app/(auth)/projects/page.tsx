@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import axios from "axios";
 import { Loader2, Filter, Search, ScanSearch, DollarSign } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
@@ -32,7 +31,6 @@ const statusOptions = [
 
 export default function ProjectListingPage() {
   const { status: authStatus } = useSession();
-  const router = useRouter();
   const [projects, setProjects] = useState<IProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,10 +53,12 @@ export default function ProjectListingPage() {
         if (response.status !== 200)
           throw new Error("Failed to fetch projects");
 
-        const projectsData = (response.data.data || []).map((project: any) => ({
-          ...project,
-          _id: project._id.toString(),
-        })) as IProject[];
+        const projectsData = (response.data.data || []).map(
+          (project: IProject) => ({
+            ...project,
+            _id: project._id.toString(),
+          })
+        ) as IProject[];
         setProjects(projectsData);
       } catch (err) {
         setError("Failed to load projects. Please try again later.");
@@ -251,7 +251,7 @@ export default function ProjectListingPage() {
                 No Projects Found
               </h3>
               <p className="mt-2 text-md text-gray-500">
-                We couldn't find any projects matching your criteria.
+                We couldn&apos;t find any projects matching your criteria.
               </p>
             </div>
           ) : (

@@ -19,7 +19,7 @@ interface ProfileResponse {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> } // Change this line
 ): Promise<NextResponse<ProfileResponse>> {
   const session = await getServerSession(authOptions);
   if (!session || !["admin", "talent"].includes(session.user.role)) {
@@ -32,7 +32,10 @@ export async function GET(
   await connectDB();
 
   try {
+    // Await the params first
+    const params = await context.params;
     const { id } = params;
+    
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, message: "Invalid user ID" },

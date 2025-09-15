@@ -11,7 +11,8 @@ import { io } from "socket.io-client";
 import { sendDeliverablesSubmittedEmail } from "@/emails/DeliverablesSubmittedEmail";
 import projectsModel from "@/models/projects.model";
 
-export const deliverProposalSchema = z.object({
+// REMOVE THE EXPORT KEYWORD - make this a local constant
+const deliverProposalSchema = z.object({
   files: z.array(z.string().url()).optional().default([]),
   note: z.string().max(1000).optional(),
 });
@@ -98,18 +99,18 @@ export async function POST(
       );
     }
 
-    // const emailResponse = await sendDeliverablesSubmittedEmail({
-    //   email: client.email,
-    //   userName: client.userName,
-    //   projectTitle: project.title,
-    //   orderId: proposal._id.toString(),
-    //   note: validatedData.note,
-    //   fileCount: validatedData.files?.length || 0,
-    // });
+    const emailResponse = await sendDeliverablesSubmittedEmail({
+      email: client.email,
+      userName: client.userName,
+      projectTitle: project.title,
+      orderId: proposal._id.toString(),
+      note: validatedData.note,
+      fileCount: validatedData.files?.length || 0,
+    });
 
-    // if (!emailResponse.success) {
-    //   console.error("Failed to send deliverables email:", emailResponse.message);
-    // }
+    if (!emailResponse.success) {
+      console.error("Failed to send deliverables email:", emailResponse.message);
+    }
 
     const notificationMessage = `Deliverables ${proposal.proposalStatus === "revision-requested" ? "resubmitted" : "submitted"} for proposal on project: ${project.title}`;
     const notification = new NotificationModel({

@@ -1,17 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { Loader2, Briefcase, CalendarDays, DollarSign, FileText, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import Loader from "@/components/Loader";
 import { io } from "socket.io-client";
-import Image from "next/image";
 import { Images } from "@/lib/images";
 
 interface Order {
@@ -77,7 +75,7 @@ interface Transaction {
   currency: string;
   status: "pending" | "completed" | "failed" | "cancelled";
   createdAt: string;
-  relatedTo: "order" | "project"; // Added to distinguish payment type
+  relatedTo: "order" | "project";
 }
 
 interface DashboardData {
@@ -146,7 +144,87 @@ export default function TalentDashboardPage() {
     border: "#90D1CA30",
   };
 
-  // Initialize Socket.IO
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [orderResponse, projectResponse, proposalResponse, paymentResponse] = await Promise.all([
+        axios.get("/api/talent/dashboard"),
+        axios.get("/api/talent/projects"),
+        axios.get("/api/proposals", { params: { talentId: session?.user?._id } }),
+        axios.get("/api/talent/payments"),
+      ]);
+
+      if (!orderResponse.data.success || !projectResponse.data.success || !proposalResponse.data.success || !paymentResponse.data.success) {
+        throw new Error("Failed to fetch dashboard data");
+      }
+
+      const orderData = orderResponse.data.data;
+      const projectData = projectResponse.data.data;
+      const proposalData = proposalResponse.data.data;
+      const paymentData = paymentResponse.data.data;
+
+      const acceptedProposalIds = proposalData
+        .filter((p: Proposal) => ["accepted", "delivered", "revision-requested"].includes(p.proposalStatus))
+        .map((p: Proposal) => p.projectId);
+
+      const relevantProjects = projectData.filter((p: Project) => acceptedProposalIds.includes(p._id));
+
+      const orderTransactions = paymentData.filter((t: Transaction) => t.relatedTo === "order");
+      const orderEarnings = orderTransactions
+        .filter((t: Transaction) => t.status === "completed")
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
+      const orderPendingPayments = orderTransactions
+        .filter((t: Transaction) => t.status === "pending")
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
+      const recentOrderTransactions = orderTransactions.slice(0, 5);
+
+      const projectTransactions = paymentData.filter((t: Transaction) => t.relatedTo === "project");
+      const projectEarnings = projectTransactions
+        .filter((t: Transaction) => t.status === "completed")
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
+      const projectPendingPayments = projectTransactions
+        .filter((t: Transaction) => t.status === "pending")
+        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
+      const recentProjectTransactions = projectTransactions.slice(0, 5);
+
+      setDashboardData({
+        totalOrders: orderData.totalOrders,
+        pendingOrders: orderData.pendingOrders,
+        inProgressOrders: orderData.inProgressOrders,
+        completedOrders: orderData.completedOrders,
+        recentOrders: orderData.recentOrders,
+        totalProjects: relevantProjects.length,
+        openProjects: relevantProjects.filter((p: Project) => p.status === "open").length,
+        inProgressProjects: relevantProjects.filter((p: Project) => p.status === "in-progress").length,
+        completedProjects: relevantProjects.filter((p: Project) => p.status === "completed").length,
+        recentProjects: relevantProjects.slice(0, 5),
+        totalProposals: proposalData.length,
+        pendingProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "pending").length,
+        acceptedProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "accepted").length,
+        deliveredProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "delivered").length,
+        recentProposals: proposalData.slice(0, 5),
+        totalEarnings: orderEarnings + projectEarnings,
+        pendingPayments: orderPendingPayments + projectPendingPayments,
+        projectEarnings,
+        projectPendingPayments,
+        orderEarnings,
+        orderPendingPayments,
+        recentProjectTransactions,
+        recentOrderTransactions,
+      });
+    } catch (err) {
+      setError("Failed to load dashboard data. Please try again later.");
+      console.error("Error fetching dashboard data:", err);
+      toast.error("Error", {
+        description: "Failed to load dashboard data. Please try again.",
+        className: "bg-red-700 text-white border-red-800 bg-opacity-80",
+        duration: 4000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.user?._id]);
+
   useEffect(() => {
     if (!session?.user?._id || session?.user?.role !== "talent") return;
 
@@ -237,97 +315,13 @@ export default function TalentDashboardPage() {
     return () => {
       socket.disconnect();
     };
-  }, [session?.user?._id, session?.user?.role, router]);
-
-  // Fetch dashboard data
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const [orderResponse, projectResponse, proposalResponse, paymentResponse] = await Promise.all([
-        axios.get("/api/talent/dashboard"),
-        axios.get("/api/talent/projects"),
-        axios.get("/api/proposals", { params: { talentId: session?.user?._id } }),
-        axios.get("/api/talent/payments"),
-      ]);
-
-      if (!orderResponse.data.success || !projectResponse.data.success || !proposalResponse.data.success || !paymentResponse.data.success) {
-        throw new Error("Failed to fetch dashboard data");
-      }
-
-      const orderData = orderResponse.data.data;
-      const projectData = projectResponse.data.data;
-      const proposalData = proposalResponse.data.data;
-      const paymentData = paymentResponse.data.data;
-
-      const acceptedProposalIds = proposalData
-        .filter((p: Proposal) => ["accepted", "delivered", "revision-requested"].includes(p.proposalStatus))
-        .map((p: Proposal) => p.projectId);
-
-      const relevantProjects = projectData.filter((p: Project) => acceptedProposalIds.includes(p._id));
-
-      // Calculate order-related payments
-      const orderTransactions = paymentData.filter((t: Transaction) => t.relatedTo === "order");
-      const orderEarnings = orderTransactions
-        .filter((t: Transaction) => t.status === "completed")
-        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
-      const orderPendingPayments = orderTransactions
-        .filter((t: Transaction) => t.status === "pending")
-        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
-      const recentOrderTransactions = orderTransactions.slice(0, 5);
-
-      // Calculate project-related payments
-      const projectTransactions = paymentData.filter((t: Transaction) => t.relatedTo === "project");
-      const projectEarnings = projectTransactions
-        .filter((t: Transaction) => t.status === "completed")
-        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
-      const projectPendingPayments = projectTransactions
-        .filter((t: Transaction) => t.status === "pending")
-        .reduce((sum: number, t: { amount: number }) => sum + t.amount, 0);
-      const recentProjectTransactions = projectTransactions.slice(0, 5);
-
-      setDashboardData({
-        totalOrders: orderData.totalOrders,
-        pendingOrders: orderData.pendingOrders,
-        inProgressOrders: orderData.inProgressOrders,
-        completedOrders: orderData.completedOrders,
-        recentOrders: orderData.recentOrders,
-        totalProjects: relevantProjects.length,
-        openProjects: relevantProjects.filter((p: Project) => p.status === "open").length,
-        inProgressProjects: relevantProjects.filter((p: Project) => p.status === "in-progress").length,
-        completedProjects: relevantProjects.filter((p: Project) => p.status === "completed").length,
-        recentProjects: relevantProjects.slice(0, 5),
-        totalProposals: proposalData.length,
-        pendingProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "pending").length,
-        acceptedProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "accepted").length,
-        deliveredProposals: proposalData.filter((p: Proposal) => p.proposalStatus === "delivered").length,
-        recentProposals: proposalData.slice(0, 5),
-        totalEarnings: orderEarnings + projectEarnings, // Combined total
-        pendingPayments: orderPendingPayments + projectPendingPayments, // Combined pending
-        projectEarnings,
-        projectPendingPayments,
-        orderEarnings,
-        orderPendingPayments,
-        recentProjectTransactions,
-        recentOrderTransactions,
-      });
-    } catch (err) {
-      setError("Failed to load dashboard data. Please try again later.");
-      console.error("Error fetching dashboard data:", err);
-      toast.error("Error", {
-        description: "Failed to load dashboard data. Please try again.",
-        className: "bg-red-700 text-white border-red-800 bg-opacity-80",
-        duration: 4000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [session?.user?._id, session?.user?.role, router, fetchDashboardData]);
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "talent") {
       fetchDashboardData();
     }
-  }, [status, session]);
+  }, [status, session, fetchDashboardData]); // Fixed: Added fetchDashboardData to dependency array
 
   if (status === "loading" || loading) {
     return (

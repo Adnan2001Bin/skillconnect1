@@ -182,6 +182,8 @@ export default function SignInPage() {
         }
       }, 2000);
     } catch (error) {
+      console.log(error);
+
       toast.error("Error", {
         description:
           "Failed to check profile status. Redirecting to profile completion.",
@@ -251,6 +253,8 @@ export default function SignInPage() {
             : "/talent/complete/profile"
         );
       } catch (error) {
+        console.log(error);
+        
         router.replace(
           session?.user?.role === "admin"
             ? "/admin/dashboard"

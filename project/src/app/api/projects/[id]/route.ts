@@ -39,10 +39,12 @@ const updateProjectSchema = z.object({
     .optional(),
 });
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+// Correct interface for Next.js App Router
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
   try {
     await connectDB();
     const session = await getServerSession(authOptions);
@@ -53,7 +55,10 @@ export async function GET(
       );
     }
 
+    // Extract projectId from params (await the Promise)
+    const params = await context.params;
     const projectId = params.id;
+    
     const project = await ProjectModel.findById(projectId).lean<IProject>();
     if (!project) {
       return NextResponse.json(
@@ -83,7 +88,7 @@ export async function GET(
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, context: RouteContext) {
   try {
     // 1. Authenticate user session
     const session = await getServerSession(authOptions);
@@ -94,8 +99,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       );
     }
 
-    // 2. Extract projectId from params
+    // 2. Extract projectId from params (await the Promise)
+    const params = await context.params;
     const projectId = params.id;
+    
     if (!projectId) {
       return NextResponse.json(
         { success: false, message: "Project ID is required" },
@@ -104,7 +111,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 
     // 3. Parse and validate request body
-    const body = await req.json();
+    const body = await request.json();
     const validatedData = updateProjectSchema.parse(body);
 
     // 4. Connect to the database
@@ -243,7 +250,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "admin") {
@@ -253,7 +260,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       );
     }
 
+    // Extract projectId from params (await the Promise)
+    const params = await context.params;
     const projectId = params.id;
+    
     if (!projectId) {
       return NextResponse.json(
         { success: false, message: "Project ID is required" },

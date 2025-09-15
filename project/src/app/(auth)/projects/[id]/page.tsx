@@ -1,18 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import {
   Loader2,
-  Briefcase,
   CalendarDays,
   DollarSign,
   Clock,
   FileText,
-  Tag,
-  UserCircle,
   PackageCheck,
   CalendarCheck,
   MessageSquareText,
@@ -33,18 +30,29 @@ import ProjectActions from "@/components/userView/ProjectActions";
 import { io } from "socket.io-client";
 import Loader from "@/components/Loader";
 
-// Define interface for project files
+// Define interfaces for a clearer data model
 interface ProjectFile {
   url: string;
   name?: string;
 }
 
-// Define interface for deliverables
 interface Deliverable {
   files: string[];
   note: string | null;
   submittedAt: string | null;
   proposalStatus?: string;
+  revisionCount?: number;
+  revisionNote?: string | null;
+}
+
+interface ProposalData {
+  _id: string;
+  proposalStatus: "pending" | "accepted" | "rejected" | "delivered" | "revision-requested";
+  deliverables?: {
+    files: string[];
+    note?: string | null;
+    submittedAt?: string;
+  };
   revisionCount?: number;
   revisionNote?: string | null;
 }
@@ -107,11 +115,55 @@ export default function ProjectDetailsPage() {
     errorRed: "#EF4444",
   };
 
-  // Initialize Socket.IO and fetch data on component mount
+  // useCallback to memoize the fetch function and avoid re-creating it on every render
+  const fetchProjectAndDeliverables = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [projectResponse, proposalResponse] = await Promise.all([
+        axios.get(`/api/projects/${id}`),
+        axios.get(`/api/projects/${id}/proposals`),
+      ]);
+
+      if (projectResponse.status !== 200) {
+        throw new Error("Failed to fetch project");
+      }
+      const projectData = projectResponse.data.data;
+      setProject(projectData);
+
+      if (proposalResponse.status === 200) {
+        const relevantProposal = proposalResponse.data.data.find(
+          (proposal: ProposalData) =>
+            proposal.proposalStatus === "delivered" ||
+            proposal.proposalStatus === "accepted" ||
+            proposal.proposalStatus === "revision-requested"
+        );
+        if (relevantProposal) {
+          setDeliverables({
+            files: relevantProposal.deliverables?.files || [],
+            note: relevantProposal.deliverables?.note || null,
+            submittedAt: relevantProposal.deliverables?.submittedAt || null,
+            proposalStatus: relevantProposal.proposalStatus || "unknown",
+            revisionCount: relevantProposal.revisionCount || 0,
+            revisionNote: relevantProposal.revisionNote || null,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      setError("Failed to load project details. Please try again later.");
+      toast.error("Error", {
+        description: "Failed to load project details.",
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+        duration: 4000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     if (!id) return;
     if (authStatus === "loading") return;
-
     if (authStatus === "unauthenticated") {
       router.replace("/sign-in");
       return;
@@ -138,9 +190,7 @@ export default function ProjectDetailsPage() {
         projectStatus: string;
       }) => {
         if (data.projectId === id) {
-          setProject((prev) =>
-            prev ? ({ ...prev, status: data.projectStatus } as IProject) : null
-          );
+          fetchProjectAndDeliverables();
           toast.success("Project Status Updated", {
             description: `The project has been marked as ${data.projectStatus}.`,
             className: "bg-green-600 text-white border-green-700 bg-opacity-80",
@@ -217,57 +267,12 @@ export default function ProjectDetailsPage() {
       console.log("Disconnected from Socket.IO server");
     });
 
-    const fetchProjectAndDeliverables = async () => {
-      try {
-        setLoading(true);
-        const [projectResponse, proposalResponse] = await Promise.all([
-          axios.get(`/api/projects/${id}`),
-          axios.get(`/api/projects/${id}/proposals`),
-        ]);
-
-        if (projectResponse.status !== 200) {
-          throw new Error("Failed to fetch project");
-        }
-        const projectData = projectResponse.data.data;
-        setProject(projectData);
-
-        if (proposalResponse.status === 200) {
-          const relevantProposal = proposalResponse.data.data.find(
-            (proposal: any) =>
-              proposal.proposalStatus === "delivered" ||
-              proposal.proposalStatus === "accepted" ||
-              proposal.proposalStatus === "revision-requested"
-          );
-          if (relevantProposal) {
-            setDeliverables({
-              files: relevantProposal.deliverables?.files || [],
-              note: relevantProposal.deliverables?.note || null,
-              submittedAt: relevantProposal.deliverables?.submittedAt || null,
-              proposalStatus: relevantProposal.proposalStatus || "unknown",
-              revisionCount: relevantProposal.revisionCount || 0,
-              revisionNote: relevantProposal.revisionNote || null,
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching data:", err);
-        setError("Failed to load project details. Please try again later.");
-        toast.error("Error", {
-          description: "Failed to load project details.",
-          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
-          duration: 4000,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProjectAndDeliverables();
 
     return () => {
       socket.disconnect();
     };
-  }, [id, authStatus, router, session?.user?._id]);
+  }, [id, authStatus, router, session?.user?._id, fetchProjectAndDeliverables]);
 
   // Handle file download
   const handleFileDownload = (file: ProjectFile | string) => {
@@ -276,6 +281,7 @@ export default function ProjectDetailsPage() {
       if (!url) throw new Error("Invalid file URL");
       window.open(url, "_blank");
     } catch (err) {
+      console.log(err);
       toast.error("Failed to open file. The URL may be invalid.");
     }
   };
@@ -342,7 +348,7 @@ export default function ProjectDetailsPage() {
       setIsInitiatingPayment(true);
       const proposalResponse = await axios.get(`/api/projects/${id}/proposals`);
       const acceptedProposal = proposalResponse.data.data.find(
-        (proposal: any) => proposal.proposalStatus === "accepted"
+        (proposal: ProposalData) => proposal.proposalStatus === "accepted"
       );
 
       if (!acceptedProposal) {
@@ -382,7 +388,7 @@ export default function ProjectDetailsPage() {
       setIsRequestingRevision(true);
       const proposalResponse = await axios.get(`/api/projects/${id}/proposals`);
       const relevantProposal = proposalResponse.data.data.find(
-        (proposal: any) =>
+        (proposal: ProposalData) =>
           proposal.proposalStatus === "delivered" ||
           proposal.proposalStatus === "revision-requested"
       );
@@ -419,6 +425,7 @@ export default function ProjectDetailsPage() {
         throw new Error(response.data.message || "Failed to request revision");
       }
     } catch (error) {
+      console.log(error);
       toast.error("Failed to request revision. Please try again.");
     } finally {
       setIsRequestingRevision(false);
@@ -781,7 +788,7 @@ export default function ProjectDetailsPage() {
                   {project.review?.comment && (
                     <div>
                       <p className="text-white text-sm italic">
-                        "{project.review.comment}"
+                        {`"${project.review.comment}"`}
                       </p>
                     </div>
                   )}

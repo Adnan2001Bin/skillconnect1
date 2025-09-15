@@ -218,6 +218,8 @@ export default function Notifications({
 
   const unreadCount = notifications.filter((notif) => !notif.read).length;
 
+  console.log(socket);
+  
   if (status !== "authenticated") {
     return null;
   }

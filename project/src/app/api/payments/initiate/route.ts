@@ -7,13 +7,6 @@ import OrderModel from "@/models/order.model";
 import { createOrderSchema } from "@/schemas/createOrderSchema";
 import { z } from "zod";
 
-interface PaymentResponse {
-  success: boolean;
-  message: string;
-  gatewayPageURL?: string;
-  orderId?: string;
-  error?: string;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,17 +39,17 @@ export async function POST(req: NextRequest) {
 
     // Prepare SSLCommerz payment data
     const paymentData = {
-      store_id: process.env.NEXT_PUBLIC_SSL_COMMERZ_STORE_ID,
-      store_passwd: process.env.SSL_COMMERZ_STORE_PASSWORD,
-      total_amount: validatedData.ratePlan.price,
+      store_id: process.env.NEXT_PUBLIC_SSL_COMMERZ_STORE_ID ?? '',
+      store_passwd: process.env.SSL_COMMERZ_STORE_PASSWORD ?? '',
+      total_amount: validatedData.ratePlan.price.toString(), // Convert number to string
       currency: "BDT", // Adjust based on your requirements
       tran_id: order._id.toString(), // Use order ID as transaction ID
-      success_url: process.env.NEXT_PUBLIC_SUCCESS_URL,
-      fail_url: process.env.NEXT_PUBLIC_FAIL_URL,
-      cancel_url: process.env.NEXT_PUBLIC_CANCEL_URL,
-      ipn_url: process.env.NEXT_PUBLIC_SUCCESS_URL, // Optional: for instant payment notification
-      cus_name: session.user.userName,
-      cus_email: session.user.email,
+      success_url: process.env.NEXT_PUBLIC_SUCCESS_URL ?? '',
+      fail_url: process.env.NEXT_PUBLIC_FAIL_URL ?? '',
+      cancel_url: process.env.NEXT_PUBLIC_CANCEL_URL ?? '',
+      ipn_url: process.env.NEXT_PUBLIC_SUCCESS_URL ?? '', // Optional: for instant payment notification
+      cus_name: session.user.userName || "N/A",
+      cus_email: session.user.email || "N/A",
       cus_add1: "N/A",
       cus_city: "N/A",
       cus_country: "Bangladesh", // Adjust as needed
@@ -70,7 +63,7 @@ export async function POST(req: NextRequest) {
     // Initiate payment with SSLCommerz
     const response = await axios.post(
       process.env.NEXT_PUBLIC_SSL_COMMERZ_SANDBOX_URL!,
-      new URLSearchParams(paymentData as any).toString(),
+      new URLSearchParams(paymentData).toString(),
       {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       }

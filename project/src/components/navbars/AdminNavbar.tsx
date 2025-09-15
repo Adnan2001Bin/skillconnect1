@@ -1,9 +1,7 @@
 "use client";
 
-import { Images } from "@/lib/images";
 import { Search, Menu } from "lucide-react";
-import Image from "next/image";
-import React, { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 
 function AdminNavbar({ toggleSidebar }: { toggleSidebar: () => void }) {

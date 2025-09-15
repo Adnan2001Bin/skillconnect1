@@ -62,6 +62,32 @@ export default function ClientOrdersPage() {
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Corrected useRef initialization with a null initial value.
+  const checkDeadlinesRef = useRef<(() => Promise<void>) | null>(null);
+
+  const getDeadlineInfo = useCallback((order: Order) => {
+    let deadline = null;
+    let daysLeft = 0;
+    let hoursLeft = 0;
+
+    if (order.status === "delivered" && order.deliverables?.submittedAt) {
+      const deliveredAt = new Date(order.deliverables.submittedAt);
+      deadline = new Date(deliveredAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
+    } else if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
+      const requestedAt = new Date(order.revisionRequest.requestedAt);
+      deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
+    }
+
+    if (deadline) {
+      const now = new Date();
+      const timeLeft = Math.max(0, deadline.getTime() - now.getTime());
+      daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+      hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    }
+
+    return { deadline, daysLeft, hoursLeft };
+  }, []);
+
   const fetchOrders = useCallback(async () => {
     if (status === "authenticated" && session?.user?.role === "user") {
       setIsLoading(true);
@@ -80,6 +106,7 @@ export default function ClientOrdersPage() {
           toast.error("Failed to fetch orders.");
         }
       } catch (error) {
+        console.error("An error occurred while fetching your orders.", error);
         toast.error("An error occurred while fetching your orders.");
       } finally {
         setIsLoading(false);
@@ -87,20 +114,81 @@ export default function ClientOrdersPage() {
     }
   }, [session, status, statusFilter, revisionStatusFilter, paymentStatusFilter]);
 
+  const handleAutoCompletePayment = useCallback(async (orderId: string) => {
+    try {
+      const res = await axios.patch(`/api/orders/${orderId}/status`, {
+        paymentStatus: "completed",
+      });
+      if (res.data.success) {
+        toast.success("Payment auto-completed due to expired delivery deadline.");
+        fetchOrders();
+      }
+    } catch (error) {
+      console.error("Failed to auto-complete payment.", error);
+      toast.error("Failed to auto-complete payment.");
+    }
+  }, [fetchOrders]);
+
+  const handleAutoRefundPayment = useCallback(async (orderId: string) => {
+    try {
+      const res = await axios.patch(`/api/orders/${orderId}/status`, {
+        paymentStatus: "cancelled",
+      });
+      if (res.data.success) {
+        toast.success("Payment auto-refunded due to expired revision deadline.");
+        fetchOrders();
+      }
+    } catch (error) {
+      console.error("Failed to auto-refund payment.", error);
+      toast.error("Failed to auto-refund payment.");
+    }
+  }, [fetchOrders]);
+
+  const checkDeadlines = useCallback(async () => {
+    for (const order of orders) {
+      const deadlineInfo = getDeadlineInfo(order);
+      if (
+        deadlineInfo.deadline &&
+        deadlineInfo.daysLeft === 0 &&
+        deadlineInfo.hoursLeft === 0
+      ) {
+        if (order.status === "delivered" && order.paymentStatus !== "completed") {
+          await handleAutoCompletePayment(order._id);
+        } else if (
+          order.revisionStatus === "requested" &&
+          order.paymentStatus === "completed"
+        ) {
+          await handleAutoRefundPayment(order._id);
+        }
+      }
+    }
+  }, [orders, getDeadlineInfo, handleAutoCompletePayment, handleAutoRefundPayment]);
+
+  // Use a second useEffect to update the ref, ensuring it always holds the latest function
   useEffect(() => {
-    if (status === "authenticated") {
+    checkDeadlinesRef.current = checkDeadlines;
+  }, [checkDeadlines]);
+
+  // Main useEffect to handle initial fetch and set up interval
+  useEffect(() => {
+    if (status === "authenticated" && session?.user?.role === "user") {
       fetchOrders();
     } else if (status === "unauthenticated") {
       router.replace("/sign-in");
     }
 
-    // Start interval to check deadlines every minute
-    intervalRef.current = setInterval(checkDeadlines, 60000); // Check every minute
+    // Set up the interval to check deadlines
+    intervalRef.current = setInterval(() => {
+      // Access the function from the ref to avoid the stale closure issue
+      if (checkDeadlinesRef.current) {
+        checkDeadlinesRef.current();
+      }
+    }, 60000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [status, router, fetchOrders]);
+  }, [status, router, fetchOrders, session]);
 
   const handleOrderUpdate = () => {
     setSelectedOrder(null);
@@ -151,79 +239,20 @@ export default function ClientOrdersPage() {
     }
   };
 
-  const getDeadlineInfo = (order: Order) => {
-    let deadline = null;
-    let daysLeft = 0;
-    let hoursLeft = 0;
-
-    // Timer for "delivered" project status
-    if (order.status === "delivered" && order.deliverables?.submittedAt) {
-      const deliveredAt = new Date(order.deliverables.submittedAt);
-      deadline = new Date(deliveredAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
-    }
-    // Timer for "requested" revision status
-    else if (order.revisionStatus === "requested" && order.revisionRequest?.requestedAt) {
-      const requestedAt = new Date(order.revisionRequest.requestedAt);
-      deadline = new Date(requestedAt.getTime() + 3 * 24 * 60 * 60 * 1000); // 3 days timer
-    }
-
-    if (deadline) {
-      const now = new Date();
-      const timeLeft = Math.max(0, deadline.getTime() - now.getTime());
-      daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-      hoursLeft = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    }
-
-    return { deadline, daysLeft, hoursLeft };
-  };
-
-  const checkDeadlines = async () => {
-    const updatedOrders = orders.map(order => {
-      const deadlineInfo = getDeadlineInfo(order);
-      if (deadlineInfo && deadlineInfo.deadline && deadlineInfo.daysLeft === 0 && deadlineInfo.hoursLeft === 0) {
-        if (order.status === "delivered" && order.paymentStatus !== "completed") {
-          handleAutoCompletePayment(order._id);
-        } else if (order.revisionStatus === "requested" && order.paymentStatus === "completed") {
-          handleAutoRefundPayment(order._id);
-        }
-      }
-      return order;
-    });
-    setOrders(updatedOrders);
-  };
-
-  const handleAutoCompletePayment = async (orderId: string) => {
-    try {
-      const res = await axios.patch(`/api/orders/${orderId}/status`, {
-        paymentStatus: "completed",
-      });
-      if (res.data.success) {
-        toast.success("Payment auto-completed due to expired delivery deadline.");
-        fetchOrders();
-      }
-    } catch (error) {
-      toast.error("Failed to auto-complete payment.");
-    }
-  };
-
-  const handleAutoRefundPayment = async (orderId: string) => {
-    try {
-      const res = await axios.patch(`/api/orders/${orderId}/status`, {
-        paymentStatus: "cancelled",
-      });
-      if (res.data.success) {
-        toast.success("Payment auto-refunded due to expired revision deadline.");
-        fetchOrders();
-      }
-    } catch (error) {
-      toast.error("Failed to auto-refund payment.");
-    }
-  };
-
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
         <Loader text="Loading your orders..." color="#000000" bgColor="#90D1CA" />
+      </div>
+    );
+  }
+
+  if (status !== "authenticated" || session?.user?.role !== "user") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: colors.primary }}>
+        <p className="text-red-400 text-base font-semibold">
+          Access denied. Please sign in as a client to view your orders.
+        </p>
       </div>
     );
   }
@@ -298,7 +327,7 @@ export default function ClientOrdersPage() {
           {orders.length === 0 ? (
             <div className="bg-transparent rounded-lg shadow-md shadow-[#16423C] p-6 border text-center" style={{ borderColor: colors.inputBorderColor }}>
               <p className="text-lg" style={{ color: colors.neutralTextColor }}>
-                No matching orders found.
+                {`You haven't submitted any orders yet.`}
               </p>
             </div>
           ) : (

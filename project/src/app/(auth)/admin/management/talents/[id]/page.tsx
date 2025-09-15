@@ -22,15 +22,6 @@ interface Talent extends TalentProfileInput {
   isVerified: boolean;
 }
 
-// Define RatePlan type to match talentProfileSchema
-interface RatePlan {
-  type: "Basic" | "Standard" | "Premium";
-  description: string;
-  price: number;
-  whatsIncluded: string[];
-  deliveryDays: number;
-  revisions: number; // Added revisions field
-}
 
 // Define color scheme consistent with AdminSidebar and AdminLayout
 const primaryDarkGray = "#2D3748";

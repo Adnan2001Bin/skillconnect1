@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import connectDB from "@/lib/connectDB";
-import OrderModel from "@/models/order.model";
-import ProposalModel from "@/models/proposal.model";
+import OrderModel from "@/models/order.model"; // Import IOrder
+import ProposalModel  from "@/models/proposal.model"; // Import IProposal if you have it
 import UserModel from "@/models/user.model";
 import ProjectModel from "@/models/projects.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
+import mongoose from "mongoose";
 
 interface TransactionResponse {
   success: boolean;
@@ -23,7 +24,32 @@ interface TransactionResponse {
   error?: string;
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse<TransactionResponse>> {
+// Create interfaces for the lean documents
+interface LeanOrder {
+  _id: mongoose.Types.ObjectId;
+  talentId: string;
+  clientId: string;
+  ratePlan: {
+    price: number;
+  };
+  paymentStatus?: "pending" | "completed" | "failed" | "cancelled";
+  createdAt: Date;
+}
+
+interface LeanProposal {
+  _id: mongoose.Types.ObjectId;
+  talentId: string;
+  proposalStatus: string;
+  bid: number;
+  updatedAt: Date;
+  projectId?: {
+    clientId: mongoose.Types.ObjectId;
+    paymentStatus?: "pending" | "completed" | "failed" | "cancelled";
+    _id: mongoose.Types.ObjectId;
+  };
+}
+
+export async function GET(): Promise<NextResponse<TransactionResponse>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "talent") {
@@ -36,16 +62,16 @@ export async function GET(req: NextRequest): Promise<NextResponse<TransactionRes
     await connectDB();
 
     // Fetch order-related transactions
-    const orders = await OrderModel.find({ talentId: session.user._id }).lean();
+    const orders = await OrderModel.find({ talentId: session.user._id }).lean<LeanOrder[]>();
     const orderTransactions = await Promise.all(
-      orders.map(async (order: any) => {
+      orders.map(async (order: LeanOrder) => { // Use LeanOrder instead of any
         const client = await UserModel.findById(order.clientId).select("userName").lean();
         return {
           _id: order._id.toString(),
           orderId: order._id.toString(),
           amount: order.ratePlan.price,
           currency: "USD",
-          status: order.paymentStatus as "pending" | "completed" | "failed" | "cancelled" || "pending",
+          status: order.paymentStatus || "pending",
           createdAt: order.createdAt.toISOString(),
           clientName: client?.userName || "Unknown",
           relatedTo: "order" as const,
@@ -63,10 +89,10 @@ export async function GET(req: NextRequest): Promise<NextResponse<TransactionRes
         select: "clientId title paymentStatus",
         model: ProjectModel,
       })
-      .lean();
+      .lean<LeanProposal[]>();
 
     const projectTransactions = await Promise.all(
-      acceptedProposals.map(async (proposal: any) => {
+      acceptedProposals.map(async (proposal: LeanProposal) => { // Use LeanProposal instead of any
         // Get client info from the project
         let clientName = "Unknown";
         let status: "pending" | "completed" | "failed" | "cancelled" = "pending";

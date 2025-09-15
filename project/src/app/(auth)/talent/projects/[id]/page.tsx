@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
 import {
-  Loader2,
   Briefcase,
   CalendarDays,
   DollarSign,
@@ -36,6 +35,7 @@ import DeliverableForm from "@/components/talent/DeliverableForm";
 import Loader from "@/components/Loader";
 import { io } from "socket.io-client";
 
+// Define interfaces for better type safety
 interface ProjectFile {
   url: string;
   name?: string;
@@ -111,6 +111,61 @@ export default function TalentProjectDetailsPage() {
     iconColor: "#8DBCC7",
     border: "#90D1CA30",
   };
+
+  // useCallback memoizes the function to prevent it from being recreated on every render.
+  const fetchProjectAndProposal = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      const projectResponse = await axios.get(`/api/talent/projects/${id}`);
+      if (projectResponse.status !== 200) {
+        throw new Error("Failed to fetch project");
+      }
+      const projectData = projectResponse.data.data;
+      if (projectData.status === "completed") {
+        setProposalStatus((prev) => ({
+          ...prev,
+          paymentStatus: "completed",
+        }));
+      }
+      setProject(projectData);
+
+      if (session?.user?._id) {
+        try {
+          const proposalResponse = await axios.get(`/api/proposals/check`, {
+            params: { projectId: id, talentId: session.user._id },
+          });
+          setProposalStatus({
+            hasApplied: proposalResponse.data.hasApplied || false,
+            status: proposalResponse.data.status,
+            proposalId: proposalResponse.data.proposalId,
+            revisionCount: proposalResponse.data.revisionCount || 0,
+            revisionNote: proposalResponse.data.revisionNote || null,
+            paymentStatus: proposalResponse.data.status === "completed" ? "completed" : proposalResponse.data.paymentStatus || "pending",
+          });
+        } catch (err) {
+          console.error("Error fetching proposal status:", err);
+          setProposalStatus({ hasApplied: false });
+        }
+      }
+    } catch (err) {
+      setError("Failed to load project details. Please try again later.");
+      console.error("Error fetching project or proposal:", err);
+      toast.error("Error", {
+        description: "Failed to load project details. Please try again.",
+        className: "bg-red-700 text-white border-red-800 bg-opacity-80",
+        duration: 4000,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [id, session]); // Dependencies for useCallback
+
+  useEffect(() => {
+    if (id) {
+      fetchProjectAndProposal();
+    }
+  }, [id, fetchProjectAndProposal]); // Updated dependency array
 
   useEffect(() => {
     if (!session?.user?._id) return;
@@ -217,62 +272,7 @@ export default function TalentProjectDetailsPage() {
     return () => {
       socket.disconnect();
     };
-  }, [session?.user?._id, id, router]);
-
-  const fetchProjectAndProposal = async () => {
-    try {
-      setLoading(true);
-
-      const projectResponse = await axios.get(`/api/talent/projects/${id}`);
-      if (projectResponse.status !== 200) {
-        throw new Error("Failed to fetch project");
-      }
-      const projectData = projectResponse.data.data;
-      // Set paymentStatus to "completed" if project status is "completed"
-      if (projectData.status === "completed") {
-        setProposalStatus((prev) => ({
-          ...prev,
-          paymentStatus: "completed",
-        }));
-      }
-      setProject(projectData);
-
-      if (session?.user?._id) {
-        try {
-          const proposalResponse = await axios.get(`/api/proposals/check`, {
-            params: { projectId: id, talentId: session.user._id },
-          });
-          setProposalStatus({
-            hasApplied: proposalResponse.data.hasApplied || false,
-            status: proposalResponse.data.status,
-            proposalId: proposalResponse.data.proposalId,
-            revisionCount: proposalResponse.data.revisionCount || 0,
-            revisionNote: proposalResponse.data.revisionNote || null,
-            paymentStatus: proposalResponse.data.status === "completed" ? "completed" : proposalResponse.data.paymentStatus || "pending",
-          });
-        } catch (err) {
-          console.error("Error fetching proposal status:", err);
-          setProposalStatus({ hasApplied: false });
-        }
-      }
-    } catch (err) {
-      setError("Failed to load project details. Please try again later.");
-      console.error("Error fetching project or proposal:", err);
-      toast.error("Error", {
-        description: "Failed to load project details. Please try again.",
-        className: "bg-red-700 text-white border-red-800 bg-opacity-80",
-        duration: 4000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (id) {
-      fetchProjectAndProposal();
-    }
-  }, [id, session]);
+  }, [session?.user?._id, id, router, setProject, setProposalStatus]); 
 
   const handleFileDownload = (file: ProjectFile) => {
     try {
@@ -281,6 +281,7 @@ export default function TalentProjectDetailsPage() {
       }
       window.open(file.url, "_blank");
     } catch (err) {
+      console.log(err);
       toast.error("Error", {
         description: "Failed to open file. The URL may be invalid.",
         className: "bg-red-700 text-white border-red-800 bg-opacity-80",
@@ -691,7 +692,7 @@ export default function TalentProjectDetailsPage() {
           {/* Client Review Section */}
           {project.review && (
             <div className="mb-6 sm:mb-8 p-6 rounded-lg border"
-                 style={{ borderColor: colors.border, backgroundColor: `${colors.primary}10` }}>
+              style={{ borderColor: colors.border, backgroundColor: `${colors.primary}10` }}>
               <h2
                 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4 flex items-center gap-2"
                 style={{ color: colors.activeTextColor }}

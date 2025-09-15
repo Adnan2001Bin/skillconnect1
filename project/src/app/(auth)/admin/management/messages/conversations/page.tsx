@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2 as Loader, MessageSquare, ArrowLeft } from "lucide-react";
 import { Images } from "@/lib/images";
-import Image from "next/image";
 import io, { Socket } from "socket.io-client";
 
 interface Conversation {
@@ -30,7 +29,6 @@ export default function AdminConversationsPage() {
   const accentColor = "#A5BFCC";
   const activeTextColor = "#E0E0E0";
   const neutralTextColor = "#B0B0B0";
-  const white = "#FFFFFF";
   const errorColor = "#EF4444";
 
   useEffect(() => {
@@ -70,6 +68,9 @@ export default function AdminConversationsPage() {
       };
     } 
   }, [status, session, router]);
+
+  console.log("socket",socket);
+  
 
   if (status === "loading" || isLoading) {
     return (

@@ -6,7 +6,10 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import mongoose from "mongoose";
 import UserModel from "@/models/user.model";
 
-export async function DELETE(req: NextRequest, { params }: { params: { orderId: string } }) {
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ orderId: string }> } // Change this line
+) {
   try {
     // Authenticate user session
     const session = await getServerSession(authOptions);
@@ -17,7 +20,10 @@ export async function DELETE(req: NextRequest, { params }: { params: { orderId: 
       );
     }
 
+    // Await the params first
+    const params = await context.params;
     const { orderId } = params;
+    
     console.log("Received orderId for deletion:", orderId); // Debug log
 
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
@@ -62,7 +68,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { orderId: 
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
-)  {
+) {
   try {
     // Check for admin authentication
     const session = await getServerSession(authOptions);
@@ -76,7 +82,8 @@ export async function GET(
     // Connect to MongoDB
     await connectDB();
 
-    const { id } = await context.params;
+    const params = await context.params;
+    const { id } = params;
 
     // Fetch talent by ID
     const talent = await UserModel.findOne({ _id: id, role: "user" }).lean();

@@ -64,7 +64,6 @@ export default function AdminProposalsPage() {
   const accentColor = "#A5BFCC";
   const activeTextColor = "#E0E0E0";
   const neutralTextColor = "#B0B0B0";
-  const white = "#FFFFFF";
 
   // Initialize Socket.IO
   useEffect(() => {
@@ -145,6 +144,8 @@ export default function AdminProposalsPage() {
       }
       window.open(file.url, "_blank");
     } catch (err) {
+      console.log(err);
+      
       toast.error("Error", {
         description: "Failed to open file. The URL may be invalid.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",
@@ -180,6 +181,8 @@ export default function AdminProposalsPage() {
         throw new Error(response.data.message || "Failed to update proposal status");
       }
     } catch (error) {
+      console.log(error);
+      
       toast.error("Error", {
         description: "Failed to update proposal status.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",

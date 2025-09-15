@@ -12,7 +12,6 @@ import {
   Clock,
   FileText,
   Tag,
-  AlertCircle,
   Edit,
   LayoutList,
 } from "lucide-react";
@@ -25,7 +24,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { MultiSelect } from "@/components/admin/MultiSelect";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { io } from "socket.io-client";
 
@@ -79,33 +84,40 @@ export default function AdminProjectDetailsPage() {
   useEffect(() => {
     if (!session?.user?._id || session?.user?.role !== "admin" || !id) return;
 
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
-      auth: { userId: session.user._id },
-    });
+    const socket = io(
+      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000",
+      {
+        auth: { userId: session.user._id },
+      }
+    );
 
     socket.on("connect", () => {
       console.log("Connected to Socket.IO server");
       socket.emit("join", session.user._id);
     });
 
-    socket.on("projectStatusUpdated", async (data: { projectId: string; status: string }) => {
-      if (data.projectId === id) {
-        try {
-          const response = await axios.get(`/api/projects/${id}`);
-          if (response.data.success) {
-            setProject(response.data.data);
-            setFormData(response.data.data);
-            toast.info("Project Status Updated", {
-              description: `Project status changed to ${data.status}.`,
-              className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
-              duration: 4000,
-            });
+    socket.on(
+      "projectStatusUpdated",
+      async (data: { projectId: string; status: string }) => {
+        if (data.projectId === id) {
+          try {
+            const response = await axios.get(`/api/projects/${id}`);
+            if (response.data.success) {
+              setProject(response.data.data);
+              setFormData(response.data.data);
+              toast.info("Project Status Updated", {
+                description: `Project status changed to ${data.status}.`,
+                className:
+                  "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+                duration: 4000,
+              });
+            }
+          } catch (error) {
+            console.error("Error fetching updated project:", error);
           }
-        } catch (error) {
-          console.error("Error fetching updated project:", error);
         }
       }
-    });
+    );
 
     socket.on("projectDeleted", (data: { projectId: string }) => {
       if (data.projectId === id) {
@@ -165,6 +177,7 @@ export default function AdminProjectDetailsPage() {
       }
       window.open(file.url, "_blank");
     } catch (err) {
+      console.log(err);
       toast.error("Error", {
         description: "Failed to open file. The URL may be invalid.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",
@@ -173,10 +186,14 @@ export default function AdminProjectDetailsPage() {
     }
   };
 
-  const handleStatusUpdate = async (newStatus: "completed" | "cancelled" | "open") => {
+  const handleStatusUpdate = async (
+    newStatus: "completed" | "cancelled" | "open"
+  ) => {
     try {
       setIsSubmitting(true);
-      const response = await axios.put(`/api/projects/${id}`, { status: newStatus });
+      const response = await axios.put(`/api/projects/${id}`, {
+        status: newStatus,
+      });
       if (response.data.success) {
         setProject(response.data.data);
         setFormData(response.data.data);
@@ -186,7 +203,9 @@ export default function AdminProjectDetailsPage() {
           duration: 4000,
         });
         // Emit Socket.IO event
-        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+        const socket = io(
+          process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000"
+        );
         socket.emit("projectStatusUpdated", {
           projectId: id,
           status: newStatus,
@@ -197,6 +216,8 @@ export default function AdminProjectDetailsPage() {
         throw new Error(response.data.message || "Failed to update status");
       }
     } catch (error) {
+      console.log(error);
+
       toast.error("Error", {
         description: "Failed to update project status.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",
@@ -226,7 +247,9 @@ export default function AdminProjectDetailsPage() {
           duration: 4000,
         });
         // Emit Socket.IO event
-        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000");
+        const socket = io(
+          process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000"
+        );
         socket.emit("projectStatusUpdated", {
           projectId: id,
           status: updatedProject.status,
@@ -237,6 +260,7 @@ export default function AdminProjectDetailsPage() {
         throw new Error(response.data.message || "Failed to update project");
       }
     } catch (error) {
+      console.log(error);
       toast.error("Error", {
         description: "Failed to update project. Please try again.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",
@@ -293,7 +317,10 @@ export default function AdminProjectDetailsPage() {
         className="min-h-screen flex items-center justify-center"
         style={{ backgroundColor: primaryDarkGray }}
       >
-        <Loader className="animate-spin h-10 w-10" style={{ color: accentColor }} />
+        <Loader
+          className="animate-spin h-10 w-10"
+          style={{ color: accentColor }}
+        />
       </div>
     );
   }
@@ -311,11 +338,14 @@ export default function AdminProjectDetailsPage() {
     );
   }
 
-  const formattedCreatedAt = new Date(project.createdAt).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  const formattedCreatedAt = new Date(project.createdAt).toLocaleDateString(
+    "en-US",
+    {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }
+  );
 
   const projectFiles: ProjectFile[] = (project.files || []).map((file) =>
     typeof file === "string" ? { url: file } : file
@@ -332,14 +362,18 @@ export default function AdminProjectDetailsPage() {
     <div
       className="min-h-screen font-sans py-10 px-4 sm:px-6 lg:px-8 mt-17 relative max-w-7xl mx-auto shadow-xl rounded-lg overflow-hidden border border-gray-900"
       style={{
-        backgroundImage: `url(${Images.adminViewbackground ? Images.adminViewbackground.src : ""})`,
+        backgroundImage: `url(${
+          Images.adminViewbackground ? Images.adminViewbackground.src : ""
+        })`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
       }}
     >
-      <div className="max-w-4xl mx-auto rounded-lg shadow-md overflow-hidden"
-        style={{ backgroundColor: "rgba(58, 71, 80, 0.8)" }}>
+      <div
+        className="max-w-4xl mx-auto rounded-lg shadow-md overflow-hidden"
+        style={{ backgroundColor: "rgba(58, 71, 80, 0.8)" }}
+      >
         <div className="p-6" style={{ backgroundColor: primaryDarkGray }}>
           <h1 className="text-3xl font-bold" style={{ color: activeTextColor }}>
             {isEditing ? `Edit: ${project.title}` : project.title}
@@ -350,7 +384,8 @@ export default function AdminProjectDetailsPage() {
                 {getCategoryLabel(project.category)}
               </p>
               <Badge className={getStatusBadgeColor(project.status)}>
-                {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                {project.status.charAt(0).toUpperCase() +
+                  project.status.slice(1)}
               </Badge>
             </div>
           )}
@@ -361,31 +396,68 @@ export default function AdminProjectDetailsPage() {
             <>
               <div className="space-y-6">
                 <div>
-                  <Label style={{ color: activeTextColor }} className="mb-2 block">Project Title</Label>
+                  <Label
+                    style={{ color: activeTextColor }}
+                    className="mb-2 block"
+                  >
+                    Project Title
+                  </Label>
                   <Input
                     value={formData.title || ""}
                     onChange={(e) => handleInputChange(e, "title")}
-                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                    }}
                   />
                 </div>
                 <div>
-                  <Label style={{ color: activeTextColor }} className="mb-2 block">Project Description</Label>
+                  <Label
+                    style={{ color: activeTextColor }}
+                    className="mb-2 block"
+                  >
+                    Project Description
+                  </Label>
                   <Textarea
                     value={formData.description || ""}
                     onChange={(e) => handleInputChange(e, "description")}
-                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                    }}
                   />
                 </div>
                 <div>
-                  <Label style={{ color: activeTextColor }} className="mb-2 block">Category</Label>
+                  <Label
+                    style={{ color: activeTextColor }}
+                    className="mb-2 block"
+                  >
+                    Category
+                  </Label>
                   <Select
                     value={formData.category}
-                    onValueChange={(value) => handleInputChange(value, "category")}
+                    onValueChange={(value) =>
+                      handleInputChange(value, "category")
+                    }
                   >
-                    <SelectTrigger style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}>
+                    <SelectTrigger
+                      style={{
+                        backgroundColor: white,
+                        borderColor: inputBorderColor,
+                        color: primaryDarkGray,
+                      }}
+                    >
                       <SelectValue placeholder="Select a category" />
                     </SelectTrigger>
-                    <SelectContent style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}>
+                    <SelectContent
+                      style={{
+                        backgroundColor: white,
+                        borderColor: inputBorderColor,
+                        color: primaryDarkGray,
+                      }}
+                    >
                       {categories.map((cat) => (
                         <SelectItem key={cat.value} value={cat.value}>
                           {cat.label}
@@ -404,29 +476,56 @@ export default function AdminProjectDetailsPage() {
                   defaultValue={selectedServices}
                 />
                 <div>
-                  <Label style={{ color: activeTextColor }} className="mb-2 block">Budget (USD)</Label>
+                  <Label
+                    style={{ color: activeTextColor }}
+                    className="mb-2 block"
+                  >
+                    Budget (USD)
+                  </Label>
                   <Input
                     type="number"
                     value={formData.budget || ""}
                     onChange={(e) => handleInputChange(e, "budget")}
-                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                    }}
                   />
                 </div>
                 <div>
-                  <Label style={{ color: activeTextColor }} className="mb-2 block">Timeline (days)</Label>
+                  <Label
+                    style={{ color: activeTextColor }}
+                    className="mb-2 block"
+                  >
+                    Timeline (days)
+                  </Label>
                   <Input
                     type="number"
                     value={formData.timeline || ""}
                     onChange={(e) => handleInputChange(e, "timeline")}
-                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                    }}
                   />
                 </div>
                 <div>
-                  <Label style={{ color: activeTextColor }} className="mb-2 block">Requirements</Label>
+                  <Label
+                    style={{ color: activeTextColor }}
+                    className="mb-2 block"
+                  >
+                    Requirements
+                  </Label>
                   <Textarea
                     value={formData.requirements || ""}
                     onChange={(e) => handleInputChange(e, "requirements")}
-                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                    }}
                   />
                 </div>
               </div>
@@ -435,9 +534,16 @@ export default function AdminProjectDetailsPage() {
                   onClick={handleEditSubmit}
                   disabled={isSubmitting}
                   className="px-6 py-2 rounded-full font-semibold transition-colors"
-                  style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+                  style={{
+                    backgroundColor: accentColor,
+                    color: primaryDarkGray,
+                  }}
                 >
-                  {isSubmitting ? <Loader className="animate-spin" /> : "Save Changes"}
+                  {isSubmitting ? (
+                    <Loader className="animate-spin" />
+                  ) : (
+                    "Save Changes"
+                  )}
                 </Button>
                 <Button
                   onClick={() => setIsEditing(false)}
@@ -453,51 +559,119 @@ export default function AdminProjectDetailsPage() {
           ) : (
             <>
               <div className="mb-8">
-                <h2 className="text-2xl font-semibold mb-4" style={{ color: activeTextColor }}>Description</h2>
-                <p className="leading-relaxed" style={{ color: neutralTextColor }}>{project.description}</p>
+                <h2
+                  className="text-2xl font-semibold mb-4"
+                  style={{ color: activeTextColor }}
+                >
+                  Description
+                </h2>
+                <p
+                  className="leading-relaxed"
+                  style={{ color: neutralTextColor }}
+                >
+                  {project.description}
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div className="flex items-center">
-                  <DollarSign className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                  <DollarSign
+                    className="h-5 w-5 mr-2"
+                    style={{ color: accentColor }}
+                  />
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: activeTextColor }}>Budget</p>
-                    <p className="text-sm" style={{ color: neutralTextColor }}>${project.budget.toLocaleString()}</p>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: activeTextColor }}
+                    >
+                      Budget
+                    </p>
+                    <p className="text-sm" style={{ color: neutralTextColor }}>
+                      ${project.budget.toLocaleString()}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <Clock className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                  <Clock
+                    className="h-5 w-5 mr-2"
+                    style={{ color: accentColor }}
+                  />
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: activeTextColor }}>Timeline</p>
-                    <p className="text-sm" style={{ color: neutralTextColor }}>{project.timeline} days</p>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: activeTextColor }}
+                    >
+                      Timeline
+                    </p>
+                    <p className="text-sm" style={{ color: neutralTextColor }}>
+                      {project.timeline} days
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <Briefcase className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                  <Briefcase
+                    className="h-5 w-5 mr-2"
+                    style={{ color: accentColor }}
+                  />
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: activeTextColor }}>Category</p>
-                    <p className="text-sm" style={{ color: neutralTextColor }}>{getCategoryLabel(project.category)}</p>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: activeTextColor }}
+                    >
+                      Category
+                    </p>
+                    <p className="text-sm" style={{ color: neutralTextColor }}>
+                      {getCategoryLabel(project.category)}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <CalendarDays className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                  <CalendarDays
+                    className="h-5 w-5 mr-2"
+                    style={{ color: accentColor }}
+                  />
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: activeTextColor }}>Posted On</p>
-                    <p className="text-sm" style={{ color: neutralTextColor }}>{formattedCreatedAt}</p>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: activeTextColor }}
+                    >
+                      Posted On
+                    </p>
+                    <p className="text-sm" style={{ color: neutralTextColor }}>
+                      {formattedCreatedAt}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <Tag className="h-5 w-5 mr-2" style={{ color: accentColor }} />
+                  <Tag
+                    className="h-5 w-5 mr-2"
+                    style={{ color: accentColor }}
+                  />
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: activeTextColor }}>Client ID</p>
-                    <p className="text-sm" style={{ color: neutralTextColor }}>{project.clientId}</p>
+                    <p
+                      className="text-sm font-semibold"
+                      style={{ color: activeTextColor }}
+                    >
+                      Client ID
+                    </p>
+                    <p className="text-sm" style={{ color: neutralTextColor }}>
+                      {project.clientId}
+                    </p>
                   </div>
                 </div>
               </div>
 
               <div className="mb-8">
-                <h2 className="text-2xl font-semibold mb-4" style={{ color: activeTextColor }}>Services Required</h2>
-                <ul className="list-disc list-inside text-sm" style={{ color: neutralTextColor }}>
+                <h2
+                  className="text-2xl font-semibold mb-4"
+                  style={{ color: activeTextColor }}
+                >
+                  Services Required
+                </h2>
+                <ul
+                  className="list-disc list-inside text-sm"
+                  style={{ color: neutralTextColor }}
+                >
                   {project.services.map((service, index) => (
                     <li key={index}>{service}</li>
                   ))}
@@ -505,20 +679,38 @@ export default function AdminProjectDetailsPage() {
               </div>
 
               <div className="mb-8">
-                <h2 className="text-2xl font-semibold mb-4" style={{ color: activeTextColor }}>Requirements</h2>
-                <p className="leading-relaxed" style={{ color: neutralTextColor }}>{project.requirements}</p>
+                <h2
+                  className="text-2xl font-semibold mb-4"
+                  style={{ color: activeTextColor }}
+                >
+                  Requirements
+                </h2>
+                <p
+                  className="leading-relaxed"
+                  style={{ color: neutralTextColor }}
+                >
+                  {project.requirements}
+                </p>
               </div>
 
               {projectFiles.length > 0 && (
                 <div className="mb-8">
-                  <h2 className="text-2xl font-semibold mb-4" style={{ color: activeTextColor }}>Attached Files</h2>
+                  <h2
+                    className="text-2xl font-semibold mb-4"
+                    style={{ color: activeTextColor }}
+                  >
+                    Attached Files
+                  </h2>
                   <div className="flex flex-wrap gap-4">
                     {projectFiles.map((file, index) => (
                       <Button
                         key={index}
                         onClick={() => handleFileDownload(file)}
                         className="flex items-center px-4 py-2 rounded-full transition-colors"
-                        style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+                        style={{
+                          backgroundColor: accentColor,
+                          color: primaryDarkGray,
+                        }}
                       >
                         <FileText className="h-5 w-5 mr-2" />
                         {file.name || `File ${index + 1}`}
@@ -532,7 +724,10 @@ export default function AdminProjectDetailsPage() {
                 <Button
                   onClick={() => setIsEditing(true)}
                   className="px-6 py-2 rounded-full font-semibold transition-colors"
-                  style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+                  style={{
+                    backgroundColor: accentColor,
+                    color: primaryDarkGray,
+                  }}
                 >
                   <Edit className="h-5 w-5 mr-2" />
                   Edit Project
@@ -542,12 +737,20 @@ export default function AdminProjectDetailsPage() {
                     onClick={() => handleStatusUpdate("completed")}
                     disabled={isSubmitting}
                     className="px-6 py-2 rounded-full font-semibold transition-colors"
-                    style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+                    style={{
+                      backgroundColor: accentColor,
+                      color: primaryDarkGray,
+                    }}
                   >
-                    {isSubmitting ? <Loader className="animate-spin" /> : "Mark as Completed"}
+                    {isSubmitting ? (
+                      <Loader className="animate-spin" />
+                    ) : (
+                      "Mark as Completed"
+                    )}
                   </Button>
                 )}
-                {(project.status === "open" || project.status === "in-progress") && (
+                {(project.status === "open" ||
+                  project.status === "in-progress") && (
                   <Button
                     onClick={() => handleStatusUpdate("cancelled")}
                     disabled={isSubmitting}
@@ -555,7 +758,11 @@ export default function AdminProjectDetailsPage() {
                     className="px-6 py-2 rounded-full font-semibold"
                     style={{ borderColor: accentColor, color: accentColor }}
                   >
-                    {isSubmitting ? <Loader className="animate-spin" /> : "Cancel Project"}
+                    {isSubmitting ? (
+                      <Loader className="animate-spin" />
+                    ) : (
+                      "Cancel Project"
+                    )}
                   </Button>
                 )}
                 {project.status === "cancelled" && (
@@ -563,22 +770,37 @@ export default function AdminProjectDetailsPage() {
                     onClick={() => handleStatusUpdate("open")}
                     disabled={isSubmitting}
                     className="px-6 py-2 rounded-full font-semibold transition-colors"
-                    style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+                    style={{
+                      backgroundColor: accentColor,
+                      color: primaryDarkGray,
+                    }}
                   >
-                    {isSubmitting ? <Loader className="animate-spin" /> : "Reopen Project"}
+                    {isSubmitting ? (
+                      <Loader className="animate-spin" />
+                    ) : (
+                      "Reopen Project"
+                    )}
                   </Button>
                 )}
                 <Button
-                  onClick={() => router.push(`/admin/management/projects/${id}/proposals`)}
+                  onClick={() =>
+                    router.push(`/admin/management/projects/${id}/proposals`)
+                  }
                   className="px-6 py-2 rounded-full font-semibold transition-colors"
-                  style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+                  style={{
+                    backgroundColor: accentColor,
+                    color: primaryDarkGray,
+                  }}
                 >
                   View Proposals
                 </Button>
                 <Button
                   onClick={() => router.push("/admin/management/projects")}
                   className="px-6 py-2 rounded-full font-semibold transition-colors"
-                  style={{ backgroundColor: accentColor, color: primaryDarkGray }}
+                  style={{
+                    backgroundColor: accentColor,
+                    color: primaryDarkGray,
+                  }}
                 >
                   Back to Projects
                 </Button>

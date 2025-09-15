@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Images } from "@/lib/images";
 import { CheckCircle, Users, Star, Clock } from "lucide-react";
 import Image from "next/image";
@@ -15,7 +14,7 @@ function JoinSkillConnect() {
         <p className="text-lg text-gray-600 mb-10 max-w-3xl mx-auto leading-relaxed">
           Unlock your potential with SkillConnect, the ultimate platform to
           connect with top talent, showcase your skills, and grow your career.
-          Whether you're a client seeking expert services or a professional
+          Whether you&apos;re a client seeking expert services or a professional
           looking for opportunities, SkillConnect offers a seamless experience
           with:
         </p>
@@ -79,11 +78,9 @@ function JoinSkillConnect() {
           into reality. Sign up today and start building your success story with
           SkillConnect!
         </p>
-       
       </div>
     </div>
   );
 }
 
 export default JoinSkillConnect;
-

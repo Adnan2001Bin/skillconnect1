@@ -41,7 +41,7 @@ export default function App() {
                   </h3>
                   <p className="text-sm sm:text-base text-gray-600">
                     Count on an account manager to find you the right talent and
-                    see to your project's every need.
+                    see to your project every need.
                   </p>
                 </div>
               </div>

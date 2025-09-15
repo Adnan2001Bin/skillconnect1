@@ -8,7 +8,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { UploadDropzone } from "@uploadthing/react";
-import type { OurFileRouter } from "@/app/api/uploadthing/core/route"; // Import the type
+import type { OurFileRouter } from "@/lib/uploadthing";
 
 // Shadcn UI components
 import { Button } from "@/components/ui/button";
@@ -319,7 +319,7 @@ export default function CreateProjectPage() {
         </div>
 
         <div className="mt-10 text-center text-[#424242] text-sm italic relative z-10">
-          "Find the perfect talent for your vision."
+          &quot;Find the perfect talent for your vision.&quot;
         </div>
       </div>
 

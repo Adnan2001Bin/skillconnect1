@@ -1,16 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
-  Menu,
   Home,
   SquareChartGantt,
-  ChartNoAxesCombined,
   Eye,
   LogOut,
-  MessageSquare, // Import MessageSquare icon for Conversations
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";

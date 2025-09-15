@@ -6,18 +6,14 @@ import { useSession } from "next-auth/react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Loader2 as Loader,
   ArrowLeft,
-  User,
   Trash2,
   Mail,
   Info,
   Briefcase,
 } from "lucide-react";
-import { Images } from "@/lib/images";
 import Image from "next/image";
 
 interface ClientProfile {
@@ -43,12 +39,7 @@ export default function AdminClientProfilePage() {
   const [client, setClient] = useState<ClientProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchClientProfile();
-    }
-  }, [status, id]);
-
+useEffect(() => {
   const fetchClientProfile = async () => {
     setIsLoading(true);
     try {
@@ -63,7 +54,6 @@ export default function AdminClientProfilePage() {
             "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
-        // router.push("/admin/clients");
       }
     } catch (error) {
       console.error("Error fetching client profile:", error);
@@ -73,12 +63,15 @@ export default function AdminClientProfilePage() {
           "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
       });
-      // router.push("/admin/clients");
     } finally {
       setIsLoading(false);
     }
   };
 
+  if (status === "authenticated") {
+    fetchClientProfile();
+  }
+}, [status, id]);
   const handleDelete = async () => {
     try {
       const response = await axios.delete(`/api/admin/clients`, {

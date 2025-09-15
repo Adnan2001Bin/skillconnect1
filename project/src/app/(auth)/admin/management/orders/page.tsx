@@ -22,7 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Loader2 as Loader, ArrowLeft, Edit, Trash, Eye } from "lucide-react";
 import { Images } from "@/lib/images";
 
@@ -64,7 +63,7 @@ export default function AdminOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [revisionStatusFilter, setRevisionStatusFilter] = useState<string>("all");
   const [timeRange, setTimeRange] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery] = useState<string>("");
 
   // Consistent color theme
   const primaryDarkGray = "#2D3748";
@@ -82,17 +81,10 @@ export default function AdminOrdersPage() {
   const inProgressColor = "#3B82F6"; // New color for in-progress status
 
   useEffect(() => {
-    if (status === "authenticated" && session?.user?.role === "admin") {
-      fetchOrders();
-    } else if (status === "unauthenticated") {
-      router.replace("/sign-in");
-    }
-  }, [status, session, router, statusFilter, revisionStatusFilter, timeRange, searchQuery]);
-
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
-      const params: any = {};
+      const params: Record<string, string> = {};
       if (statusFilter !== "all") params.status = statusFilter;
       if (revisionStatusFilter !== "all") params.revisionStatus = revisionStatusFilter;
       if (timeRange !== "all") params.timeRange = timeRange;
@@ -119,6 +111,13 @@ export default function AdminOrdersPage() {
       setIsLoading(false);
     }
   };
+
+  if (status === "authenticated" && session?.user?.role === "admin") {
+    fetchOrders();
+  } else if (status === "unauthenticated") {
+    router.replace("/sign-in");
+  }
+}, [status, session, router, statusFilter, revisionStatusFilter, timeRange, searchQuery]);
 
   const handleDeleteOrder = async (orderId: string) => {
     try {
@@ -332,24 +331,7 @@ export default function AdminOrdersPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-4">
-            <label
-              htmlFor="search"
-              className="text-sm font-medium"
-              style={{ color: activeTextColor }}
-            >
-              Search:
-            </label>
-            <Input
-              id="search"
-              placeholder="Search by project title, description, or revision status"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && fetchOrders()}
-              className="w-[300px] border-2 focus:ring-2 focus:ring-offset-2"
-              style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
-            />
-          </div>
+          
         </div>
 
         {filteredOrders.length === 0 ? (
@@ -421,7 +403,7 @@ export default function AdminOrdersPage() {
                         style={getRevisionStatusBadgeColor(order.revisionStatus)}
                         className="px-3 py-1 rounded-full text-sm font-medium"
                       >
-                        {order.revisionStatus.charAt(0).toUpperCase() + order.revisionStatus.slice(1)}
+                        {order.revisionStatus &&order.revisionStatus.charAt(0).toUpperCase() + order.revisionStatus.slice(1)}
                       </Badge>
                     </TableCell>
                     <TableCell className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">

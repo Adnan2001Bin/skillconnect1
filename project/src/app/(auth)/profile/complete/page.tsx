@@ -30,6 +30,46 @@ interface UserProfileInput {
   role?: "user" | "talent";
 }
 
+const progressFields = [
+  "profilePicture",
+  "bio",
+  "location",
+  "industry",
+  "preferences",
+  "languageProficiency",
+];
+
+const fieldGroups = [
+  ["profilePicture", "bio", "location"],
+  ["industry", "preferences", "languageProficiency", "role"],
+];
+
+const fieldLabels: { [key: string]: string } = {
+  profilePicture: "Profile Picture",
+  bio: "Bio",
+  location: "Location",
+  industry: "Industry",
+  preferences: "Key Skills / Talents",
+  languageProficiency: "Language Proficiency",
+  role: "User Role",
+};
+
+const industryOptions = [
+  { value: "technology", label: "Technology" },
+  { value: "marketing", label: "Marketing & Advertising" },
+  { value: "design", label: "Creative & Design" },
+  { value: "finance", label: "Finance & Accounting" },
+  { value: "education", label: "Education & Training" },
+  { value: "healthcare", label: "Healthcare" },
+  { value: "business", label: "Business & Consulting" },
+  { value: "other", label: "Other" },
+];
+
+const roleOptions = [
+  { value: "user", label: "No (I'm looking for talent)" },
+  { value: "talent", label: "Yes (I want to offer my skills)" },
+];
+
 export default function UserProfileCompletionPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -51,30 +91,6 @@ export default function UserProfileCompletionPage() {
     },
   });
 
-  const progressFields = [
-    "profilePicture",
-    "bio",
-    "location",
-    "industry",
-    "preferences",
-    "languageProficiency",
-  ];
-
-  const fieldGroups = [
-    ["profilePicture", "bio", "location"],
-    ["industry", "preferences", "languageProficiency", "role"],
-  ];
-
-  const fieldLabels: { [key: string]: string } = {
-    profilePicture: "Profile Picture",
-    bio: "Bio",
-    location: "Location",
-    industry: "Industry",
-    preferences: "Key Skills / Talents",
-    languageProficiency: "Language Proficiency",
-    role: "User Role",
-  };
-
   const calculateCompletion = useCallback((values: UserProfileInput) => {
     let filledCount = 0;
     const filledStatus: { [key: string]: boolean } = {};
@@ -95,7 +111,7 @@ export default function UserProfileCompletionPage() {
 
     const percentage = Math.round((filledCount / progressFields.length) * 100);
     return { percentage, filledStatus };
-  }, []);
+  }, []); 
 
   const [filledFieldStatus, setFilledFieldStatus] = useState<{
     [key: string]: boolean;
@@ -207,22 +223,6 @@ export default function UserProfileCompletionPage() {
       </div>
     );
   }
-
-  const industryOptions = [
-    { value: "technology", label: "Technology" },
-    { value: "marketing", label: "Marketing & Advertising" },
-    { value: "design", label: "Creative & Design" },
-    { value: "finance", label: "Finance & Accounting" },
-    { value: "education", label: "Education & Training" },
-    { value: "healthcare", label: "Healthcare" },
-    { value: "business", label: "Business & Consulting" },
-    { value: "other", label: "Other" },
-  ];
-
-  const roleOptions = [
-    { value: "user", label: "No (I'm looking for talent)" },
-    { value: "talent", label: "Yes (I want to offer my skills)" },
-  ];
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#F1F8E9] px-4 py-6 sm:py-8 md:py-12 lg:py-16 relative overflow-hidden">

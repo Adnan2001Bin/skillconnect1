@@ -76,15 +76,6 @@ export default function UserChatAndMessagesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  const colors = {
-    primaryColor: "#006400",
-    accentColor: "#3CB371",
-    neutralTextColor: "#333333",
-    lightAccentColor: "#E8F5E9",
-    errorRed: "#B00020",
-    darkTextColor: "#FFFFFF",
-    cardBg: "#FFFFFF",
-  };
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "user") {
@@ -218,7 +209,7 @@ export default function UserChatAndMessagesPage() {
         socketInstance.disconnect();
       };
     }
-  }, [status, session]);
+  }, [status, session ,selectedConversationId]);
 
   useEffect(() => {
     if (socket && selectedConversationId && session?.user) {

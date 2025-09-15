@@ -5,7 +5,6 @@ import UserNavbar from "@/components/navbars/UserNavbar";
 import UserNavbar1 from "@/components/navbars/UserNavbar1"; // Assuming UserNavbar1 exists
 import TalentLayout from "../talent/TalentLayout";
 import AdminLayout from "../admin/AdminLayout";
-import Loader from "../Loader";
 import { usePathname } from "next/navigation";
 import Footer from "../userView/Footer";
 

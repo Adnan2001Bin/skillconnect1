@@ -19,12 +19,6 @@ const initiatePaymentSchema = z.object({
   proposalId: z.string().nonempty(),
 });
 
-interface PaymentResponse {
-  success: boolean;
-  message: string;
-  gatewayPageURL?: string;
-  error?: string;
-}
 
 export async function POST(req: NextRequest) {
   try {

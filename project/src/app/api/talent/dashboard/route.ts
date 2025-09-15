@@ -1,10 +1,44 @@
-import { NextRequest, NextResponse } from "next/server";
+import {NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
 import UserModel from "@/models/user.model";
 import { authOptions } from "../../auth/[...nextauth]/options";
-import mongoose from "mongoose";
+
+interface LeanOrder {
+  _id: string;
+  talentId: string;
+  clientId: string;
+  ratePlan: {
+    type: string;
+    price: number;
+    description: string;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
+  projectDetails: {
+    title: string;
+    description: string;
+  };
+  status:
+    | "pending"
+    | "in-progress"
+    | "accepted"
+    | "rejected"
+    | "delivered"
+    | "cancelled"
+    | "completed";
+  revisionStatus?: "none" | "requested" | "submitted";
+  revisionCount?: number;
+  createdAt: Date;
+  updatedAt: Date;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt?: Date;
+  };
+}
 
 interface DashboardResponse {
   success: boolean;
@@ -30,7 +64,14 @@ interface DashboardResponse {
         title: string;
         description: string;
       };
-      status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
+      status:
+        | "pending"
+        | "in-progress"
+        | "accepted"
+        | "rejected"
+        | "delivered"
+        | "cancelled"
+        | "completed";
       revisionStatus: "none" | "requested" | "submitted";
       revisionCount: number;
       createdAt: string;
@@ -45,12 +86,15 @@ interface DashboardResponse {
   error?: string;
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse<DashboardResponse>> {
+export async function GET(): Promise<NextResponse<DashboardResponse>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "talent") {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Only talents can view their dashboard." },
+        {
+          success: false,
+          message: "Unauthorized. Only talents can view their dashboard.",
+        },
         { status: 401 }
       );
     }
@@ -59,18 +103,29 @@ export async function GET(req: NextRequest): Promise<NextResponse<DashboardRespo
 
     const talentId = session.user._id;
     const totalOrders = await OrderModel.countDocuments({ talentId });
-    const pendingOrders = await OrderModel.countDocuments({ talentId, status: "pending" });
-    const inProgressOrders = await OrderModel.countDocuments({ talentId, status: "in-progress" });
-    const completedOrders = await OrderModel.countDocuments({ talentId, status: "completed" });
+    const pendingOrders = await OrderModel.countDocuments({
+      talentId,
+      status: "pending",
+    });
+    const inProgressOrders = await OrderModel.countDocuments({
+      talentId,
+      status: "in-progress",
+    });
+    const completedOrders = await OrderModel.countDocuments({
+      talentId,
+      status: "completed",
+    });
 
     const recentOrders = await OrderModel.find({ talentId })
       .sort({ createdAt: -1 })
       .limit(5)
-      .lean();
+      .lean<LeanOrder[]>();
 
     const recentOrdersWithUserNames = await Promise.all(
-      recentOrders.map(async (order: any) => {
-        const client = await UserModel.findById(order.clientId).select("userName").lean();
+      recentOrders.map(async (order) => {
+        const client = await UserModel.findById(order.clientId)
+          .select("userName")
+          .lean();
         return {
           _id: order._id.toString(),
           talentId: order.talentId,
@@ -97,7 +152,8 @@ export async function GET(req: NextRequest): Promise<NextResponse<DashboardRespo
             ? {
                 files: order.revisionRequest.files || [],
                 note: order.revisionRequest.note || undefined,
-                requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
+                requestedAt:
+                  order.revisionRequest.requestedAt?.toISOString() || "",
               }
             : undefined,
         };

@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Star, XCircle } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { UseFormReturn } from "react-hook-form";
+import { TalentProfileInput } from "@/schemas/profileSchema";
 
 interface RatePlan {
   type: "Basic" | "Standard" | "Premium";
@@ -16,13 +18,13 @@ interface RatePlan {
   description: string;
   whatsIncluded: string[];
   deliveryDays: number;
-  revisions: number; // Added revisions field
+  revisions: number;
 }
 
 interface RatePlanSectionProps {
   ratePlans: RatePlan[];
   setRatePlans: (plans: RatePlan[]) => void;
-  form: any; // Replace with proper form type if possible
+  form: UseFormReturn<TalentProfileInput>; // Fixed: Use UseFormReturn<TalentProfileInput> instead of any
 }
 
 export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSectionProps) {
@@ -32,7 +34,7 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
     description: "",
     whatsIncluded: [""],
     deliveryDays: 1,
-    revisions: 0, 
+    revisions: 0,
   });
 
   // Define the new color themes directly
@@ -47,15 +49,16 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
 
   const addRatePlan = () => {
     if (newRatePlan.description && newRatePlan.whatsIncluded[0]) {
-      setRatePlans([...ratePlans, { ...newRatePlan }]);
-      form.setValue("ratePlans", [...ratePlans, { ...newRatePlan }]);
+      const updatedPlans = [...ratePlans, { ...newRatePlan }];
+      setRatePlans(updatedPlans);
+      form.setValue("ratePlans", updatedPlans);
       setNewRatePlan({
         type: "Basic",
         price: 0,
         description: "",
         whatsIncluded: [""],
         deliveryDays: 1,
-        revisions: 0, // Reset revisions
+        revisions: 0,
       });
     } else {
       toast.error("Error", {
@@ -67,8 +70,9 @@ export function RatePlanSection({ ratePlans, setRatePlans, form }: RatePlanSecti
   };
 
   const removeRatePlan = (indexToRemove: number) => {
-    setRatePlans(ratePlans.filter((_, index) => index !== indexToRemove));
-    form.setValue("ratePlans", ratePlans.filter((_, index) => index !== indexToRemove));
+    const updatedPlans = ratePlans.filter((_, index) => index !== indexToRemove);
+    setRatePlans(updatedPlans);
+    form.setValue("ratePlans", updatedPlans);
   };
 
   return (

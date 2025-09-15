@@ -1,7 +1,8 @@
  import { TalentProfileInput } from "@/schemas/profileSchema";
- import { MapPin, Briefcase, Mail, User, Star } from "lucide-react"; // Import relevant icons
+ import { MapPin, Mail } from "lucide-react"; // Import relevant icons
  // Make sure to import your categories data
  import { categories } from "@/lib/categoriesAndServices"; // Adjust path if necessary
+import Image from "next/image";
 
  interface Talent extends TalentProfileInput {
    _id: string;
@@ -43,10 +44,12 @@
        <div className="relative p-6 flex flex-col items-center text-center">
          {/* Profile Image */}
          <div className="w-24 h-24 rounded-full overflow-hidden border-4 mb-4" style={{ borderColor: accentColor }}>
-           <img
+           <Image
              src={talent.profilePicture || defaultImage}
              alt={`${talent.userName}'s profile`}
              className="w-full h-full object-cover"
+             height={60}
+             width={60}
            />
          </div>
 

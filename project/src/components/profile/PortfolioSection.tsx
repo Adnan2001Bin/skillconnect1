@@ -1,6 +1,6 @@
 "use client";
 
-import { FormControl, FormLabel, FormMessage } from "@/components/ui/form";
+import {  FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import Image from "next/image";
 import { useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import { UseFormReturn } from "react-hook-form";
+import { TalentProfileInput } from "@/schemas/profileSchema";
 
 interface PortfolioItem {
   title: string;
@@ -21,7 +23,7 @@ interface PortfolioItem {
 interface PortfolioSectionProps {
   portfolioItems: PortfolioItem[];
   setPortfolioItems: (items: PortfolioItem[]) => void;
-  form: any; // Replace with proper form type if possible
+  form: UseFormReturn<TalentProfileInput>;
   isUploading: boolean;
   setIsUploading: (isUploading: boolean) => void;
 }

@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import ProposalModel from "@/models/proposal.model";
-import ProjectModel, { IProject } from "@/models/projects.model";
+import ProjectModel from "@/models/projects.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
 const createProposalSchema = z.object({
@@ -13,6 +13,42 @@ const createProposalSchema = z.object({
   coverLetter: z.string().min(10, { message: "Cover letter must be at least 10 characters" }).max(1000),
   files: z.array(z.string()).optional(),
 });
+
+interface LeanProposal {
+  _id: string;
+  projectId: string;
+  talentId: string;
+  bid: number;
+  proposalStatus: string;
+  deliverables?: {
+    files: string[];
+    note?: string;
+    submittedAt?: Date;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface ProjectTitle {
+  _id: string;
+  title: string;
+}
+
+interface ProposalResponse {
+  _id: string;
+  projectTitle: string;
+  projectId: string;
+  talentId: string;
+  bid: number;
+  proposalStatus: string;
+  deliverables?: {
+    files: string[];
+    note: string | null;
+    submittedAt: string | null;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -130,14 +166,14 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     // 4. Fetch proposals for the talent
-    const proposals = await ProposalModel.find({ talentId }).lean();
+    const proposals = await ProposalModel.find({ talentId }).lean<LeanProposal[]>();
 
     // 5. Fetch project titles for each proposal
     const proposalsWithProjectTitles = await Promise.all(
-      proposals.map(async (proposal: any) => {
+      proposals.map(async (proposal) => {
         const project = await ProjectModel.findById(proposal.projectId)
           .select("title")
-          .lean() as Pick<IProject, "_id" | "title"> | null;
+          .lean<ProjectTitle>();
         return {
           _id: proposal._id.toString(),
           projectTitle: project?.title || "Unknown",
@@ -154,7 +190,7 @@ export async function GET(req: NextRequest) {
             : undefined,
           createdAt: proposal.createdAt.toISOString(),
           updatedAt: proposal.updatedAt.toISOString(),
-        };
+        } as ProposalResponse;
       })
     );
 

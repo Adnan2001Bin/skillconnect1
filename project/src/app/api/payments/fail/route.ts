@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
 
-interface PaymentResponse {
-  success: boolean;
-  message: string;
-  error?: string;
-}
+
 
 export async function POST(req: NextRequest) {
   try {

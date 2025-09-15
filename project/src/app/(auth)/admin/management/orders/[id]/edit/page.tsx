@@ -33,7 +33,14 @@ interface Order {
   clientId: string;
   ratePlan: RatePlan;
   projectDetails: { title: string; description: string };
-  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "completed" | "cancelled";
+  status:
+    | "pending"
+    | "in-progress"
+    | "accepted"
+    | "rejected"
+    | "delivered"
+    | "completed"
+    | "cancelled";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   revisionRequest?: {
@@ -83,58 +90,60 @@ export default function EditOrderPage() {
   const secondaryDarkGray = "rgba(58, 71, 80, 0.6)";
   const accentColor = "#A5BFCC";
   const activeTextColor = "#E0E0E0";
-  const neutralTextColor = "#B0B0B0";
   const white = "#FFFFFF";
   const inputBorderColor = "#667580";
   const errorColor = "#EF4444";
 
   useEffect(() => {
+    const fetchOrder = async () => {
+      setIsLoading(true);
+      try {
+        const response = await axios.get(`/api/admin/orders/${id}`);
+        if (response.data.success) {
+          const fetchedOrder = response.data.data;
+          setOrder(fetchedOrder);
+          setFormData({
+            status: fetchedOrder.status,
+            revisionStatus: fetchedOrder.revisionStatus || "none",
+            revisionCount: fetchedOrder.revisionCount || 0,
+            revisionRequest: fetchedOrder.revisionRequest
+              ? {
+                  files: fetchedOrder.revisionRequest.files || [],
+                  note: fetchedOrder.revisionRequest.note || "",
+                  requestedAt:
+                    fetchedOrder.revisionRequest.requestedAt ||
+                    new Date().toISOString(),
+                }
+              : undefined,
+            projectDetails: fetchedOrder.projectDetails,
+            ratePlan: fetchedOrder.ratePlan,
+          });
+        } else {
+          toast.error("Error", {
+            description:
+              response.data.message || "Failed to fetch order details.",
+            className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+            duration: 4000,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching order:", error);
+        toast.error("Error", {
+          description: "An error occurred while fetching order details.",
+          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+          duration: 4000,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     if (status === "authenticated" && session?.user?.role === "admin") {
       fetchOrder();
     } else if (status === "unauthenticated") {
       router.replace("/sign-in");
     }
   }, [status, session, router, id]);
-
-  const fetchOrder = async () => {
-    setIsLoading(true);
-    try {
-      const response = await axios.get(`/api/admin/orders/${id}`);
-      if (response.data.success) {
-        const fetchedOrder = response.data.data;
-        setOrder(fetchedOrder);
-        setFormData({
-          status: fetchedOrder.status,
-          revisionStatus: fetchedOrder.revisionStatus || "none",
-          revisionCount: fetchedOrder.revisionCount || 0,
-          revisionRequest: fetchedOrder.revisionRequest
-            ? {
-                files: fetchedOrder.revisionRequest.files || [],
-                note: fetchedOrder.revisionRequest.note || "",
-                requestedAt: fetchedOrder.revisionRequest.requestedAt || new Date().toISOString(),
-              }
-            : undefined,
-          projectDetails: fetchedOrder.projectDetails,
-          ratePlan: fetchedOrder.ratePlan,
-        });
-      } else {
-        toast.error("Error", {
-          description: response.data.message || "Failed to fetch order details.",
-          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
-          duration: 4000,
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching order:", error);
-      toast.error("Error", {
-        description: "An error occurred while fetching order details.",
-        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
-        duration: 4000,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,7 +163,8 @@ export default function EditOrderPage() {
     } catch (error) {
       console.error("Error updating order:", error);
       toast.error("Error", {
-        description: error instanceof Error ? error.message : "Failed to update order.",
+        description:
+          error instanceof Error ? error.message : "Failed to update order.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",
         duration: 4000,
       });
@@ -165,19 +175,30 @@ export default function EditOrderPage() {
 
   const handleInputChange = (
     field: keyof typeof formData,
-    value: string | number | Order["projectDetails"] | RatePlan | Order["revisionRequest"]
+    value:
+      | string
+      | number
+      | Order["projectDetails"]
+      | RatePlan
+      | Order["revisionRequest"]
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleRatePlanChange = (key: keyof RatePlan, value: string | number | string[]) => {
+  const handleRatePlanChange = (
+    key: keyof RatePlan,
+    value: string | number | string[]
+  ) => {
     setFormData((prev) => ({
       ...prev,
       ratePlan: { ...prev.ratePlan, [key]: value },
     }));
   };
 
-  const handleProjectDetailsChange = (key: keyof Order["projectDetails"], value: string) => {
+  const handleProjectDetailsChange = (
+    key: keyof Order["projectDetails"],
+    value: string
+  ) => {
     setFormData((prev) => ({
       ...prev,
       projectDetails: { ...prev.projectDetails, [key]: value },
@@ -194,7 +215,8 @@ export default function EditOrderPage() {
         ...prev.revisionRequest,
         [key]: value,
         files: prev.revisionRequest?.files || [],
-        requestedAt: prev.revisionRequest?.requestedAt || new Date().toISOString(),
+        requestedAt:
+          prev.revisionRequest?.requestedAt || new Date().toISOString(),
       },
     }));
   };
@@ -249,7 +271,9 @@ export default function EditOrderPage() {
     <div
       className="min-h-screen font-sans py-6 px-4 sm:px-6 lg:px-15 max-w-7xl mx-auto mt-17"
       style={{
-        backgroundImage: `url(${Images.adminViewbackground ? Images.adminViewbackground.src : ""})`,
+        backgroundImage: `url(${
+          Images.adminViewbackground ? Images.adminViewbackground.src : ""
+        })`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -275,7 +299,10 @@ export default function EditOrderPage() {
         <form
           onSubmit={handleSubmit}
           className="rounded-lg shadow-md border p-6"
-          style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}
+          style={{
+            backgroundColor: secondaryDarkGray,
+            borderColor: accentColor,
+          }}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -302,11 +329,22 @@ export default function EditOrderPage() {
                   <SelectTrigger
                     id="status"
                     className="border-2 focus:ring-2 focus:ring-offset-2"
-                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                      boxShadow: `0 0 0 2px ${accentColor}`,
+                    }}
                   >
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
-                  <SelectContent style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}>
+                  <SelectContent
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                    }}
+                  >
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="in-progress">In Progress</SelectItem>
                     <SelectItem value="accepted">Accepted</SelectItem>
@@ -328,17 +366,31 @@ export default function EditOrderPage() {
                 <Select
                   value={formData.revisionStatus}
                   onValueChange={(value) =>
-                    handleInputChange("revisionStatus", value as Order["revisionStatus"])
+                    handleInputChange(
+                      "revisionStatus",
+                      value as Order["revisionStatus"]
+                    )
                   }
                 >
                   <SelectTrigger
                     id="revisionStatus"
                     className="border-2 focus:ring-2 focus:ring-offset-2"
-                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                      boxShadow: `0 0 0 2px ${accentColor}`,
+                    }}
                   >
                     <SelectValue placeholder="Select revision status" />
                   </SelectTrigger>
-                  <SelectContent style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}>
+                  <SelectContent
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                    }}
+                  >
                     <SelectItem value="none">None</SelectItem>
                     <SelectItem value="requested">Requested</SelectItem>
                     <SelectItem value="submitted">Submitted</SelectItem>
@@ -358,9 +410,16 @@ export default function EditOrderPage() {
                   type="number"
                   min="0"
                   value={formData.revisionCount}
-                  onChange={(e) => handleInputChange("revisionCount", Number(e.target.value))}
+                  onChange={(e) =>
+                    handleInputChange("revisionCount", Number(e.target.value))
+                  }
                   className="border-2 focus:ring-2 focus:ring-offset-2"
-                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  style={{
+                    backgroundColor: white,
+                    borderColor: inputBorderColor,
+                    color: primaryDarkGray,
+                    boxShadow: `0 0 0 2px ${accentColor}`,
+                  }}
                   placeholder="Enter revision count"
                 />
               </div>
@@ -383,9 +442,16 @@ export default function EditOrderPage() {
                 <Input
                   id="title"
                   value={formData.projectDetails.title}
-                  onChange={(e) => handleProjectDetailsChange("title", e.target.value)}
+                  onChange={(e) =>
+                    handleProjectDetailsChange("title", e.target.value)
+                  }
                   className="border-2 focus:ring-2 focus:ring-offset-2"
-                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  style={{
+                    backgroundColor: white,
+                    borderColor: inputBorderColor,
+                    color: primaryDarkGray,
+                    boxShadow: `0 0 0 2px ${accentColor}`,
+                  }}
                   placeholder="Enter project title"
                 />
               </div>
@@ -400,9 +466,16 @@ export default function EditOrderPage() {
                 <Textarea
                   id="description"
                   value={formData.projectDetails.description}
-                  onChange={(e) => handleProjectDetailsChange("description", e.target.value)}
+                  onChange={(e) =>
+                    handleProjectDetailsChange("description", e.target.value)
+                  }
                   className="border-2 focus:ring-2 focus:ring-offset-2"
-                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  style={{
+                    backgroundColor: white,
+                    borderColor: inputBorderColor,
+                    color: primaryDarkGray,
+                    boxShadow: `0 0 0 2px ${accentColor}`,
+                  }}
                   placeholder="Enter project description"
                 />
               </div>
@@ -431,11 +504,22 @@ export default function EditOrderPage() {
                   <SelectTrigger
                     id="ratePlanType"
                     className="border-2 focus:ring-2 focus:ring-offset-2"
-                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                      boxShadow: `0 0 0 2px ${accentColor}`,
+                    }}
                   >
                     <SelectValue placeholder="Select rate plan type" />
                   </SelectTrigger>
-                  <SelectContent style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}>
+                  <SelectContent
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                    }}
+                  >
                     <SelectItem value="Basic">Basic</SelectItem>
                     <SelectItem value="Standard">Standard</SelectItem>
                     <SelectItem value="Premium">Premium</SelectItem>
@@ -454,9 +538,16 @@ export default function EditOrderPage() {
                   id="price"
                   type="number"
                   value={formData.ratePlan.price}
-                  onChange={(e) => handleRatePlanChange("price", Number(e.target.value))}
+                  onChange={(e) =>
+                    handleRatePlanChange("price", Number(e.target.value))
+                  }
                   className="border-2 focus:ring-2 focus:ring-offset-2"
-                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  style={{
+                    backgroundColor: white,
+                    borderColor: inputBorderColor,
+                    color: primaryDarkGray,
+                    boxShadow: `0 0 0 2px ${accentColor}`,
+                  }}
                   placeholder="Enter price"
                 />
               </div>
@@ -471,9 +562,16 @@ export default function EditOrderPage() {
                 <Textarea
                   id="ratePlanDescription"
                   value={formData.ratePlan.description}
-                  onChange={(e) => handleRatePlanChange("description", e.target.value)}
+                  onChange={(e) =>
+                    handleRatePlanChange("description", e.target.value)
+                  }
                   className="border-2 focus:ring-2 focus:ring-offset-2"
-                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  style={{
+                    backgroundColor: white,
+                    borderColor: inputBorderColor,
+                    color: primaryDarkGray,
+                    boxShadow: `0 0 0 2px ${accentColor}`,
+                  }}
                   placeholder="Enter rate plan description"
                 />
               </div>
@@ -489,9 +587,16 @@ export default function EditOrderPage() {
                   id="deliveryDays"
                   type="number"
                   value={formData.ratePlan.deliveryDays}
-                  onChange={(e) => handleRatePlanChange("deliveryDays", Number(e.target.value))}
+                  onChange={(e) =>
+                    handleRatePlanChange("deliveryDays", Number(e.target.value))
+                  }
                   className="border-2 focus:ring-2 focus:ring-offset-2"
-                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  style={{
+                    backgroundColor: white,
+                    borderColor: inputBorderColor,
+                    color: primaryDarkGray,
+                    boxShadow: `0 0 0 2px ${accentColor}`,
+                  }}
                   placeholder="Enter delivery days"
                 />
               </div>
@@ -508,9 +613,16 @@ export default function EditOrderPage() {
                   type="number"
                   min="0"
                   value={formData.ratePlan.revisions}
-                  onChange={(e) => handleRatePlanChange("revisions", Number(e.target.value))}
+                  onChange={(e) =>
+                    handleRatePlanChange("revisions", Number(e.target.value))
+                  }
                   className="border-2 focus:ring-2 focus:ring-offset-2"
-                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  style={{
+                    backgroundColor: white,
+                    borderColor: inputBorderColor,
+                    color: primaryDarkGray,
+                    boxShadow: `0 0 0 2px ${accentColor}`,
+                  }}
                   placeholder="Enter number of revisions"
                 />
               </div>
@@ -525,9 +637,19 @@ export default function EditOrderPage() {
                 <Textarea
                   id="whatsIncluded"
                   value={formData.ratePlan.whatsIncluded.join(", ")}
-                  onChange={(e) => handleRatePlanChange("whatsIncluded", e.target.value.split(", ").filter(Boolean))}
+                  onChange={(e) =>
+                    handleRatePlanChange(
+                      "whatsIncluded",
+                      e.target.value.split(", ").filter(Boolean)
+                    )
+                  }
                   className="border-2 focus:ring-2 focus:ring-offset-2"
-                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  style={{
+                    backgroundColor: white,
+                    borderColor: inputBorderColor,
+                    color: primaryDarkGray,
+                    boxShadow: `0 0 0 2px ${accentColor}`,
+                  }}
                   placeholder="Enter included items, separated by commas"
                 />
               </div>
@@ -550,36 +672,44 @@ export default function EditOrderPage() {
                 <Textarea
                   id="revisionNote"
                   value={formData.revisionRequest?.note || ""}
-                  onChange={(e) => handleRevisionRequestChange("note", e.target.value)}
+                  onChange={(e) =>
+                    handleRevisionRequestChange("note", e.target.value)
+                  }
                   className="border-2 focus:ring-2 focus:ring-offset-2"
-                  style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray, boxShadow: `0 0 0 2px ${accentColor}` }}
+                  style={{
+                    backgroundColor: white,
+                    borderColor: inputBorderColor,
+                    color: primaryDarkGray,
+                    boxShadow: `0 0 0 2px ${accentColor}`,
+                  }}
                   placeholder="Enter revision request note"
                 />
               </div>
-              {order.revisionRequest?.files && order.revisionRequest.files.length > 0 && (
-                <div className="mb-4">
-                  <label
-                    className="block text-sm font-medium mb-1"
-                    style={{ color: activeTextColor }}
-                  >
-                    Revision Request Files
-                  </label>
-                  <div>
-                    {order.revisionRequest.files.map((file, index) => (
-                      <a
-                        key={index}
-                        href={file}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline block"
-                        style={{ color: "#60A5FA" }}
-                      >
-                        File {index + 1}
-                      </a>
-                    ))}
+              {order.revisionRequest?.files &&
+                order.revisionRequest.files.length > 0 && (
+                  <div className="mb-4">
+                    <label
+                      className="block text-sm font-medium mb-1"
+                      style={{ color: activeTextColor }}
+                    >
+                      Revision Request Files
+                    </label>
+                    <div>
+                      {order.revisionRequest.files.map((file, index) => (
+                        <a
+                          key={index}
+                          href={file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline block"
+                          style={{ color: "#60A5FA" }}
+                        >
+                          File {index + 1}
+                        </a>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
               {order.revisionRequest?.requestedAt && (
                 <div className="mb-4">
                   <label
@@ -589,10 +719,16 @@ export default function EditOrderPage() {
                     Revision Requested At
                   </label>
                   <Input
-                    value={new Date(order.revisionRequest.requestedAt).toLocaleString()}
+                    value={new Date(
+                      order.revisionRequest.requestedAt
+                    ).toLocaleString()}
                     disabled
                     className="border-2"
-                    style={{ backgroundColor: white, borderColor: inputBorderColor, color: primaryDarkGray }}
+                    style={{
+                      backgroundColor: white,
+                      borderColor: inputBorderColor,
+                      color: primaryDarkGray,
+                    }}
                   />
                 </div>
               )}

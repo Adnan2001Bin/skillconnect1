@@ -5,11 +5,13 @@ import OrderModel from "@/models/order.model";
 import { authOptions } from "../../auth/[...nextauth]/options";
 import mongoose from "mongoose";
 
+// Since we're not returning any specific data, we can use void or an empty object
 interface Response {
   success: boolean;
   message: string;
-  data?: any;
+  data?: Record<string, never>; // Empty object type
 }
+
 export async function DELETE(
   request: NextRequest
 ): Promise<NextResponse<Response>> {

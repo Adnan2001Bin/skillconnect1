@@ -50,13 +50,12 @@ import {
   Trash2,
 } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
-import { Images } from "@/lib/images";
 import { TalentProfileInput } from "@/schemas/profileSchema";
 import Loader from "@/components/Loader";
 import io, { Socket } from "socket.io-client";
 
 // Initialize Stripe with your publishable key
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHable_KEY || "");
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
 
 // Define RatePlan type to match talentProfileSchema
 interface RatePlan {

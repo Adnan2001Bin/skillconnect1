@@ -21,6 +21,19 @@ const statusOptions = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
+// Add interface for dashboard data
+interface DashboardData {
+  recentProjects?: IProject[];
+  totalProjects?: number;
+  projectsByStatus?: {
+    open: number;
+    "in-progress": number;
+    completed: number;
+    cancelled: number;
+  };
+  projectsByCategory?: { [key: string]: number };
+}
+
 const getStatusBadgeColor = (status: string) => {
   switch (status) {
     case "open":
@@ -67,37 +80,45 @@ export default function AdminProjectManagementPage() {
   useEffect(() => {
     if (!session?.user?._id || session?.user?.role !== "admin") return;
 
-    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
-      auth: { userId: session.user._id },
-    });
+    const socket = io(
+      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000",
+      {
+        auth: { userId: session.user._id },
+      }
+    );
 
     socket.on("connect", () => {
       console.log("Connected to Socket.IO server");
       socket.emit("join", session.user._id);
     });
 
-    socket.on("projectStatusUpdated", async (data: { projectId: string; status: string }) => {
-      try {
-        const response = await axios.get(`/api/projects/${data.projectId}`);
-        if (response.data.success) {
-          setProjects((prev) =>
-            prev.map((project) =>
-              project._id === data.projectId ? response.data.data : project
-            )
-          );
-          toast.info("Project Status Updated", {
-            description: `Project status changed to ${data.status}.`,
-            className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
-            duration: 4000,
-          });
+    socket.on(
+      "projectStatusUpdated",
+      async (data: { projectId: string; status: string }) => {
+        try {
+          const response = await axios.get(`/api/projects/${data.projectId}`);
+          if (response.data.success) {
+            setProjects((prev) =>
+              prev.map((project) =>
+                project._id === data.projectId ? response.data.data : project
+              )
+            );
+            toast.info("Project Status Updated", {
+              description: `Project status changed to ${data.status}.`,
+              className: "bg-blue-600 text-white border-blue-700 bg-opacity-80",
+              duration: 4000,
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching updated project:", error);
         }
-      } catch (error) {
-        console.error("Error fetching updated project:", error);
       }
-    });
+    );
 
     socket.on("projectDeleted", (data: { projectId: string }) => {
-      setProjects((prev) => prev.filter((project) => project._id !== data.projectId));
+      setProjects((prev) =>
+        prev.filter((project) => project._id !== data.projectId)
+      );
       toast.info("Project Deleted", {
         description: "A project has been deleted.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",
@@ -105,7 +126,7 @@ export default function AdminProjectManagementPage() {
       });
     });
 
-    socket.on("dashboardUpdate", (data: any) => {
+    socket.on("dashboardUpdate", (data: DashboardData) => {
       setProjects(data.recentProjects || []);
     });
 
@@ -187,7 +208,9 @@ export default function AdminProjectManagementPage() {
     try {
       const response = await axios.delete(`/api/projects/${projectId}`);
       if (response.data.success) {
-        setProjects((prev) => prev.filter((project) => project._id !== projectId));
+        setProjects((prev) =>
+          prev.filter((project) => project._id !== projectId)
+        );
         toast.success("Project Deleted", {
           description: "The project has been successfully deleted.",
           className: "bg-green-600 text-white border-green-700 bg-opacity-80",
@@ -197,6 +220,7 @@ export default function AdminProjectManagementPage() {
         throw new Error(response.data.message || "Failed to delete project");
       }
     } catch (error) {
+      console.log(error);
       toast.error("Error", {
         description: "Failed to delete project. Please try again.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",
@@ -332,13 +356,19 @@ export default function AdminProjectManagementPage() {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <Loader className="animate-spin h-10 w-10" style={{ color: accentColor }} />
+          <Loader
+            className="animate-spin h-10 w-10"
+            style={{ color: accentColor }}
+          />
           <p className="ml-3 text-xl" style={{ color: neutralTextColor }}>
             Loading projects...
           </p>
         </div>
       ) : filteredProjects.length === 0 ? (
-        <p className="text-center text-xl font-medium" style={{ color: neutralTextColor }}>
+        <p
+          className="text-center text-xl font-medium"
+          style={{ color: neutralTextColor }}
+        >
           No projects found for the selected criteria.
         </p>
       ) : (
@@ -352,7 +382,10 @@ export default function AdminProjectManagementPage() {
                 borderColor: accentColor,
               }}
             >
-              <h3 className="text-lg font-semibold mb-2" style={{ color: activeTextColor }}>
+              <h3
+                className="text-lg font-semibold mb-2"
+                style={{ color: activeTextColor }}
+              >
                 {project.title}
               </h3>
               <p className="text-sm mb-2" style={{ color: neutralTextColor }}>
@@ -371,11 +404,14 @@ export default function AdminProjectManagementPage() {
                 Created: {new Date(project.createdAt).toLocaleDateString()}
               </p>
               <Badge className={getStatusBadgeColor(project.status)}>
-                {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                {project.status.charAt(0).toUpperCase() +
+                  project.status.slice(1)}
               </Badge>
               <div className="flex gap-2 mt-4">
                 <Button
-                  onClick={() => router.push(`/admin/management/projects/${project._id}`)}
+                  onClick={() =>
+                    router.push(`/admin/management/projects/${project._id}`)
+                  }
                   className="px-4 py-2 rounded-full font-semibold transition-colors"
                   style={{
                     backgroundColor: accentColor,

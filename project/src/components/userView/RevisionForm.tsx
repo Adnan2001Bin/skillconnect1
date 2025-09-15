@@ -44,6 +44,8 @@ export default function RevisionForm({ projectId, onCancel, onSuccess }: Revisio
         throw new Error(response.data.message || "Failed to submit revision request");
       }
     } catch (error) {
+      console.log(error);
+      
       toast.error("Error", {
         description: "Failed to submit revision request. Please try again.",
         className: "bg-red-600 text-white border-red-700 bg-opacity-80",

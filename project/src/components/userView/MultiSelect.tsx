@@ -15,7 +15,6 @@ interface MultiSelectProps {
 }
 
 export function MultiSelect({
-  name,
   label,
   placeholder,
   options,

@@ -2,13 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import axios from "axios";
-import { Loader2 } from "lucide-react";
 import { IProject } from "@/models/projects.model";
 import ProjectCard from "@/components/talent/projects/ProjectCard";
 import { toast } from "sonner";
-import Image from "next/image";
 import { Images } from "@/lib/images";
 import Loader from "@/components/Loader";
 import { io } from "socket.io-client";
@@ -16,18 +13,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 export default function TalentProjectsListPage() {
   const { status: sessionStatus, data: session } = useSession();
-  const router = useRouter();
   const [projects, setProjects] = useState<IProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<string>("all"); // Default filter is "all"
+  const [filter, setFilter] = useState<string>("all"); 
 
-  const colors = {
-    accentColor: "#8DBCC7",
-    activeTextColor: "#212121",
-    neutralTextColor: "#757575",
-    primary: "#90D1CA",
-  };
 
   // Initialize Socket.IO
   useEffect(() => {
@@ -120,6 +110,8 @@ export default function TalentProjectsListPage() {
       </div>
     );
   }
+  console.log(loading);
+  
 
   if (error) {
     return (

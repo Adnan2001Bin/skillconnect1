@@ -39,7 +39,7 @@ import {
 
 // Utilities & Types
 import { UploadDropzone } from "@uploadthing/react";
-import type { OurFileRouter } from "@/app/api/uploadthing/core/route";
+import { OurFileRouter } from "@/lib/uploadthing";
 
 // Interface Definitions
 interface RatePlan {
@@ -110,7 +110,6 @@ interface ViewDeliverablesDialogProps {
 
 export default function ViewDeliverablesDialog({
   order,
-  onClose,
   onOrderUpdate,
 }: ViewDeliverablesDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);

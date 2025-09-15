@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/options";
 import connectDB from "@/lib/connectDB";
-import UserModel, { IPortfolioItem, IRatePlan, IUser } from "@/models/user.model";
+import UserModel, {  IUser } from "@/models/user.model";
 import { z } from "zod";
 import { userProfileSchema, talentProfileSchema } from "@/schemas/profileSchema";
 
@@ -30,7 +30,7 @@ interface ProfileResponse {
   };
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse<ProfileResponse>> {
+export async function GET(): Promise<NextResponse<ProfileResponse>> {
   await connectDB();
 
   try {

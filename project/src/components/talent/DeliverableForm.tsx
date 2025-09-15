@@ -4,11 +4,10 @@ import { useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { UploadDropzone } from "@uploadthing/react";
-import { OurFileRouter } from "@/app/api/uploadthing/core/route";
+import { OurFileRouter } from "@/lib/uploadthing";
 import { X, Loader2 } from "lucide-react";
 
 interface DeliverableFormProps {

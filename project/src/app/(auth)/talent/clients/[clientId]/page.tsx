@@ -7,8 +7,6 @@ import { useSession } from "next-auth/react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Loader, ArrowLeft, User, Mail, Info, Briefcase, MessageSquare, Edit, Trash2 } from "lucide-react";
+import { Loader, ArrowLeft, Mail, Info, Briefcase, MessageSquare, Edit, Trash2 } from "lucide-react";
 import { Images } from "@/lib/images";
 import Image from "next/image";
 import io, { Socket } from "socket.io-client";

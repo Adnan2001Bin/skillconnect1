@@ -207,7 +207,7 @@ export default function TalentMessagesPage() {
         socketInstance.disconnect();
       };
     } 
-  }, [status, session, router]);
+  }, [status, session, router ,selectedConversationId]);
 
   useEffect(() => {
     if (socket && selectedConversationId && session?.user) {

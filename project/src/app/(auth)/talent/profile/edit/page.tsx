@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useForm, FormProvider } from "react-hook-form";
@@ -15,7 +15,7 @@ import { TextareaField } from "@/components/profile/TextareaField";
 import { TextField } from "@/components/profile/TextField";
 import { MultiSelect } from "@/components/talent/MultiSelect";
 import { Button } from "@/components/ui/button";
-import { Briefcase, MapPin, User, Book, Star, Link } from "lucide-react";
+import { Briefcase, MapPin, User, Book, Star } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Images } from "@/lib/images";
@@ -58,7 +58,7 @@ export default function TalentProfileEditPage() {
     reValidateMode: "onBlur",
   });
 
-  const progressFields = [
+  const progressFields = useMemo(() => [
     "profilePicture",
     "bio",
     "location",
@@ -71,7 +71,7 @@ export default function TalentProfileEditPage() {
     "whatIOffer",
     "socialLinks",
     "languageProficiency",
-  ];
+  ], []);
 
   const fieldLabels: { [key: string]: string } = {
     profilePicture: "Profile Picture",
@@ -96,6 +96,16 @@ export default function TalentProfileEditPage() {
     { title: "Social & Language", fields: ["socialLinks", "languageProficiency"] },
   ];
 
+  const calculateCompletion = useCallback(() => {
+    const filledFields = progressFields.filter((field) => {
+      const value = form.getValues(field as keyof TalentProfileInput);
+      if (Array.isArray(value)) return value.length > 0;
+      return !!value;
+    });
+    const percentage = Math.round((filledFields.length / progressFields.length) * 100);
+    setCompletionPercentage(percentage);
+  }, [form, progressFields]);
+
   useEffect(() => {
     if (status === "authenticated" && session?.user?.role === "talent") {
       const fetchProfileAndLoadLocal = async () => {
@@ -111,7 +121,7 @@ export default function TalentProfileEditPage() {
                 data = {
                   ...data,
                   ...Object.fromEntries(
-                    Object.entries(draft).filter(([_, value]) =>
+                    Object.entries(draft).filter(([, value]) => // Fixed: Changed [_ , value] to [ , value]
                       Array.isArray(value) ? value.length > 0 : !!value
                     )
                   ),
@@ -163,19 +173,10 @@ export default function TalentProfileEditPage() {
   }, [form]);
 
   useEffect(() => {
-    const calculateCompletion = () => {
-      const filledFields = progressFields.filter((field) => {
-        const value = form.getValues(field as keyof TalentProfileInput);
-        if (Array.isArray(value)) return value.length > 0;
-        return !!value;
-      });
-      const percentage = Math.round((filledFields.length / progressFields.length) * 100);
-      setCompletionPercentage(percentage);
-    };
     calculateCompletion();
     const subscription = form.watch(() => calculateCompletion());
     return () => subscription.unsubscribe();
-  }, [form]);
+  }, [form, calculateCompletion]); // Fixed: Added calculateCompletion to the dependency array
 
   const handleNextStep = async () => {
     const currentFields = steps[currentStep].fields;

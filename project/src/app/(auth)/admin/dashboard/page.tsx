@@ -153,44 +153,43 @@ export default function AdminDashboardPage() {
   const white = "#FFFFFF";
   const inputBorderColor = "#667580";
 
-  useEffect(() => {
-    if (status === "authenticated" && session?.user?.role === "admin") {
-      const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
-        auth: { userId: session.user._id },
+useEffect(() => {
+  if (status === "authenticated" && session?.user?.role === "admin") {
+    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000", {
+      auth: { userId: session.user._id },
+    });
+
+    setSocket(socketInstance);
+
+    socketInstance.on("connect_error", (err) => {
+      console.error("Socket connection error:", err);
+      setError("Failed to connect to real-time updates.");
+      toast.error("Connection Error", {
+        description: "Failed to connect to real-time updates. Please try again.",
+        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+        duration: 4000,
       });
+    });
 
-      setSocket(socketInstance);
+    socketInstance.on("dashboardUpdate", (data: DashboardData) => {
+      console.log("Received dashboardUpdate:", JSON.stringify(data, null, 2));
+      setDashboardData(data);
+      setLoading(false);
+    });
 
-      socketInstance.on("connect_error", (err) => {
-        console.error("Socket connection error:", err);
-        setError("Failed to connect to real-time updates.");
-        toast.error("Connection Error", {
-          description: "Failed to connect to real-time updates. Please try again.",
-          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
-          duration: 4000,
-        });
-      });
-
-      socketInstance.on("dashboardUpdate", (data: DashboardData) => {
-        console.log("Received dashboardUpdate:", JSON.stringify(data, null, 2));
-        setDashboardData(data);
-        setLoading(false);
-      });
-
-      socketInstance.on("paymentTransactionUpdated", () => {
-        console.log("Payment transaction updated, fetching new data...");
-        if (socket) {
-          socket.emit("getDashboardData", { timeRange });
-        }
-      });
-
+    socketInstance.on("paymentTransactionUpdated", () => {
+      console.log("Payment transaction updated, fetching new data...");
+      // Use the socketInstance that's already available in this closure
       socketInstance.emit("getDashboardData", { timeRange });
+    });
 
-      return () => {
-        socketInstance.disconnect();
-      };
-    }
-  }, [status, session, timeRange]);
+    socketInstance.emit("getDashboardData", { timeRange });
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }
+}, [status, session, timeRange]); // No need to add socket to dependencies
 
   const handleTimeRangeChange = (value: string) => {
     setTimeRange(value);

@@ -5,7 +5,7 @@ import NotificationModel, { INotification } from "@/models/notification.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 import mongoose from "mongoose";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session || !["user", "talent", "admin"].includes(session.user.role)) {

@@ -71,7 +71,9 @@ const ReviewCard = ({ review }: { review: Review }) => {
       <div className="flex justify-between items-center mb-2">
         <span className="font-semibold text-gray-800">
           Review for:{" "}
-          <span className="text-teal-600 font-bold">{review.talentUserName}</span>
+          <span className="text-teal-600 font-bold">
+            {review.talentUserName}
+          </span>
         </span>
         <span className="text-sm text-gray-500">
           {isValidDate
@@ -98,7 +100,9 @@ const ReviewCard = ({ review }: { review: Review }) => {
           ))}
       </div>
       {review.comment && (
-        <p className="text-gray-600 mt-2 italic">"{review.comment}"</p>
+        <p className="text-gray-600 mt-2 italic">
+          &quot;{review.comment}&quot;
+        </p>
       )}
     </motion.div>
   );
@@ -165,9 +169,7 @@ export default function ClientProfilePage() {
   if (!profile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-red-600 text-lg font-semibold">
-          Profile not found.
-        </p>
+        <p className="text-red-600 text-lg font-semibold">Profile not found.</p>
       </div>
     );
   }
@@ -250,7 +252,7 @@ export default function ClientProfilePage() {
             </h2>
             {reviews.length === 0 ? (
               <p className="text-gray-600 italic text-center p-8">
-                You haven't submitted any reviews yet.
+                You haven&apos;t submitted any reviews yet.
               </p>
             ) : (
               <div className="space-y-6">

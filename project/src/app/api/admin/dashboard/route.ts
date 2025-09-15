@@ -2,8 +2,71 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import connectDB from "@/lib/connectDB";
 import OrderModel from "@/models/order.model";
-import UserModel from "@/models/user.model";
 import { authOptions } from "../../auth/[...nextauth]/options";
+
+// Define interfaces for proper typing
+interface PopulatedUser {
+  _id: string;
+  userName: string;
+}
+
+interface LeanOrder {
+  _id: string;
+  talentId: PopulatedUser;
+  clientId: PopulatedUser;
+  ratePlan: {
+    type: string;
+    price: number;
+    description: string;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
+  projectDetails: {
+    title: string;
+    description: string;
+  };
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
+  revisionStatus?: "none" | "requested" | "submitted";
+  revisionCount?: number;
+  createdAt: Date;
+  updatedAt: Date;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt?: Date;
+  };
+}
+
+interface RecentOrder {
+  _id: string;
+  talentId: string;
+  clientId: string;
+  clientUserName: string;
+  talentUserName: string;
+  ratePlan: {
+    type: string;
+    price: number;
+    description: string;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
+  projectDetails: {
+    title: string;
+    description: string;
+  };
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
+  createdAt: string;
+  updatedAt: string;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: string;
+  };
+}
 
 interface AdminDashboardResponse {
   success: boolean;
@@ -17,35 +80,7 @@ interface AdminDashboardResponse {
       completed: number;
       cancelled: number;
     };
-    recentOrders: {
-      _id: string;
-      talentId: string;
-      clientId: string;
-      clientUserName: string;
-      talentUserName: string;
-      ratePlan: {
-        type: string;
-        price: number;
-        description: string;
-        whatsIncluded: string[];
-        deliveryDays: number;
-        revisions: number;
-      };
-      projectDetails: {
-        title: string;
-        description: string;
-      };
-      status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
-      revisionStatus: "none" | "requested" | "submitted";
-      revisionCount: number;
-      createdAt: string;
-      updatedAt: string;
-      revisionRequest?: {
-        files: string[];
-        note?: string;
-        requestedAt: string;
-      };
-    }[];
+    recentOrders: RecentOrder[];
   };
   error?: string;
 }
@@ -98,49 +133,39 @@ export async function GET(req: NextRequest): Promise<NextResponse<AdminDashboard
     const recentOrders = await OrderModel.find(query)
       .sort({ createdAt: -1 })
       .limit(5)
-      .populate<{ talentId: { userName: string } }>({ path: "talentId", select: "userName" })
-      .populate<{ clientId: { userName: string } }>({ path: "clientId", select: "userName" })
-      .lean();
+      .populate<{ talentId: PopulatedUser }>({ path: "talentId", select: "userName" })
+      .populate<{ clientId: PopulatedUser }>({ path: "clientId", select: "userName" })
+      .lean<LeanOrder[]>();
 
-    const recentOrdersWithUserNames = recentOrders.map((order: any) => {
-  // Safely handle talentId and clientId population
-  const talentId = order.talentId?._id?.toString() || "unknown-talent";
-  const clientId = order.clientId?._id?.toString() || "unknown-client";
-  const talentUserName = order.talentId?.userName || "Unknown";
-  const clientUserName = order.clientId?.userName || "Unknown";
+    const recentOrdersWithUserNames = recentOrders.map((order) => {
+      const talentId = order.talentId?._id?.toString() || "unknown-talent";
+      const clientId = order.clientId?._id?.toString() || "unknown-client";
+      const talentUserName = order.talentId?.userName || "Unknown";
+      const clientUserName = order.clientId?.userName || "Unknown";
 
-  return {
-    _id: order._id.toString(),
-    talentId,
-    clientId,
-    clientUserName,
-    talentUserName,
-    ratePlan: {
-      type: order.ratePlan.type,
-      price: order.ratePlan.price,
-      description: order.ratePlan.description,
-      whatsIncluded: order.ratePlan.whatsIncluded,
-      deliveryDays: order.ratePlan.deliveryDays,
-      revisions: order.ratePlan.revisions,
-    },
-    projectDetails: {
-      title: order.projectDetails.title,
-      description: order.projectDetails.description,
-    },
-    status: order.status,
-    revisionStatus: order.revisionStatus || "none",
-    revisionCount: order.revisionCount || 0,
-    createdAt: order.createdAt.toISOString(),
-    updatedAt: order.updatedAt.toISOString(),
-    revisionRequest: order.revisionRequest
-      ? {
-          files: order.revisionRequest.files || [],
-          note: order.revisionRequest.note || undefined,
-          requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
-        }
-      : undefined,
-  };
-});
+      return {
+        _id: order._id.toString(),
+        talentId,
+        clientId,
+        clientUserName,
+        talentUserName,
+        ratePlan: order.ratePlan,
+        projectDetails: order.projectDetails,
+        status: order.status,
+        revisionStatus: order.revisionStatus || "none",
+        revisionCount: order.revisionCount || 0,
+        createdAt: order.createdAt.toISOString(),
+        updatedAt: order.updatedAt.toISOString(),
+        revisionRequest: order.revisionRequest
+          ? {
+              files: order.revisionRequest.files || [],
+              note: order.revisionRequest.note || undefined,
+              requestedAt: order.revisionRequest.requestedAt?.toISOString() || "",
+            }
+          : undefined,
+      } as RecentOrder;
+    });
+
     return NextResponse.json(
       {
         success: true,

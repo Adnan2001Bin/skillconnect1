@@ -9,7 +9,14 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, Loader2 } from "lucide-react";
@@ -57,13 +64,16 @@ export default function VerifyCodePage() {
       if (response.data.success) {
         toast.success("Code Resent!", {
           description: "A new verification code has been sent to your email.",
-          className: "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
+          className:
+            "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
       } else {
         toast.error("Resend Failed", {
-          description: response.data.message || "Failed to resend code. Please try again.",
-          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          description:
+            response.data.message || "Failed to resend code. Please try again.",
+          className:
+            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
         setResendLoading(false);
@@ -79,7 +89,8 @@ export default function VerifyCodePage() {
 
       toast.error("Resend Error", {
         description: errorMessage,
-        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
       });
       setResendLoading(false);
@@ -99,7 +110,8 @@ export default function VerifyCodePage() {
       if (response.data.success) {
         toast.success("Success", {
           description: response.data.message,
-          className: "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
+          className:
+            "bg-[#4CAF50] text-white border-[#1B5E20] backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
         setTimeout(() => {
@@ -108,7 +120,8 @@ export default function VerifyCodePage() {
       } else {
         toast.error("Error", {
           description: response.data.message,
-          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          className:
+            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
       }
@@ -122,7 +135,8 @@ export default function VerifyCodePage() {
 
       toast.error("Error", {
         description: errorMessage,
-        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        className:
+          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
       });
     } finally {
@@ -150,7 +164,9 @@ export default function VerifyCodePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#3A7D44]/50 to-transparent flex items-center justify-center">
             <div className="text-center text-white p-6">
               <h2 className="text-3xl font-bold mb-4">Verify Your Account</h2>
-              <p className="text-lg">Enter the code sent to your email to join our talent network.</p>
+              <p className="text-lg">
+                Enter the code sent to your email to join our talent network.
+              </p>
             </div>
           </div>
         </div>
@@ -214,7 +230,7 @@ export default function VerifyCodePage() {
           </Form>
           <div className="mt-6 text-center pt-4 border-t border-[#1B5E20]/20">
             <p className="text-[#757575] text-sm mb-2">
-              Didn't receive the code?
+              {`Didn't receive the code?`}
             </p>
             <Button
               variant="outline"

@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import axios from "axios";
 import {
   Briefcase,
   ChartBarStacked,
-  Filter,
   Loader2,
   ScanSearch,
   Search,
@@ -37,10 +36,8 @@ interface Talent extends TalentProfileInput {
   role: "talent";
 }
 
-//for userview
-export default function UserTalentView() {
-  const { status } = useSession();
-  const router = useRouter();
+// Create a separate component that uses useSearchParams
+function TalentListContent() {
   const searchParams = useSearchParams();
   const [talents, setTalents] = useState<Talent[]>([]);
   const [filteredTalents, setFilteredTalents] = useState<Talent[]>([]);
@@ -48,39 +45,41 @@ export default function UserTalentView() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [serviceFilters, setServiceFilters] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const { status } = useSession();
 
   const colors = {
     primary: "#D3F1DF",
     secondaryDarkGray: "rgba(255,255,255, 0)",
-    accentColor: "#004030", // A deep emerald green
+    accentColor: "#004030",
     white: "#FFFFFF",
     inputBorderColor: "#16423C",
     errorRed: "#EF4444",
   };
 
+  // Extract search params values
+  const categoryParam = searchParams.get("category");
+  const servicesParam = searchParams.get("services");
+
   // Synchronize internal state with URL query parameters
   useEffect(() => {
-    const category = searchParams.get("category");
-    const services = searchParams.get("services");
-
-    if (category && categories.some((c) => c.value === category)) {
-      setCategoryFilter(category);
+    if (categoryParam && categories.some((c) => c.value === categoryParam)) {
+      setCategoryFilter(categoryParam);
     } else {
       setCategoryFilter("all");
     }
 
-    if (services) {
-      setServiceFilters(services.split(",").filter(Boolean));
+    if (servicesParam) {
+      setServiceFilters(servicesParam.split(",").filter(Boolean));
     } else {
       setServiceFilters([]);
     }
-  }, [searchParams.toString()]);
+  }, [categoryParam, servicesParam]);
 
   useEffect(() => {
     if (status === "authenticated") {
       fetchTalents();
     }
-  }, [status, router]);
+  }, [status]);
 
   const fetchTalents = async () => {
     setIsLoading(true);
@@ -92,8 +91,7 @@ export default function UserTalentView() {
       } else {
         toast.error("Error", {
           description: "Failed to fetch talents.",
-          className:
-            "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+          className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
           duration: 4000,
         });
       }
@@ -101,8 +99,7 @@ export default function UserTalentView() {
       console.error("Error fetching talents:", error);
       toast.error("Error", {
         description: "An error occurred while fetching talents.",
-        className:
-          "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
+        className: "bg-red-600 text-white border-red-700 backdrop-blur-md bg-opacity-80",
         duration: 4000,
       });
     } finally {
@@ -110,7 +107,8 @@ export default function UserTalentView() {
     }
   };
 
-  useEffect(() => {
+  // Use useMemo for filtered talents
+  const filteredTalentsMemo = useMemo(() => {
     let filtered = talents;
 
     if (categoryFilter !== "all" && serviceFilters.length > 0) {
@@ -139,8 +137,12 @@ export default function UserTalentView() {
       );
     }
 
-    setFilteredTalents(filtered);
+    return filtered;
   }, [categoryFilter, serviceFilters, searchQuery, talents]);
+
+  useEffect(() => {
+    setFilteredTalents(filteredTalentsMemo);
+  }, [filteredTalentsMemo]);
 
   const serviceOptions =
     categoryFilter !== "all"
@@ -193,10 +195,8 @@ export default function UserTalentView() {
         <CategoryFilterDisplay categoryFilter={categoryFilter} />
       </div>
 
-
       <div className="bg-slate-50/70">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-
           <div className="bg-gradient-to-br from-emerald-50 via-white to-emerald-50 p-6 md:p-8 rounded-2xl shadow-lg border border-emerald-200/50 mb-12">
             {/* Header */}
             <div className="text-center mb-6">
@@ -204,7 +204,8 @@ export default function UserTalentView() {
                 Find the Perfect Talent ✨
               </h2>
               <p className="mt-2 text-lg text-gray-600 max-w-2xl mx-auto">
-                Use our advanced filters to discover professionals by category, service, or keywords.
+                Use our advanced filters to discover professionals by category,
+                service, or keywords.
               </p>
             </div>
 
@@ -227,7 +228,10 @@ export default function UserTalentView() {
                       <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
                     <SelectContent className="bg-white rounded-lg shadow-lg border-gray-200">
-                      <SelectItem value="all" className="hover:bg-gray-100 cursor-pointer p-3">
+                      <SelectItem
+                        value="all"
+                        className="hover:bg-gray-100 cursor-pointer p-3"
+                      >
                         All Categories
                       </SelectItem>
                       {categories.map((category) => (
@@ -259,7 +263,7 @@ export default function UserTalentView() {
                 </div>
               </div>
 
-              {/* Services MultiSelect - placed below for a cleaner UI */}
+              {/* Services MultiSelect */}
               <div className="mt-4">
                 <MultiSelect
                   name="services"
@@ -267,11 +271,12 @@ export default function UserTalentView() {
                   options={serviceOptions}
                   Icon={Briefcase}
                   defaultValue={serviceFilters}
-                  onChange={(value: string[]) => setServiceFilters(value)} label={""}                />
+                  onChange={(value: string[]) => setServiceFilters(value)}
+                  label={""}
+                />
               </div>
             </div>
           </div>
- 
 
           {/* Results Header */}
           <div className="flex justify-between items-center mb-8 px-2">
@@ -305,7 +310,7 @@ export default function UserTalentView() {
                 No Talents Found
               </h3>
               <p className="mt-2 text-md text-gray-500">
-                We couldn't find anyone matching your criteria.
+                {`We couldn't find anyone matching your criteria.`}
               </p>
               <p className="mt-1 text-md text-gray-500">
                 Try adjusting your filters or broadening your search.
@@ -328,5 +333,21 @@ export default function UserTalentView() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function UserTalentView() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-emerald-50">
+        <div className="text-center">
+          <Loader2 className="animate-spin h-12 w-12 text-emerald-600 mx-auto mb-4" />
+          <p className="text-lg text-gray-700">Loading talent search...</p>
+        </div>
+      </div>
+    }>
+      <TalentListContent />
+    </Suspense>
   );
 }

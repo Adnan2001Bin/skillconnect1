@@ -106,6 +106,8 @@ export default function AdminMessagesPage() {
     }
   }, [status, session, conversationId]);
 
+  console.log("socket",socket);
+
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;

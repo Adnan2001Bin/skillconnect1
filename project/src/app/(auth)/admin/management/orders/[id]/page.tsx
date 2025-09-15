@@ -25,7 +25,14 @@ interface Order {
   clientId: string;
   ratePlan: RatePlan;
   projectDetails: { title: string; description: string };
-  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "completed" | "cancelled";
+  status:
+    | "pending"
+    | "in-progress"
+    | "accepted"
+    | "rejected"
+    | "delivered"
+    | "completed"
+    | "cancelled";
   revisionStatus: "none" | "requested" | "submitted";
   revisionCount: number;
   revisionRequest?: {
@@ -62,37 +69,37 @@ export default function OrderDetailsPage() {
   const deliveredColor = "#10B981"; // Emerald for delivered
 
   useEffect(() => {
+    const fetchOrder = async () => {
+      setIsLoading(true);
+      try {
+        const response = await axios.get(`/api/admin/orders/${id}`);
+        if (response.data.success) {
+          setOrder(response.data.data);
+        } else {
+          toast.error("Error", {
+            description:
+              response.data.message || "Failed to fetch order details.",
+            className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+            duration: 4000,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching order:", error);
+        toast.error("Error", {
+          description: "An error occurred while fetching order details.",
+          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
+          duration: 4000,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
     if (status === "authenticated" && session?.user?.role === "admin") {
       fetchOrder();
     } else if (status === "unauthenticated") {
       router.replace("/sign-in");
     }
   }, [status, session, router, id]);
-
-  const fetchOrder = async () => {
-    setIsLoading(true);
-    try {
-      const response = await axios.get(`/api/admin/orders/${id}`);
-      if (response.data.success) {
-        setOrder(response.data.data);
-      } else {
-        toast.error("Error", {
-          description: response.data.message || "Failed to fetch order details.",
-          className: "bg-red-600 text-white border-red-700 bg-opacity-80",
-          duration: 4000,
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching order:", error);
-      toast.error("Error", {
-        description: "An error occurred while fetching order details.",
-        className: "bg-red-600 text-white border-red-700 bg-opacity-80",
-        duration: 4000,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
@@ -133,8 +140,14 @@ export default function OrderDetailsPage() {
         className="min-h-screen flex items-center justify-center"
         style={{ backgroundColor: primaryDarkGray }}
       >
-        <Loader className="animate-spin h-12 w-12 mr-4" style={{ color: accentColor }} />
-        <p className="text-2xl font-semibold" style={{ color: activeTextColor }}>
+        <Loader
+          className="animate-spin h-12 w-12 mr-4"
+          style={{ color: accentColor }}
+        />
+        <p
+          className="text-2xl font-semibold"
+          style={{ color: activeTextColor }}
+        >
           Loading order details...
         </p>
       </div>
@@ -171,7 +184,9 @@ export default function OrderDetailsPage() {
     <div
       className="min-h-screen font-sans py-8 px-4 sm:px-6 lg:px-15 max-w-7xl mx-auto mt-17"
       style={{
-        backgroundImage: `url(${Images.adminViewbackground ? Images.adminViewbackground.src : ""})`,
+        backgroundImage: `url(${
+          Images.adminViewbackground ? Images.adminViewbackground.src : ""
+        })`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundRepeat: "no-repeat",
@@ -196,11 +211,17 @@ export default function OrderDetailsPage() {
 
         <div
           className="rounded-lg shadow-md border p-6"
-          style={{ backgroundColor: secondaryDarkGray, borderColor: accentColor }}
+          style={{
+            backgroundColor: secondaryDarkGray,
+            borderColor: accentColor,
+          }}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h2 className="text-xl font-semibold mb-4" style={{ color: activeTextColor }}>
+              <h2
+                className="text-xl font-semibold mb-4"
+                style={{ color: activeTextColor }}
+              >
                 Order Information
               </h2>
               <p className="mb-2" style={{ color: neutralTextColor }}>
@@ -225,7 +246,10 @@ export default function OrderDetailsPage() {
               </p>
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-4" style={{ color: activeTextColor }}>
+              <h2
+                className="text-xl font-semibold mb-4"
+                style={{ color: activeTextColor }}
+              >
                 Project Details
               </h2>
               <p className="mb-2" style={{ color: neutralTextColor }}>
@@ -236,7 +260,10 @@ export default function OrderDetailsPage() {
               </p>
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-4" style={{ color: activeTextColor }}>
+              <h2
+                className="text-xl font-semibold mb-4"
+                style={{ color: activeTextColor }}
+              >
                 Rate Plan
               </h2>
               <p className="mb-2" style={{ color: neutralTextColor }}>
@@ -260,27 +287,38 @@ export default function OrderDetailsPage() {
               </p>
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-4" style={{ color: activeTextColor }}>
+              <h2
+                className="text-xl font-semibold mb-4"
+                style={{ color: activeTextColor }}
+              >
                 Associated Users
               </h2>
               <p className="mb-2" style={{ color: neutralTextColor }}>
-                <strong>Talent:</strong> {order.talentUserName || "Unknown"} (ID: {order.talentId})
+                <strong>Talent:</strong> {order.talentUserName || "Unknown"}{" "}
+                (ID: {order.talentId})
               </p>
               <p className="mb-2" style={{ color: neutralTextColor }}>
-                <strong>Client:</strong> {order.clientUserName || "Unknown"} (ID: {order.clientId})
+                <strong>Client:</strong> {order.clientUserName || "Unknown"}{" "}
+                (ID: {order.clientId})
               </p>
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-4" style={{ color: activeTextColor }}>
+              <h2
+                className="text-xl font-semibold mb-4"
+                style={{ color: activeTextColor }}
+              >
                 Revision Information
               </h2>
               <p className="mb-2" style={{ color: neutralTextColor }}>
                 <strong>Revision Status:</strong>{" "}
                 <Badge
-                  style={getRevisionStatusBadgeColor(order.revisionStatus || "none")}
+                  style={getRevisionStatusBadgeColor(
+                    order.revisionStatus || "none"
+                  )}
                   className="px-3 py-1 rounded-full text-sm font-medium"
                 >
-                  {(order.revisionStatus || "none").charAt(0).toUpperCase() + (order.revisionStatus || "none").slice(1)}
+                  {(order.revisionStatus || "none").charAt(0).toUpperCase() +
+                    (order.revisionStatus || "none").slice(1)}
                 </Badge>
               </p>
               <p className="mb-2" style={{ color: neutralTextColor }}>
@@ -294,7 +332,9 @@ export default function OrderDetailsPage() {
                   </p>
                   <p className="mb-2" style={{ color: neutralTextColor }}>
                     <strong>Revision Requested At:</strong>{" "}
-                    {new Date(order.revisionRequest.requestedAt).toLocaleString()}
+                    {new Date(
+                      order.revisionRequest.requestedAt
+                    ).toLocaleString()}
                   </p>
                   <p className="mb-2" style={{ color: neutralTextColor }}>
                     <strong>Revision Request Files:</strong>{" "}

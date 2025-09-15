@@ -1,13 +1,16 @@
-
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { z } from "zod";
 import connectDB from "@/lib/connectDB";
 import ProposalModel from "@/models/proposal.model";
 import ProjectModel from "@/models/projects.model";
 import { authOptions } from "@/app/api/auth/[...nextauth]/options";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+// Correct interface for Next.js App Router
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
+export async function GET(request: Request, context: RouteContext) {
   try {
     // 1. Authenticate user session
     const session = await getServerSession(authOptions);
@@ -18,8 +21,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       );
     }
 
-    // 2. Extract projectId from params
+    // 2. Extract projectId from params (await the Promise)
+    const params = await context.params;
     const projectId = params.id;
+    
     if (!projectId) {
       return NextResponse.json(
         { success: false, message: "Project ID is required" },

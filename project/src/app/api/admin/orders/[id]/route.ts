@@ -34,10 +34,40 @@ interface PopulatedOrder {
   __v?: number;
 }
 
+interface FormattedOrder {
+  _id: string;
+  talentId: string;
+  clientId: string;
+  ratePlan: {
+    type: "Basic" | "Standard" | "Premium";
+    price: number;
+    description: string;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
+  projectDetails: {
+    title: string;
+    description: string;
+  };
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "completed" | "cancelled";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+  talentUserName: string;
+  clientUserName: string;
+}
+
 interface Response {
   success: boolean;
   message: string;
-  data?: any;
+  data?: FormattedOrder;
   error?: string;
 }
 
@@ -72,7 +102,7 @@ const updateOrderSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<Response>> {
   try {
     // Authenticate user session
@@ -87,8 +117,11 @@ export async function GET(
       );
     }
 
-    // Validate orderId
+    // Await the params first
+    const params = await context.params;
     const { id } = params;
+    
+    // Validate orderId
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, message: "Invalid order ID" },
@@ -173,7 +206,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<Response>> {
   try {
     // Authenticate user session
@@ -185,8 +218,11 @@ export async function PATCH(
       );
     }
 
-    // Validate orderId
+    // Await the params first
+    const params = await context.params;
     const { id } = params;
+    
+    // Validate orderId
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, message: "Invalid order ID" },

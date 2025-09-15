@@ -43,7 +43,7 @@ export const ClientReviewDisplay = ({ review }: ClientReviewDisplayProps) => {
       </div>
       {comment && (
         <p className="text-sm italic text-gray-700 leading-tight">
-          "{comment}"
+          &quot;{comment}&quot;
         </p>
       )}
       <p className="text-xs text-gray-500 mt-2">

@@ -10,7 +10,8 @@ import mongoose from "mongoose";
 import { io } from "socket.io-client";
 import { sendDeliverablesSubmittedEmail } from "@/emails/DeliverablesSubmittedEmail";
 
-export const deliverProjectSchema = z.object({
+// Move the schema definition inside the function or to a separate file
+const deliverProjectSchema = z.object({
   files: z.array(z.string().url()).optional().default([]),
   note: z.string().max(1000).optional(),
 });
@@ -71,7 +72,7 @@ export async function POST(
       note: validatedData.note || null,
       submittedAt: new Date(),
     };
-    order.status = "delivered"; // Changed from "completed" to "delivered"
+    order.status = "delivered";
     order.revisionStatus = order.revisionStatus === "requested" ? "submitted" : "none";
 
     await order.save();
@@ -84,7 +85,7 @@ export async function POST(
       );
     }
 
-     const emailResponse = await sendDeliverablesSubmittedEmail({
+    const emailResponse = await sendDeliverablesSubmittedEmail({
       email: client.email,
       userName: client.userName,
       projectTitle: order.projectDetails.title,

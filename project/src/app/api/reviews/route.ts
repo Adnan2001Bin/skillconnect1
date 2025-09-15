@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import {  NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/options";
 import connectDB from "@/lib/connectDB";
@@ -20,7 +20,7 @@ interface Review {
   reviewedAt: string;
 }
 
-export async function GET(request: NextRequest): Promise<NextResponse<ReviewResponse>> {
+export async function GET(): Promise<NextResponse<ReviewResponse>> {
   await connectDB();
 
   try {

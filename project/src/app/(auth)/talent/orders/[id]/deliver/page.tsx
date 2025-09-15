@@ -8,7 +8,7 @@ import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { UploadDropzone } from "@uploadthing/react";
-import type { OurFileRouter } from "@/app/api/uploadthing/core/route";
+import { OurFileRouter } from "@/lib/uploadthing";
 import axios from "axios";
 import io, { Socket } from "socket.io-client";
 
@@ -44,7 +44,7 @@ export default function DeliverProjectPage() {
     },
   });
 
-  const { handleSubmit, formState: { errors, isSubmitting }, setValue } = formMethods;
+  const { handleSubmit, formState: { isSubmitting }, setValue } = formMethods;
 
   const colors = {
     accentColor: "#8DBCC7",

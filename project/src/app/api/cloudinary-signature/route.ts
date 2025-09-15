@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 
 cloudinary.config({
@@ -14,7 +14,7 @@ interface SignatureResponse {
   error?: string;
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse<SignatureResponse>> {
+export async function POST(): Promise<NextResponse<SignatureResponse>> {
   try {
     const timestamp = Math.round(new Date().getTime() / 1000);
     const folder = "skillconnect"; 

@@ -1,14 +1,11 @@
 "use client";
 
-import { Images } from "@/lib/images";
 import { Search, Menu } from "lucide-react";
-import Image from "next/image";
-import React, { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 
 function TalentNavbar({ toggleSidebar }: { toggleSidebar: () => void }) {
   // Theme colors
-  const bgColor = "#212121"; // Matches headerBg in TalentProjectDetailsPage
   const accentColor = "#8DBCC7"; // Primary talent theme color
   const secondaryDarkGray = "#616161"; // Complementary gray
   const hoverColor = "#90D1CA"; // Hover state

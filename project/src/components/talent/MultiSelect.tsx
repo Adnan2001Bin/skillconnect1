@@ -1,23 +1,32 @@
-import { Control, Controller } from "react-hook-form";
-import { Star } from "lucide-react";
-import { useState } from "react";
+"use client";
 
-interface MultiSelectProps {
-  control: Control<any>;
-  name: string;
+import { useState } from "react";
+import { Control, Controller, FieldValues, Path } from "react-hook-form";
+
+interface MultiSelectProps<T extends FieldValues> {
+  control: Control<T>;
+  // 2. Use Path<T> for the name prop
+  name: Path<T>;
   label: string;
   placeholder: string;
   options: { value: string; label: string }[];
   Icon?: React.ElementType;
 }
 
-export function MultiSelect({ control, name, label, placeholder, options, Icon }: MultiSelectProps) {
+export function MultiSelect<T extends FieldValues>({
+  control,
+  name,
+  label,
+  placeholder,
+  options,
+  Icon,
+}: MultiSelectProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <Controller
+      <Controller
       control={control}
-      name={name}
+      name={name} 
       render={({ field, fieldState: { error } }) => (
         <div className="space-y-2">
           <label className="text-[#212121] font-semibold flex items-center">
@@ -30,7 +39,7 @@ export function MultiSelect({ control, name, label, placeholder, options, Icon }
               onClick={() => setIsOpen(!isOpen)}
               className="w-full p-3 bg-white border border-[#90D1CA] rounded-lg text-left text-[#212121] focus:outline-none focus:ring-2 focus:ring-[#8DBCC7]"
             >
-              {field.value && field.value.length > 0
+              {field.value && Array.isArray(field.value) && field.value.length > 0
                 ? field.value.join(", ")
                 : placeholder}
             </button>
@@ -45,7 +54,7 @@ export function MultiSelect({ control, name, label, placeholder, options, Icon }
                       type="checkbox"
                       checked={field.value?.includes(option.value)}
                       onChange={(e) => {
-                        const newValue = field.value ? [...field.value] : [];
+                        const newValue = Array.isArray(field.value) ? [...field.value] : [];
                         if (e.target.checked) {
                           newValue.push(option.value);
                         } else {

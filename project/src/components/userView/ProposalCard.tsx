@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { User, FileText } from "lucide-react";
+import { User } from "lucide-react";
 
 interface Proposal {
   _id: string;

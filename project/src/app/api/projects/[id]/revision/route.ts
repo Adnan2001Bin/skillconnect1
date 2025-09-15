@@ -11,7 +11,12 @@ const revisionSchema = z.object({
   revisionNote: z.string().min(1, "Revision note is required").max(1000),
 });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+// Correct interface for Next.js App Router
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
+export async function POST(request: NextRequest, context: RouteContext) {
   try {
     // 1. Authenticate user session
     const session = await getServerSession(authOptions);
@@ -22,8 +27,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       );
     }
 
-    // 2. Extract proposalId from params
+    // 2. Extract proposalId from params (await the Promise)
+    const params = await context.params;
     const proposalId = params.id;
+    
     if (!proposalId) {
       return NextResponse.json(
         { success: false, message: "Proposal ID is required" },
@@ -32,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     // 3. Parse and validate request body
-    const body = await req.json();
+    const body = await request.json();
     const validatedData = revisionSchema.parse(body);
 
     // 4. Connect to the database

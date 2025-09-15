@@ -2,10 +2,8 @@
 
 import { FormControl, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Loader2 as Loader, UploadCloud, User } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Control, FieldValues, Path } from "react-hook-form";

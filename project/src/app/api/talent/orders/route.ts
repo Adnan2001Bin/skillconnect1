@@ -6,6 +6,46 @@ import UserModel from "@/models/user.model";
 import { authOptions } from "../../auth/[...nextauth]/options";
 import mongoose from "mongoose";
 
+interface LeanOrder {
+  _id: mongoose.Types.ObjectId;
+  talentId: string;
+  clientId: string;
+  ratePlan: {
+    type: string;
+    price: number;
+    description: string;
+    whatsIncluded: string[];
+    deliveryDays: number;
+    revisions: number;
+  };
+  projectDetails: {
+    title: string;
+    description: string;
+  };
+  status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
+  paymentStatus: "pending" | "completed" | "failed" | "cancelled";
+  revisionStatus: "none" | "requested" | "submitted";
+  revisionCount: number;
+  deliverables?: {
+    files: string[];
+    note?: string;
+    submittedAt: Date;
+  };
+  revisionRequest?: {
+    files: string[];
+    note?: string;
+    requestedAt: Date;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+  review?: {
+    rating: number;
+    comment?: string;
+    reviewedAt: Date;
+  };
+  talentUserName?: string;
+  __v?: number; // Add this for lean documents
+}
 interface OrderResponse {
   success: boolean;
   message: string;
@@ -26,7 +66,14 @@ interface OrderResponse {
       title: string;
       description: string;
     };
-    status: "pending" | "in-progress" | "accepted" | "rejected" | "delivered" | "cancelled" | "completed";
+    status:
+      | "pending"
+      | "in-progress"
+      | "accepted"
+      | "rejected"
+      | "delivered"
+      | "cancelled"
+      | "completed";
     paymentStatus: "pending" | "completed" | "failed" | "cancelled";
     revisionStatus: "none" | "requested" | "submitted";
     revisionCount: number;
@@ -46,12 +93,17 @@ interface OrderResponse {
   error?: string;
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>> {
+export async function GET(
+  req: NextRequest
+): Promise<NextResponse<OrderResponse>> {
   try {
     const session = await getServerSession(authOptions);
     if (!session || session.user.role !== "talent") {
       return NextResponse.json(
-        { success: false, message: "Unauthorized. Only talents can view their orders." },
+        {
+          success: false,
+          message: "Unauthorized. Only talents can view their orders.",
+        },
         { status: 401 }
       );
     }
@@ -62,7 +114,13 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
 
     await connectDB();
 
-    const query: any = { talentId: session.user._id };
+    interface OrderQuery {
+      talentId: string;
+      status?: string;
+      paymentStatus?: string;
+    }
+
+    const query: OrderQuery = { talentId: session.user._id };
     if (status && status !== "all") {
       query.status = status;
     }
@@ -70,11 +128,14 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
       query.paymentStatus = paymentStatus;
     }
 
-    const orders = await OrderModel.find(query).lean();
+    const orders = await OrderModel.find(query).lean<LeanOrder[]>();
 
     const ordersWithUserNames = await Promise.all(
-      orders.map(async (order: any) => {
-        const client = await UserModel.findById(order.clientId).select("userName").lean();
+      orders.map(async (order) => {
+
+        const client = await UserModel.findById(order.clientId)
+          .select("userName")
+          .lean();
         return {
           _id: order._id.toString(),
           talentId: order.talentId,
@@ -96,20 +157,28 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
           paymentStatus: order.paymentStatus,
           revisionStatus: order.revisionStatus || "none",
           revisionCount: order.revisionCount || 0,
-          createdAt: order.createdAt ? new Date(order.createdAt).toISOString() : new Date().toISOString(),
-          updatedAt: order.updatedAt ? new Date(order.updatedAt).toISOString() : new Date().toISOString(),
+          createdAt: order.createdAt
+            ? new Date(order.createdAt).toISOString()
+            : new Date().toISOString(),
+          updatedAt: order.updatedAt
+            ? new Date(order.updatedAt).toISOString()
+            : new Date().toISOString(),
           revisionRequest: order.revisionRequest
             ? {
                 files: order.revisionRequest.files || [],
                 note: order.revisionRequest.note || undefined,
-                requestedAt: order.revisionRequest.requestedAt ? new Date(order.revisionRequest.requestedAt).toISOString() : "",
+                requestedAt: order.revisionRequest.requestedAt
+                  ? new Date(order.revisionRequest.requestedAt).toISOString()
+                  : "",
               }
             : undefined,
           review: order.review
             ? {
                 rating: order.review.rating,
                 comment: order.review.comment,
-                reviewedAt: order.review.reviewedAt ? new Date(order.review.reviewedAt).toISOString() : "",
+                reviewedAt: order.review.reviewedAt
+                  ? new Date(order.review.reviewedAt).toISOString()
+                  : "",
               }
             : undefined,
         };

@@ -99,13 +99,17 @@ export default function HelpAndSupportPage() {
             Contact Support
           </h2>
           <p className="mb-6">
-            Can't find the answer you're looking for? Reach out to our support team, and we'll get back to you as soon as possible.
+            Can&apos;t find the answer you&apos;re looking for? Reach out to our
+            support team, and we&apos;ll get back to you as soon as possible.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Contact Form */}
             <div className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium mb-1"
+                >
                   Name
                 </label>
                 <Input
@@ -117,7 +121,10 @@ export default function HelpAndSupportPage() {
                 />
               </div>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium mb-1"
+                >
                   Email
                 </label>
                 <Input
@@ -130,7 +137,10 @@ export default function HelpAndSupportPage() {
                 />
               </div>
               <div>
-                <label htmlFor="message" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="message"
+                  className="block text-sm font-medium mb-1"
+                >
                   Message
                 </label>
                 <Textarea
@@ -153,7 +163,8 @@ export default function HelpAndSupportPage() {
               <div>
                 <h3 className="text-lg font-bold mb-2">Get in Touch</h3>
                 <p>
-                  Our support team is available to assist you with any questions or issues.
+                  Our support team is available to assist you with any questions
+                  or issues.
                 </p>
               </div>
               <div className="space-y-4">
@@ -173,7 +184,10 @@ export default function HelpAndSupportPage() {
                   <Phone className="h-5 w-5 text-[#1dbf73]" />
                   <div>
                     <p className="text-sm font-medium">Phone</p>
-                    <a href="tel:+1234567890" className="text-white hover:underline">
+                    <a
+                      href="tel:+1234567890"
+                      className="text-white hover:underline"
+                    >
                       +1 (234) 567-890
                     </a>
                   </div>
