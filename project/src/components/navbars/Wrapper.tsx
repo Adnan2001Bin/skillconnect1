@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import UserNavbar from "@/components/navbars/UserNavbar";
-import UserNavbar1 from "@/components/navbars/UserNavbar1"; // Assuming UserNavbar1 exists
+import UserNavbar1 from "@/components/navbars/UserNavbar1";
 import TalentLayout from "../talent/TalentLayout";
 import AdminLayout from "../admin/AdminLayout";
 import { usePathname } from "next/navigation";
@@ -12,14 +12,18 @@ export default function Wrapper({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const pathname = usePathname();
 
+  // Common layout for unauthenticated and default cases
+  const getPublicLayout = () => (
+    <>
+      {pathname === "/home" ? <UserNavbar1 /> : <UserNavbar />}
+      <main>{children}</main>
+      <Footer />
+    </>
+  );
+
   const renderContent = () => {
     if (status !== "authenticated") {
-      return (
-        <>
-          {pathname === "/home" ? <UserNavbar1 /> : <UserNavbar />}
-          <main>{children}</main>
-        </>
-      );
+      return getPublicLayout();
     }
     switch (session?.user?.role) {
       case "admin":
@@ -43,7 +47,7 @@ export default function Wrapper({ children }: { children: React.ReactNode }) {
           </>
         );
       default:
-        return children;
+        return getPublicLayout();
     }
   };
 

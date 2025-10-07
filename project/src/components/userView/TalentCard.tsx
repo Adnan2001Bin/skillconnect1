@@ -1,5 +1,6 @@
+
 import { TalentProfileInput } from "@/schemas/profileSchema";
-import { MapPin } from "lucide-react";
+import { MapPin, Star } from "lucide-react";
 import { categories } from "@/lib/categoriesAndServices";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -56,8 +57,8 @@ export default function TalentCard({ talent, accentColor }: TalentCardProps) {
           <Image
             src={talent.profilePicture || defaultImage}
             alt={`${talent.userName}'s profile`}
-            width={20}
-            height={20}
+            width={40}
+            height={40}
             className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
           />
         </div>
@@ -86,6 +87,19 @@ export default function TalentCard({ talent, accentColor }: TalentCardProps) {
             </span>
           </div>
         )}
+
+        {/* Default 4.9 Star Rating */}
+        <div className="flex items-center text-sm mt-3 text-gray-600">
+          {Array.from({ length: 5 }, (_, index) => (
+            <Star
+              key={index}
+              className={`h-4 w-4 ${
+                index < 4 ? "text-yellow-400 fill-yellow-400" : "text-gray-400"
+              }`}
+            />
+          ))}
+          <span className="ml-1.5 font-semibold">4.9/5</span>
+        </div>
       </div>
 
       {/* Short Bio */}

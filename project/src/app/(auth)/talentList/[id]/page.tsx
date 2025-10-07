@@ -9,7 +9,7 @@ import Image from "next/image";
 import { loadStripe } from "@stripe/stripe-js";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Carousel,
   CarouselContent,
@@ -54,10 +54,10 @@ import { TalentProfileInput } from "@/schemas/profileSchema";
 import Loader from "@/components/Loader";
 import io, { Socket } from "socket.io-client";
 
-// Initialize Stripe with your publishable key
+// Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "");
 
-// Define RatePlan type to match talentProfileSchema
+// Define RatePlan type
 interface RatePlan {
   type: "Basic" | "Standard" | "Premium";
   description: string;
@@ -67,7 +67,7 @@ interface RatePlan {
   revisions: number;
 }
 
-// Define Order type for orders fetched from API
+// Define Order type
 interface Order {
   _id: string;
   talentId: string;
@@ -78,9 +78,38 @@ interface Order {
     description: string;
   };
   status: string;
+  review?: {
+    rating: number;
+    comment: string;
+    reviewedAt: string;
+  };
 }
 
-// Define Message type for chat
+// Define Project type
+interface Project {
+  _id: string;
+  title: string;
+  description: string;
+  clientId: string;
+  status: string;
+  review?: {
+    rating: number;
+    comment: string;
+    reviewedAt: string;
+  };
+}
+
+// Define Review type for unified display
+interface Review {
+  id: string;
+  type: "Order" | "Project";
+  title: string;
+  rating: number;
+  comment: string;
+  reviewedAt: string;
+}
+
+// Define Message type
 interface Message {
   _id: string;
   senderId: { userName: string };
@@ -119,16 +148,17 @@ export default function UserTalentProfilePage() {
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [editedContent, setEditedContent] = useState("");
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]); // Unified reviews state
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const colors = {
-    primary: "#16423c", // Dark green for accents
+    primary: "#16423c",
     secondaryDarkGray: "rgba(106,156,137, 0)",
-    accentColor: "#17B169", // Bright green for buttons and highlights
-    darkText: "#2C3E50", // New: A dark, readable color for main text
-    neutralTextColor: "#7F8C8D", // New: A lighter gray for secondary text
+    accentColor: "#17B169",
+    darkText: "#2C3E50",
+    neutralTextColor: "#7F8C8D",
     white: "#FFFFFF",
-    inputBorderColor: "#BDC3C7", // New: A light gray for borders
+    inputBorderColor: "#BDC3C7",
     errorRed: "#EF4444",
   };
 
@@ -192,6 +222,7 @@ export default function UserTalentProfilePage() {
             setTalent(talentResponse.data.data);
 
             if (session?.user?.role === "user") {
+              // Fetch pending orders
               const ordersResponse = await axios.get("/api/orders", {
                 params: {
                   talentId: params.id,
@@ -206,6 +237,54 @@ export default function UserTalentProfilePage() {
                 setPendingOrders(pendingTypes);
               }
 
+              // Fetch orders with reviews
+              const ordersWithReviewsResponse = await axios.get("/api/orders", {
+                params: {
+                  talentId: params.id,
+                  hasReview: true,
+                },
+              });
+              const orderReviews: Review[] =
+                ordersWithReviewsResponse.data.success && ordersWithReviewsResponse.data.data
+                  ? ordersWithReviewsResponse.data.data
+                      .filter((order: Order) => order.review)
+                      .map((order: Order) => ({
+                        id: order._id,
+                        type: "Order" as const,
+                        title: order.projectDetails.title,
+                        rating: order.review!.rating,
+                        comment: order.review!.comment,
+                        reviewedAt: order.review!.reviewedAt,
+                      }))
+                  : [];
+
+              // Fetch projects with reviews
+              const projectsWithReviewsResponse = await axios.get("/api/projects", {
+                params: {
+                  talentId: params.id,
+                  hasReview: true,
+                },
+              });
+              const projectReviews: Review[] =
+                projectsWithReviewsResponse.data.success && projectsWithReviewsResponse.data.data
+                  ? projectsWithReviewsResponse.data.data
+                      .filter((project: Project) => project.review)
+                      .map((project: Project) => ({
+                        id: project._id,
+                        type: "Project" as const,
+                        title: project.title,
+                        rating: project.review!.rating,
+                        comment: project.review!.comment,
+                        reviewedAt: project.review!.reviewedAt,
+                      }))
+                  : [];
+
+              // Combine and sort reviews by reviewedAt (newest first)
+              const combinedReviews = [...orderReviews, ...projectReviews].sort(
+                (a, b) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime()
+              );
+              setReviews(combinedReviews);
+
               socketInstance.emit("getMessages", { otherUserId: params.id });
             }
           } else {
@@ -217,9 +296,9 @@ export default function UserTalentProfilePage() {
             router.push("/talentList");
           }
         } catch (error) {
-          console.error("Error fetching talent or orders:", error);
+          console.error("Error fetching talent, orders, or projects:", error);
           toast.error("Error", {
-            description: "An error occurred while fetching the talent profile.",
+            description: "An error occurred while fetching the talent profile, orders, or projects.",
             className: "bg-red-600 text-white border-red-700 bg-opacity-80",
             duration: 4000,
           });
@@ -293,7 +372,6 @@ export default function UserTalentProfilePage() {
         if (!stripe) {
           throw new Error("Stripe.js failed to load.");
         }
-        // Redirect to Stripe Checkout
         const { error } = await stripe.redirectToCheckout({
           sessionId: response.data.sessionId,
         });
@@ -349,7 +427,7 @@ export default function UserTalentProfilePage() {
   if (status === "loading" || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center animate-pulse bg-emerald-50">
-        <Loader text="Loading talent profile.." color="#000000" bgColor="#90D1CA" size="large" />
+        <Loader text="Loading talent profile..." color="#000000" bgColor="#90D1CA" size="large" />
       </div>
     );
   }
@@ -634,7 +712,7 @@ export default function UserTalentProfilePage() {
 
       {/* Main Content: Two Columns */}
       <div className="relative z-10 flex flex-col lg:flex-row gap-8">
-        {/* Left Section: Bio, About This Gig, Skills, Portfolio, Social Links */}
+        {/* Left Section: Bio, About This Gig, Skills, Portfolio, Social Links, Reviews */}
         <div className="w-full lg:w-3/5 space-y-6">
           {talent.bio && (
             <div
@@ -788,6 +866,58 @@ export default function UserTalentProfilePage() {
               </div>
             </div>
           )}
+
+          {/* Reviews Section */}
+          <div
+            className="bg-white rounded-lg shadow-sm p-6 border"
+            style={{ borderColor: colors.inputBorderColor }}
+          >
+            <h3 className="text-xl font-bold mb-4 flex items-center" style={{ color: colors.darkText }}>
+              <Star className="h-5 w-5 mr-2" style={{ color: colors.accentColor }} />
+              Client Reviews
+            </h3>
+            {reviews.length === 0 ? (
+              <p className="text-base" style={{ color: colors.neutralTextColor }}>
+                No reviews yet.
+              </p>
+            ) : (
+              <div className="space-y-6">
+                {reviews.map((review) => (
+                  <div
+                    key={review.id}
+                    className="border-l-4 pl-4 py-2 bg-gray-100 rounded-r-md"
+                    style={{ borderColor: colors.accentColor }}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      {Array.from({ length: 5 }, (_, index) => (
+                        <Star
+                          key={index}
+                          className={`h-5 w-5 ${
+                            index < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-400"
+                          }`}
+                        />
+                      ))}
+                      <span className="text-sm font-semibold" style={{ color: colors.darkText }}>
+                        {review.rating}/5
+                      </span>
+                      <span className="text-sm font-medium" style={{ color: colors.neutralTextColor }}>
+                        ({review.type})
+                      </span>
+                    </div>
+                    <p className="text-sm mb-2" style={{ color: colors.neutralTextColor }}>
+                      {review.title}
+                    </p>
+                    <blockquote className="text-sm italic" style={{ color: colors.neutralTextColor }}>
+                      &ldquo;{review.comment}&rdquo;
+                    </blockquote>
+                    <p className="text-sm mt-2" style={{ color: colors.neutralTextColor }}>
+                      Reviewed on {new Date(review.reviewedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Section: Rate Plans */}

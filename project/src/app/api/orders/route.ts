@@ -124,6 +124,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
     const paymentStatus = searchParams.get("paymentStatus");
     const timeRange = searchParams.get("timeRange");
     const search = searchParams.get("search");
+    const hasReview = searchParams.get("hasReview"); // New query param for reviews
 
     await connectDB();
 
@@ -141,6 +142,7 @@ export async function GET(req: NextRequest): Promise<NextResponse<OrderResponse>
     if (status) query.status = status;
     if (revisionStatus) query.revisionStatus = revisionStatus;
     if (paymentStatus) query.paymentStatus = paymentStatus;
+    if (hasReview === "true") query.review = { $exists: true, $ne: null }; // Filter orders with reviews
 
     if (timeRange && timeRange !== "all") {
       const now = new Date();
