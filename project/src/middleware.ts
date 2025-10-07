@@ -19,6 +19,7 @@ export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request });
   const url = request.nextUrl;
 
+  // Redirect authenticated users away from auth pages
   if (
     token &&
     (url.pathname.startsWith("/sign-in") ||
@@ -27,24 +28,29 @@ export async function middleware(request: NextRequest) {
   ) {
     if(token?.role === "user") {
       return NextResponse.redirect(new URL("/home", request.url));
-      
     } else if (token?.role === "talent" && url.pathname.startsWith("/home")) {
       return NextResponse.redirect(new URL("/talent/profile", request.url));
     } else {
       return NextResponse.redirect(new URL("/admin/dashboard", request.url));
-
     }
   }
-  
 
-  if (
-    !token &&
-    (url.pathname.startsWith("/dashboard") ||
+  // Redirect unauthenticated users
+  if (!token) {
+    // Redirect from root "/" to "/home"
+    if (url.pathname === "/") {
+      return NextResponse.redirect(new URL("/home", request.url));
+    }
+    
+    // Redirect from protected routes to sign-in
+    if (
+      url.pathname.startsWith("/dashboard") ||
       url.pathname.startsWith("/talentList") ||
       url.pathname.startsWith("/projects") ||
-      url.pathname.startsWith("/messages"))
-  ) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+      url.pathname.startsWith("/messages")
+    ) {
+      return NextResponse.redirect(new URL("/sign-in", request.url));
+    }
   }
 
   return NextResponse.next();
